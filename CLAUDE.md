@@ -1,0 +1,83 @@
+# CLAUDE.md
+
+Instructions for every coding agent (Claude Code, Copilot, etc.) working in this repo. Two humans (Sam and Punjy) build features in parallel on their own time, each driving an agent. This file and `docs/features/` are how the two agents stay in sync. **Keep this file current.** If you change a convention, command, folder, or architecture decision, update this file in the same branch.
+
+## Project
+
+Entry for the Microsoft x Premier League "Inside the Game" hackathon. The goal is an AI system that turns synthetic football match events into explainable match intelligence: **Ingest → Interpret → Explain → Render → Personalize**. See `docs/HACKATHON.md` for the brief, deadlines and judging criteria.
+
+- Stack: **TBD after whiteboarding.** Record it here and in `docs/decisions/` once chosen.
+- Azure resource group: `rg-insidethegame` (subscription "Subscription 1"). Every resource must go in this group with tags `project=insidethegame` and `owner=<sam|punjy>`.
+
+## Start of every session
+
+1. `git pull` on `master`, then branch (see Git workflow).
+2. Read `docs/features/INDEX.md`. Then read the `handover.md` of every feature merged since you last worked, especially the other person's. Their handovers list contracts, gotchas and anything they need from you.
+3. Run the full test suite (see Testing) **before** making changes so you know the baseline is green.
+
+## Feature workflow (required)
+
+Every feature, however small, gets a folder: `docs/features/YYYY-MM-DD-<short-slug>/`, created from `docs/features/_template/`.
+
+1. **Before coding**, write `plan.md`: goal, approach, files/modules touched, interfaces or contracts you'll add or change, the tests you'll add, and open questions. Add a row to `docs/features/INDEX.md` with status `in-progress`.
+2. Build the feature on its branch.
+3. Add regression tests (see Testing).
+4. **Before merging**, write `handover.md`: what was actually built (and how it differs from the plan), how to run or use it, contracts other code now relies on, the tests added, known issues or TODOs, and anything the other person needs to know or do. Set the INDEX row to `merged`.
+5. Run the full test suite. Only merge if it's green.
+
+Don't skip the docs. The other person's agent depends on them because it wasn't there for the work.
+
+## Git workflow
+
+- Default branch is `master`. Don't commit directly to it.
+- Branch names: `<owner>/<short-slug>`, e.g. `sam/event-ingest` or `punjy/fan-overlay`.
+- Merge to `master` through a PR. The PR description links the feature's `plan.md` and `handover.md`.
+- Keep branches short-lived. Rebase on or merge `master` before opening the PR, and re-run the suite after.
+- Commit messages are short and imperative: "Add pass difficulty model", not "added stuff".
+
+## Testing: the shared regression suite
+
+Tests exist mainly so **we don't break each other's work**. Proving your own feature works is a secondary goal.
+
+- Every feature adds tests under `tests/`, in a folder named after the feature slug (e.g. `tests/event_ingest/`). Test the public behaviour and contracts other code depends on, such as data shapes, API responses and agent outputs. Don't test internals.
+- Tests must be deterministic and run offline. Mock LLM, Azure and network calls, and use fixed seeds for synthetic data.
+- The whole suite runs with one command: `bash scripts/test.sh`. Run it at the end of every implementation and before every merge.
+- **If another person's test fails, assume your change broke it.** Fix your code. Never delete, skip or weaken someone else's test to get green. If you think their test is genuinely wrong, say so in your `handover.md` and leave it for them to decide.
+- Keep the suite fast (aim for under 60s) so nobody is tempted to skip it.
+
+## Code style
+
+- Formatters and linters are the source of truth. Run them on every file you touch:
+  - Python: `ruff format` + `ruff check --fix` (line length 100).
+  - TypeScript/JS: `prettier` + `eslint`.
+  - (Update this list once the stack is chosen.)
+- **Comments: minimal.** Write clear names instead of comments. Comment only *why* something non-obvious is done, never *what* the code does. No commented-out code, no banner comments, no "added for feature X" notes, and no restating of the function name in a docstring. Public interfaces may have a one-line docstring if it adds information.
+- Small, focused modules. Match the style of the surrounding code.
+- No dead code, unused imports or speculative abstractions. Build what the plan needs.
+- An end-of-sprint lint and cleanup pass is planned (tracked in `docs/features/INDEX.md`). Keeping touched files clean now keeps that pass small.
+
+## Secrets and public repo
+
+This repo is **public** (a hackathon requirement). Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
+
+## Hackathon rules that affect code
+
+- Use only **synthetic, football-realistic data**. No real match footage or scraped real data.
+- No Premier League or club logos, trademarks or copyrighted music in the app or the demo video.
+- The deployed demo must stay up and free to access until judging ends on **10 Nov 2026**. Don't tear down Azure resources before then.
+
+## Folder layout
+
+```
+docs/
+  HACKATHON.md        Brief, deadlines, judging criteria
+  features/           One folder per feature: plan.md + handover.md
+    INDEX.md          Status table of all features (read first)
+    _template/        Copy this for new features
+  decisions/          Short architecture decision records (ADRs)
+src/                  Application code (structure TBD with the stack)
+tests/                Shared regression suite, one folder per feature
+infra/                Azure IaC (Bicep) and deployment config
+data/                 Synthetic data generators and small fixtures (generated output is gitignored)
+scripts/              Dev scripts, including test.sh
+```
