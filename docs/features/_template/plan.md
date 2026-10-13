@@ -5,7 +5,7 @@
 - **Date:** YYYY-MM-DD
 
 ## Goal
-What this feature delivers and why. Which pipeline stage(s) it serves.
+What this feature delivers and why.
 
 ## Approach
 How you'll build it. Key design choices.

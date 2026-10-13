@@ -4,10 +4,10 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 
 ## Project
 
-Entry for the Microsoft x Premier League "Inside the Game" hackathon. The goal is an AI system that turns synthetic football match events into explainable match intelligence: **Ingest → Interpret → Explain → Render → Personalize**. See `docs/HACKATHON.md` for the brief, deadlines and judging criteria.
+**Prof AI.** The idea is still being fleshed out. Once it's settled, replace this paragraph with a short description of what we're building and for whom.
 
-- Stack: **TBD after whiteboarding.** Record it here and in `docs/decisions/` once chosen.
-- Azure resource group: `rg-insidethegame` (subscription "Subscription 1"). Every resource must go in this group with tags `project=insidethegame` and `owner=<sam|punjy>`.
+- Stack: **TBD.** Record it here and in `docs/decisions/` once chosen.
+- Azure resource group: `rg-prof-ai` (eastus2, subscription "Subscription 1", £50/month budget alert). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
 
@@ -33,14 +33,14 @@ Don't skip the docs. The other person's agent depends on them because it wasn't 
 - Branch names: `<owner>/<short-slug>`, e.g. `sam/event-ingest` or `punjy/fan-overlay`.
 - Merge to `master` through a PR. The PR description links the feature's `plan.md` and `handover.md`.
 - Keep branches short-lived. Rebase on or merge `master` before opening the PR, and re-run the suite after.
-- Commit messages are short and imperative: "Add pass difficulty model", not "added stuff".
+- Commit messages are short and imperative: "Add login endpoint", not "added stuff".
 
 ## Testing: the shared regression suite
 
 Tests exist mainly so **we don't break each other's work**. Proving your own feature works is a secondary goal.
 
-- Every feature adds tests under `tests/`, in a folder named after the feature slug (e.g. `tests/event_ingest/`). Test the public behaviour and contracts other code depends on, such as data shapes, API responses and agent outputs. Don't test internals.
-- Tests must be deterministic and run offline. Mock LLM, Azure and network calls, and use fixed seeds for synthetic data.
+- Every feature adds tests under `tests/`, in a folder named after the feature slug (e.g. `tests/user_auth/`). Test the public behaviour and contracts other code depends on, such as data shapes, API responses and agent outputs. Don't test internals.
+- Tests must be deterministic and run offline. Mock LLM, Azure and network calls, and use fixed seeds for any generated data.
 - The whole suite runs with one command: `bash scripts/test.sh`. Run it at the end of every implementation and before every merge.
 - **If another person's test fails, assume your change broke it.** Fix your code. Never delete, skip or weaken someone else's test to get green. If you think their test is genuinely wrong, say so in your `handover.md` and leave it for them to decide.
 - Keep the suite fast (aim for under 60s) so nobody is tempted to skip it.
@@ -58,19 +58,12 @@ Tests exist mainly so **we don't break each other's work**. Proving your own fea
 
 ## Secrets and public repo
 
-This repo is **public** (a hackathon requirement). Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
-
-## Hackathon rules that affect code
-
-- Use only **synthetic, football-realistic data**. No real match footage or scraped real data.
-- No Premier League or club logos, trademarks or copyrighted music in the app or the demo video.
-- The deployed demo must stay up and free to access until judging ends on **10 Nov 2026**. Don't tear down Azure resources before then.
+This repo is **public**. Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
 
 ## Folder layout
 
 ```
 docs/
-  HACKATHON.md        Brief, deadlines, judging criteria
   features/           One folder per feature: plan.md + handover.md
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features
@@ -78,6 +71,6 @@ docs/
 src/                  Application code (structure TBD with the stack)
 tests/                Shared regression suite, one folder per feature
 infra/                Azure IaC (Bicep) and deployment config
-data/                 Synthetic data generators and small fixtures (generated output is gitignored)
+data/                 Data generators and small fixtures (generated output is gitignored)
 scripts/              Dev scripts, including test.sh
 ```
