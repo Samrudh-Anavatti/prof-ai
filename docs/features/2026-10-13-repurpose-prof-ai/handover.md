@@ -1,7 +1,7 @@
 # Handover: Repurpose repo for Prof AI
 
 - **Owner:** sam
-- **PR:** <link>
+- **PR:** https://github.com/Samrudh-Anavatti/prof-ai/pull/1
 - **Merged:** 2026-10-13
 
 ## What was built
