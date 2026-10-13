@@ -4,10 +4,13 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 
 ## Project
 
-Entry for the Microsoft x Premier League "Inside the Game" hackathon. The goal is an AI system that turns synthetic football match events into explainable match intelligence: **Ingest → Interpret → Explain → Render → Personalize**. See `docs/HACKATHON.md` for the brief, deadlines and judging criteria.
+**Prof AI**: an AI-assisted tutoring platform for grades 6–12. A human tutor teaches a lesson and assigns a chapter and questions. During the week, each student works on the platform: they submit answers, which are marked by software/AI and reviewed by the tutor, and they chat with their own heavily guarded assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage. The first users are Sam and Punjy as tutors, with 5–6 students each.
 
-- Stack: **TBD after whiteboarding.** Record it here and in `docs/decisions/` once chosen.
-- Azure resource group: `rg-insidethegame` (subscription "Subscription 1"). Every resource must go in this group with tags `project=insidethegame` and `owner=<sam|punjy>`.
+The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
+
+- **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
+- Stack: Azure-first (App Service, Foundry, Blob, Postgres). Direction is in `docs/product/architecture.md`; record concrete choices as ADRs in `docs/decisions/` and summarise them here.
+- Azure resource group: `rg-prof-ai` (eastus2, subscription "Subscription 1", £50/month budget alert). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
 
@@ -19,7 +22,7 @@ Entry for the Microsoft x Premier League "Inside the Game" hackathon. The goal i
 
 Every feature, however small, gets a folder: `docs/features/YYYY-MM-DD-<short-slug>/`, created from `docs/features/_template/`.
 
-1. **Before coding**, write `plan.md`: goal, approach, files/modules touched, interfaces or contracts you'll add or change, the tests you'll add, and open questions. Add a row to `docs/features/INDEX.md` with status `in-progress`.
+1. **Before coding**, write `plan.md`: goal, approach, risks and their controls, files/modules touched, interfaces or contracts you'll add or change, the tests you'll add, and open questions. Add a row to `docs/features/INDEX.md` with status `in-progress`.
 2. Build the feature on its branch.
 3. Add regression tests (see Testing).
 4. **Before merging**, write `handover.md`: what was actually built (and how it differs from the plan), how to run or use it, contracts other code now relies on, the tests added, known issues or TODOs, and anything the other person needs to know or do. Set the INDEX row to `merged`.
@@ -33,14 +36,14 @@ Don't skip the docs. The other person's agent depends on them because it wasn't 
 - Branch names: `<owner>/<short-slug>`, e.g. `sam/event-ingest` or `punjy/fan-overlay`.
 - Merge to `master` through a PR. The PR description links the feature's `plan.md` and `handover.md`.
 - Keep branches short-lived. Rebase on or merge `master` before opening the PR, and re-run the suite after.
-- Commit messages are short and imperative: "Add pass difficulty model", not "added stuff".
+- Commit messages are short and imperative: "Add login endpoint", not "added stuff".
 
 ## Testing: the shared regression suite
 
 Tests exist mainly so **we don't break each other's work**. Proving your own feature works is a secondary goal.
 
-- Every feature adds tests under `tests/`, in a folder named after the feature slug (e.g. `tests/event_ingest/`). Test the public behaviour and contracts other code depends on, such as data shapes, API responses and agent outputs. Don't test internals.
-- Tests must be deterministic and run offline. Mock LLM, Azure and network calls, and use fixed seeds for synthetic data.
+- Every feature adds tests under `tests/`, in a folder named after the feature slug (e.g. `tests/user_auth/`). Test the public behaviour and contracts other code depends on, such as data shapes, API responses and agent outputs. Don't test internals.
+- Tests must be deterministic and run offline. Mock LLM, Azure and network calls, and use fixed seeds for any generated data.
 - The whole suite runs with one command: `bash scripts/test.sh`. Run it at the end of every implementation and before every merge.
 - **If another person's test fails, assume your change broke it.** Fix your code. Never delete, skip or weaken someone else's test to get green. If you think their test is genuinely wrong, say so in your `handover.md` and leave it for them to decide.
 - Keep the suite fast (aim for under 60s) so nobody is tempted to skip it.
@@ -58,19 +61,13 @@ Tests exist mainly so **we don't break each other's work**. Proving your own fea
 
 ## Secrets and public repo
 
-This repo is **public** (a hackathon requirement). Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
-
-## Hackathon rules that affect code
-
-- Use only **synthetic, football-realistic data**. No real match footage or scraped real data.
-- No Premier League or club logos, trademarks or copyrighted music in the app or the demo video.
-- The deployed demo must stay up and free to access until judging ends on **10 Nov 2026**. Don't tear down Azure resources before then.
+This repo is **public**. Never commit real student data (names, chats, submissions, photos) anywhere: not in code, fixtures or logs. Use synthetic data only. Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
 
 ## Folder layout
 
 ```
 docs/
-  HACKATHON.md        Brief, deadlines, judging criteria
+  product/            Vision, architecture and risk register (living drafts)
   features/           One folder per feature: plan.md + handover.md
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features

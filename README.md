@@ -1,22 +1,14 @@
-# Inside the Game
+# Prof AI
 
-An AI match-intelligence system built for the Microsoft x Premier League **Inside the Game** hackathon (Oct 2026). It turns synthetic football match events into explainable, personalized match intelligence: live stats, key moments, *why* they matter, and recaps tailored to each fan.
+An AI-assisted tutoring platform for grades 6–12, built around a human tutor. The tutor teaches the lesson. Between lessons, students do assigned questions with software/AI marking and get help from their own guarded study assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage.
 
-> Status: early design. Architecture and stack are being whiteboarded.
-
-## Pipeline
-
-1. **Ingest**: stream synthetic match events (passes, shots, tackles, possession changes, pressure).
-2. **Interpret**: aggregate events into stats, patterns and match state.
-3. **Explain**: say why a moment matters, not just that it happened.
-4. **Render**: produce timed, machine-readable output that can sit on screen alongside the match.
-5. **Personalize**: give an analyst and a casual fan genuinely different experiences.
+> Status: early design. See [docs/product/](docs/product/vision.md) for the vision, architecture and risks.
 
 ## Getting started
 
 ```bash
-git clone https://github.com/Samrudh-Anavatti/inside-the-game.git
-cd inside-the-game
+git clone https://github.com/Samrudh-Anavatti/prof-ai.git
+cd prof-ai
 cp .env.example .env
 bash scripts/test.sh
 ```
