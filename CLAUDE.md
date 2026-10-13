@@ -4,9 +4,12 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 
 ## Project
 
-**Prof AI.** The idea is still being fleshed out. Once it's settled, replace this paragraph with a short description of what we're building and for whom.
+**Prof AI**: an AI-assisted tutoring platform for grades 6–12. A human tutor teaches a lesson and assigns a chapter and questions. During the week, each student works on the platform: they submit answers, which are marked by software/AI and reviewed by the tutor, and they chat with their own heavily guarded assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage. The first users are Sam and Punjy as tutors, with 5–6 students each.
 
-- Stack: **TBD.** Record it here and in `docs/decisions/` once chosen.
+The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
+
+- **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
+- Stack: Azure-first (App Service, Foundry, Blob, Postgres). Direction is in `docs/product/architecture.md`; record concrete choices as ADRs in `docs/decisions/` and summarise them here.
 - Azure resource group: `rg-prof-ai` (eastus2, subscription "Subscription 1", £50/month budget alert). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
@@ -19,7 +22,7 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 
 Every feature, however small, gets a folder: `docs/features/YYYY-MM-DD-<short-slug>/`, created from `docs/features/_template/`.
 
-1. **Before coding**, write `plan.md`: goal, approach, files/modules touched, interfaces or contracts you'll add or change, the tests you'll add, and open questions. Add a row to `docs/features/INDEX.md` with status `in-progress`.
+1. **Before coding**, write `plan.md`: goal, approach, risks and their controls, files/modules touched, interfaces or contracts you'll add or change, the tests you'll add, and open questions. Add a row to `docs/features/INDEX.md` with status `in-progress`.
 2. Build the feature on its branch.
 3. Add regression tests (see Testing).
 4. **Before merging**, write `handover.md`: what was actually built (and how it differs from the plan), how to run or use it, contracts other code now relies on, the tests added, known issues or TODOs, and anything the other person needs to know or do. Set the INDEX row to `merged`.
@@ -58,12 +61,13 @@ Tests exist mainly so **we don't break each other's work**. Proving your own fea
 
 ## Secrets and public repo
 
-This repo is **public**. Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
+This repo is **public**. Never commit real student data (names, chats, submissions, photos) anywhere: not in code, fixtures or logs. Use synthetic data only. Never commit keys, connection strings, publish profiles or `.env` files. Use `.env` locally (template in `.env.example`) and app settings or Key Vault in Azure. If a secret is ever committed, rotate it immediately. Removing the commit doesn't make it safe.
 
 ## Folder layout
 
 ```
 docs/
+  product/            Vision, architecture and risk register (living drafts)
   features/           One folder per feature: plan.md + handover.md
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features
@@ -71,6 +75,6 @@ docs/
 src/                  Application code (structure TBD with the stack)
 tests/                Shared regression suite, one folder per feature
 infra/                Azure IaC (Bicep) and deployment config
-data/                 Data generators and small fixtures (generated output is gitignored)
+data/                 Synthetic data generators and small fixtures (generated output is gitignored)
 scripts/              Dev scripts, including test.sh
 ```

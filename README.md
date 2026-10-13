@@ -1,6 +1,8 @@
 # Prof AI
 
-> Status: early design. The idea and stack are still being worked out.
+An AI-assisted tutoring platform for grades 6–12, built around a human tutor. The tutor teaches the lesson. Between lessons, students do assigned questions with software/AI marking and get help from their own guarded study assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage.
+
+> Status: early design. See [docs/product/](docs/product/vision.md) for the vision, architecture and risks.
 
 ## Getting started
 
