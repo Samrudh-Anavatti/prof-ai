@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Skipped until the Azure variables are set (see docs/features/2026-10-14-app-skeleton-infra/handover.md).
+    if: ${{ vars.AZURE_CLIENT_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: bash scripts/test.sh
+
+      - name: Stage package
+        run: |
+          mkdir -p package
+          cp -r src requirements.txt startup.sh package/
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: package
+
+      - name: Smoke check
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS "https://${{ vars.AZURE_WEBAPP_NAME }}.azurewebsites.net/healthz"; then exit 0; fi
+            sleep 15
+          done
+          exit 1

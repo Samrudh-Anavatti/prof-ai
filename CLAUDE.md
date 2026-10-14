@@ -9,8 +9,9 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
 
 - **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
-- Stack: Azure-first (App Service, Foundry, Blob, Postgres). Direction is in `docs/product/architecture.md`; record concrete choices as ADRs in `docs/decisions/` and summarise them here.
-- Azure resource group: `rg-prof-ai` (eastus2, subscription "Subscription 1", £50/month budget alert). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
+- Stack ([ADR 0001](docs/decisions/0001-stack.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage. Bicep for infrastructure, GitHub Actions for CI/CD. The frontend isn't chosen yet. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
+- No keys anywhere: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity.
+- Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
 
@@ -38,6 +39,19 @@ Don't skip the docs. The other person's agent depends on them because it wasn't 
 - Keep branches short-lived. Rebase on or merge `master` before opening the PR, and re-run the suite after.
 - Commit messages are short and imperative: "Add login endpoint", not "added stuff".
 
+## Local setup and commands
+
+```bash
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt   # .venv/bin/python on macOS/Linux
+cp .env.example .env
+bash scripts/test.sh                                           # full suite
+.venv/Scripts/python -m uvicorn prof_ai.main:app --app-dir src --reload
+bash scripts/deploy-infra.sh --what-if                         # preview infra changes, then run without the flag
+```
+
+App code lives in `src/prof_ai/`. Pushing to `master` deploys automatically (`.github/workflows/deploy.yml`).
+
 ## Testing: the shared regression suite
 
 Tests exist mainly so **we don't break each other's work**. Proving your own feature works is a secondary goal.
@@ -52,8 +66,8 @@ Tests exist mainly so **we don't break each other's work**. Proving your own fea
 
 - Formatters and linters are the source of truth. Run them on every file you touch:
   - Python: `ruff format` + `ruff check --fix` (line length 100).
-  - TypeScript/JS: `prettier` + `eslint`.
-  - (Update this list once the stack is chosen.)
+  - TypeScript/JS: `prettier` + `eslint` (once there's a frontend).
+  - CI fails on unformatted or lint-failing Python.
 - **Comments: minimal.** Write clear names instead of comments. Comment only *why* something non-obvious is done, never *what* the code does. No commented-out code, no banner comments, no "added for feature X" notes, and no restating of the function name in a docstring. Public interfaces may have a one-line docstring if it adds information.
 - Small, focused modules. Match the style of the surrounding code.
 - No dead code, unused imports or speculative abstractions. Build what the plan needs.
@@ -72,9 +86,10 @@ docs/
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features
   decisions/          Short architecture decision records (ADRs)
-src/                  Application code (structure TBD with the stack)
+src/prof_ai/          Application code (FastAPI)
 tests/                Shared regression suite, one folder per feature
-infra/                Azure IaC (Bicep) and deployment config
+infra/                Bicep (main.bicep + main.bicepparam)
+.github/workflows/    CI (lint + tests) and deploy to App Service
 data/                 Synthetic data generators and small fixtures (generated output is gitignored)
 scripts/              Dev scripts, including test.sh
 ```

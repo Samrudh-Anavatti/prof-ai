@@ -42,6 +42,7 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R13 | Secrets leaked (public repo) | `.env` gitignored; Key Vault + managed identity in Azure; secret scanning on the repo | 0 |
 | R14 | Inappropriate images or PII in uploaded photos | Image content safety; strip EXIF; tutor-only visibility | 2 |
 | R15 | Generated questions are wrong or off-curriculum | Tutor approves generated questions before students see them | 2 |
+| R16 | Student prompts processed outside the UK (GlobalStandard model deployment) | Synthetic data only until resolved; before real students, review the data processing terms or move to a regional/data-zone deployment | 1 (before real students) |
 
 ## Risk checklist for a feature plan
 

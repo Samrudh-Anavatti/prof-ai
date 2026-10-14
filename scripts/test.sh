@@ -3,9 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+python=python
+for candidate in .venv/bin/python .venv/Scripts/python.exe; do
+  [ -x "$candidate" ] && python=$candidate && break
+done
+
 ran=0
 if find tests -name 'test_*.py' -print -quit | grep -q .; then
-  python -m pytest -q tests
+  "$python" -m pytest -q tests
   ran=1
 fi
 while IFS= read -r pkg; do
