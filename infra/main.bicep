@@ -15,6 +15,10 @@ param tutorPrincipalIds array
 param budgetAmount int = 50
 param budgetStartDate string = '2026-10-01'
 param budgetContactEmails array
+@description('Entra External ID tenant holding tutor and student accounts.')
+param externalTenantId string
+@description('App registration (in the External ID tenant) used by App Service Authentication. Empty disables auth.')
+param authClientId string = ''
 
 var tags = {
   project: appName
@@ -27,6 +31,7 @@ var roles = {
   blobReader: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
   blobContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
   websiteContributor: 'de139f84-1756-47ae-9be6-808fbbe84772'
+  cosmosDataContributor: '00000000-0000-0000-0000-000000000002'
 }
 
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -125,6 +130,53 @@ resource chatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-0
   dependsOn: [foundryProject]
 }
 
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
+  name: 'cosmos-${appName}'
+  location: location
+  tags: tags
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    locations: [{ locationName: location, failoverPriority: 0, isZoneRedundant: false }]
+    capabilities: [{ name: 'EnableServerless' }]
+    disableLocalAuth: true
+    minimalTlsVersion: 'Tls12'
+    consistencyPolicy: { defaultConsistencyLevel: 'Session' }
+    backupPolicy: {
+      type: 'Continuous'
+      continuousModeProperties: { tier: 'Continuous7Days' }
+    }
+  }
+}
+
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
+  parent: cosmos
+  name: appName
+  properties: { resource: { id: appName } }
+}
+
+resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = [
+  for container in [
+    { name: 'users', partitionKey: '/id' }
+    { name: 'audit', partitionKey: '/user_id' }
+  ]: {
+    parent: cosmosDatabase
+    name: container.name
+    properties: {
+      resource: {
+        id: container.name
+        partitionKey: { paths: [container.partitionKey], kind: 'Hash' }
+      }
+    }
+  }
+]
+
+resource authIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-${appName}-auth'
+  location: location
+  tags: tags
+}
+
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: 'plan-${appName}'
   location: location
@@ -139,7 +191,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   location: location
   tags: tags
   kind: 'app,linux'
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'SystemAssigned, UserAssigned'
+    userAssignedIdentities: { '${authIdentity.id}': {} }
+  }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
@@ -157,6 +212,9 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'FOUNDRY_ENDPOINT', value: foundry.properties.endpoint }
         { name: 'CHAT_DEPLOYMENT', value: chatDeployment.name }
         { name: 'STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
+        { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
+        { name: 'EXTERNAL_TENANT_ID', value: externalTenantId }
+        { name: 'OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID', value: authIdentity.properties.clientId }
       ]
     }
   }
@@ -172,6 +230,33 @@ resource ftpBasicAuth 'Microsoft.Web/sites/basicPublishingCredentialsPolicies@20
   parent: webApp
   name: 'ftp'
   properties: { allow: false }
+}
+
+resource easyAuth 'Microsoft.Web/sites/config@2024-04-01' = if (!empty(authClientId)) {
+  parent: webApp
+  name: 'authsettingsV2'
+  properties: {
+    platform: { enabled: true }
+    globalValidation: {
+      requireAuthentication: true
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      redirectToProvider: 'azureactivedirectory'
+      excludedPaths: ['/healthz']
+    }
+    httpSettings: { requireHttps: true }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          openIdIssuer: 'https://${externalTenantId}.ciamlogin.com/${externalTenantId}/v2.0'
+          clientId: authClientId
+          clientSecretSettingName: 'OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID'
+        }
+        validation: { allowedAudiences: [authClientId] }
+      }
+    }
+    login: { tokenStore: { enabled: false } }
+  }
 }
 
 resource deployIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -250,6 +335,28 @@ resource tutorsUseFoundry 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   }
 ]
 
+resource appUsesCosmos 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+  parent: cosmos
+  name: guid(cosmos.id, webApp.id, roles.cosmosDataContributor)
+  properties: {
+    roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
+    principalId: webApp.identity.principalId
+    scope: cosmos.id
+  }
+}
+
+resource tutorsUseCosmos 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = [
+  for id in tutorPrincipalIds: {
+    parent: cosmos
+    name: guid(cosmos.id, id, roles.cosmosDataContributor)
+    properties: {
+      roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
+      principalId: id
+      scope: cosmos.id
+    }
+  }
+]
+
 resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
   name: '${appName}-monthly'
   properties: {
@@ -286,3 +393,5 @@ output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
 output storageAccountName string = storage.name
 output foundryEndpoint string = foundry.properties.endpoint
 output deployClientId string = deployIdentity.properties.clientId
+output cosmosEndpoint string = cosmos.properties.documentEndpoint
+output authIdentityPrincipalId string = authIdentity.properties.principalId
