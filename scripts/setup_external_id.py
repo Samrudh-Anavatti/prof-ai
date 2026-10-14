@@ -1,6 +1,8 @@
 """Configures the External ID tenant: web app registration, consent, email-OTP user flow.
 
-Idempotent. Run as a tenant admin after `az login`:
+Idempotent. Before the first run, enable "Email OTP" in the External ID tenant's authentication
+methods (Entra admin center); the Azure CLI's Graph token can't change that policy.
+Run as a tenant admin after `az login`:
     .venv/Scripts/python scripts/setup_external_id.py --auth-identity-principal-id <id>
 """
 
@@ -18,6 +20,8 @@ USER_FLOW_NAME = "prof-ai-email-otp"
 REDIRECT_URIS = [
     "https://prof-ai.azurewebsites.net/.auth/login/aad/callback",
 ]
+ODATA = "#microsoft.graph."
+SIGN_UP_FLOW_TYPE = "ExternalUsersSelfServiceSignUp"
 MICROSOFT_GRAPH_APP_ID = "00000003-0000-0000-c000-000000000000"
 SIGN_IN_SCOPES = "openid profile email offline_access"
 
@@ -80,17 +84,6 @@ def ensure_federated_credential(graph: GraphClient, app_object_id: str, principa
     )
 
 
-def ensure_email_otp_enabled(graph: GraphClient) -> None:
-    graph.patch(
-        "/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/email",
-        {
-            "@odata.type": "#microsoft.graph.emailAuthenticationMethodConfiguration",
-            "state": "enabled",
-            "allowExternalIdToUseEmailOtp": "enabled",
-        },
-    )
-
-
 def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
     flows = graph.get("/identity/authenticationEventsFlows")["value"]
     flow = next((f for f in flows if f["displayName"] == USER_FLOW_NAME), None)
@@ -101,11 +94,11 @@ def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
                 "@odata.type": "#microsoft.graph.externalUsersSelfServiceSignUpEventsFlow",
                 "displayName": USER_FLOW_NAME,
                 "onInteractiveAuthFlowStart": {
-                    "@odata.type": "#microsoft.graph.onInteractiveAuthFlowStartExternalUsersSelfServiceSignUp",
+                    "@odata.type": ODATA + "onInteractiveAuthFlowStart" + SIGN_UP_FLOW_TYPE,
                     "isSignUpAllowed": False,
                 },
                 "onAuthenticationMethodLoadStart": {
-                    "@odata.type": "#microsoft.graph.onAuthenticationMethodLoadStartExternalUsersSelfServiceSignUp",
+                    "@odata.type": ODATA + "onAuthenticationMethodLoadStart" + SIGN_UP_FLOW_TYPE,
                     "identityProviders": [{"id": "EmailOtpSignup-OAUTH2"}],
                 },
             },
@@ -135,7 +128,6 @@ def main() -> None:
     ensure_sign_in_consent(graph, sp["id"])
     if args.auth_identity_principal_id:
         ensure_federated_credential(graph, app["id"], args.auth_identity_principal_id)
-    ensure_email_otp_enabled(graph)
     try:
         flow = ensure_user_flow(graph, app["appId"])
     except GraphError as error:
