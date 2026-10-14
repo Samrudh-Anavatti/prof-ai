@@ -9,11 +9,14 @@ An AI-assisted tutoring platform for grades 6–12, built around a human tutor. 
 ```bash
 git clone https://github.com/Samrudh-Anavatti/prof-ai.git
 cd prof-ai
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements-dev.txt   # .venv/bin/python on macOS/Linux
 cp .env.example .env
 bash scripts/test.sh
+.venv/Scripts/python -m uvicorn prof_ai.main:app --app-dir src --reload
 ```
 
-Setup instructions will expand as the stack lands.
+Live at https://prof-ai.azurewebsites.net (placeholder for now).
 
 ## Contributing
 
