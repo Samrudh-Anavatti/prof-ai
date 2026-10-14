@@ -3,7 +3,8 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 param appName string = 'prof-ai'
 param owner string = 'sam'
-param githubRepo string = 'Samrudh-Anavatti/prof-ai'
+@description('GitHub OIDC subject repo segment: <owner>@<owner id>/<repo>@<repo id>.')
+param githubRepo string = 'Samrudh-Anavatti@95168210/prof-ai@1408891815'
 param chatModel object = {
   name: 'gpt-5.6-luna'
   version: '2026-07-09'
