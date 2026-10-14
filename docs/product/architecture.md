@@ -37,9 +37,11 @@ Indexing the whole library into an always-on search service is expensive and mos
 **1. A folder-structured content store in Blob**, with small manifest files so an agent (or code) can navigate it cheaply:
 
 ```
+sources/                                                    originals; tutors only, the app can't read it
+  books/<book>/original.pdf                                 uploaded with `prof content add-book` (built)
 content/
   curricula/<curriculum>/<subject>/<grade>/syllabus.md     topic list, links to chapters
-  books/<book>/manifest.json                                title, licence, chapter list
+  books/<book>/manifest.json                                title, licence, chapter list (built)
   books/<book>/chapters/<nn-slug>/text.md                   extracted once, on first use
   books/<book>/chapters/<nn-slug>/figures/                  diagrams (Phase 2)
   books/<book>/chapters/<nn-slug>/chunks.json               chunk text + embeddings, built lazily
