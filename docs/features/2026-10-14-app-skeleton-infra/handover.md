@@ -29,6 +29,7 @@
 - **No Key Vault.** No secrets exist, so it would be unused. Add it when the first secret appears.
 - **Postgres** comes with the auth feature.
 - **The first infra deploy failed** because Foundry rejects concurrent changes to one account. Fixed with `dependsOn: [foundryProject]` on the model deployment.
+- **GitHub OIDC subjects now include immutable IDs:** `repo:Samrudh-Anavatti@95168210/prof-ai@1408891815:ref:refs/heads/master`, not `repo:Samrudh-Anavatti/prof-ai:...`. The first deploy run failed with AADSTS700213 until `githubRepo` in `main.bicep` used that form. Get the IDs with `gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"'`.
 
 ## How to run / use it
 - **Local:** see "Local setup and commands" in `CLAUDE.md`.
