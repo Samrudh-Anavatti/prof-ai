@@ -1,2 +1,7 @@
+azure-identity==1.26.0
+azure-storage-blob==12.31.0
 fastapi==0.143.0
+pydantic==2.14.1
+pypdf==6.20.1
+python-dotenv==1.2.4
 uvicorn==0.54.0

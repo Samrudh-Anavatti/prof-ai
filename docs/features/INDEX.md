@@ -8,6 +8,7 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-13 | Repurpose repo for Prof AI | Sam | merged | [plan](2026-10-13-repurpose-prof-ai/plan.md) · [handover](2026-10-13-repurpose-prof-ai/handover.md) |
 | 2026-10-14 | Product vision, architecture and risk docs | Sam | merged | [plan](2026-10-14-product-vision/plan.md) · [handover](2026-10-14-product-vision/handover.md) |
 | 2026-10-14 | App skeleton and Azure infrastructure | Sam | merged | [plan](2026-10-14-app-skeleton-infra/plan.md) · [handover](2026-10-14-app-skeleton-infra/handover.md) |
+| 2026-10-14 | Content store basics | Sam | merged | [plan](2026-10-14-content-store/plan.md) · [handover](2026-10-14-content-store/handover.md) |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
 
 Status values: `planned`, `in-progress`, `merged`, `abandoned`.

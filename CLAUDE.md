@@ -50,6 +50,14 @@ bash scripts/test.sh                                           # full suite
 bash scripts/deploy-infra.sh --what-if                         # preview infra changes, then run without the flag
 ```
 
+Tutor CLI (installed by `requirements-dev.txt`, needs `az login` and `STORAGE_ACCOUNT_URL` in `.env`):
+
+```bash
+.venv/Scripts/prof content add-book book.pdf --slug maths-9-core --title "Maths 9" --subject maths --grades 9 --licence-type licensed
+.venv/Scripts/prof content list
+.venv/Scripts/prof content show maths-9-core
+```
+
 App code lives in `src/prof_ai/`. Pushing to `master` deploys automatically (`.github/workflows/deploy.yml`).
 
 ## Testing: the shared regression suite
