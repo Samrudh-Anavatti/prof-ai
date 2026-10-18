@@ -3,10 +3,10 @@
 Idempotent. Before the first run, enable "Email OTP" in the External ID tenant's authentication
 methods (Entra admin center); the Azure CLI's Graph token can't change that policy.
 Run as a tenant admin after `az login`:
-    .venv/Scripts/python scripts/setup_external_id.py --auth-identity-principal-id <id>
+    .venv/Scripts/python scripts/setup_external_id.py
+Then run scripts/rotate_auth_secret.py to give App Service its client secret.
 """
 
-import argparse
 import json
 
 from azure.identity import AzureCliCredential
@@ -14,7 +14,6 @@ from azure.identity import AzureCliCredential
 from prof_ai.graph import GraphClient, GraphError
 
 EXTERNAL_TENANT_ID = "c01293ab-8f78-46af-aa73-1c8fd5a88555"
-WORKFORCE_TENANT_ID = "ba1b99c2-0c34-4753-a6d2-1b419d1d559c"
 APP_NAME = "Prof AI web"
 USER_FLOW_NAME = "prof-ai-email-otp"
 REDIRECT_URIS = [
@@ -33,7 +32,8 @@ def find_one(graph: GraphClient, path: str) -> dict | None:
 
 def ensure_app(graph: GraphClient) -> dict:
     app = find_one(graph, f"/applications?$filter=displayName eq '{APP_NAME}'")
-    web = {"redirectUris": REDIRECT_URIS, "implicitGrantSettings": {"enableIdTokenIssuance": False}}
+    # App Service Authentication signs in with the hybrid flow (response_type=code id_token).
+    web = {"redirectUris": REDIRECT_URIS, "implicitGrantSettings": {"enableIdTokenIssuance": True}}
     if app:
         graph.patch(f"/applications/{app['id']}", {"web": web})
         return app
@@ -69,21 +69,6 @@ def ensure_sign_in_consent(graph: GraphClient, client_sp_id: str) -> None:
     )
 
 
-def ensure_federated_credential(graph: GraphClient, app_object_id: str, principal_id: str) -> None:
-    credentials = graph.get(f"/applications/{app_object_id}/federatedIdentityCredentials")["value"]
-    if any(c["subject"] == principal_id for c in credentials):
-        return
-    graph.post(
-        f"/applications/{app_object_id}/federatedIdentityCredentials",
-        {
-            "name": "app-service-easy-auth",
-            "issuer": f"https://login.microsoftonline.com/{WORKFORCE_TENANT_ID}/v2.0",
-            "subject": principal_id,
-            "audiences": ["api://AzureADTokenExchange"],
-        },
-    )
-
-
 def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
     flows = graph.get("/identity/authenticationEventsFlows")["value"]
     flow = next((f for f in flows if f["displayName"] == USER_FLOW_NAME), None)
@@ -99,7 +84,7 @@ def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
                 },
                 "onAuthenticationMethodLoadStart": {
                     "@odata.type": ODATA + "onAuthenticationMethodLoadStart" + SIGN_UP_FLOW_TYPE,
-                    "identityProviders": [{"id": "EmailOtpSignup-OAUTH2"}],
+                    "identityProviders": [{"id": "EmailOtpSignup-OAUTH"}],
                 },
             },
         )
@@ -115,19 +100,10 @@ def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--auth-identity-principal-id",
-        help="Principal ID of the user-assigned identity Easy Auth uses as its client credential.",
-    )
-    args = parser.parse_args()
-
     graph = GraphClient(AzureCliCredential(tenant_id=EXTERNAL_TENANT_ID))
     app = ensure_app(graph)
     sp = ensure_service_principal(graph, app["appId"])
     ensure_sign_in_consent(graph, sp["id"])
-    if args.auth_identity_principal_id:
-        ensure_federated_credential(graph, app["id"], args.auth_identity_principal_id)
     try:
         flow = ensure_user_flow(graph, app["appId"])
     except GraphError as error:

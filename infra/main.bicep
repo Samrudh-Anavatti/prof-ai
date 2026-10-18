@@ -32,6 +32,8 @@ var roles = {
   blobContributor: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
   websiteContributor: 'de139f84-1756-47ae-9be6-808fbbe84772'
   cosmosDataContributor: '00000000-0000-0000-0000-000000000002'
+  keyVaultSecretsUser: '4633458b-17de-408a-b874-0445c86b69e6'
+  keyVaultSecretsOfficer: 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 }
 
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -171,10 +173,19 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
   }
 ]
 
-resource authIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-${appName}-auth'
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: 'kv-${appName}-${suffix}'
   location: location
   tags: tags
+  properties: {
+    tenantId: subscription().tenantId
+    sku: { family: 'A', name: 'standard' }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 90
+    enablePurgeProtection: true
+    publicNetworkAccess: 'Enabled'
+  }
 }
 
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -191,10 +202,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   location: location
   tags: tags
   kind: 'app,linux'
-  identity: {
-    type: 'SystemAssigned, UserAssigned'
-    userAssignedIdentities: { '${authIdentity.id}': {} }
-  }
+  identity: { type: 'SystemAssigned' }
   properties: {
     serverFarmId: plan.id
     httpsOnly: true
@@ -214,7 +222,10 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
         { name: 'EXTERNAL_TENANT_ID', value: externalTenantId }
-        { name: 'OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID', value: authIdentity.properties.clientId }
+        {
+          name: 'AUTH_CLIENT_SECRET'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVault.properties.vaultUri}secrets/auth-client-secret/)'
+        }
       ]
     }
   }
@@ -250,7 +261,7 @@ resource easyAuth 'Microsoft.Web/sites/config@2024-04-01' = if (!empty(authClien
         registration: {
           openIdIssuer: 'https://${externalTenantId}.ciamlogin.com/${externalTenantId}/v2.0'
           clientId: authClientId
-          clientSecretSettingName: 'OVERRIDE_USE_MI_FIC_ASSERTION_CLIENTID'
+          clientSecretSettingName: 'AUTH_CLIENT_SECRET'
         }
         validation: { allowedAudiences: [authClientId] }
       }
@@ -335,6 +346,28 @@ resource tutorsUseFoundry 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   }
 ]
 
+resource appReadsSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: keyVault
+  name: guid(keyVault.id, webApp.id, roles.keyVaultSecretsUser)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.keyVaultSecretsUser)
+    principalId: webApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource tutorsManageSecrets 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for id in tutorPrincipalIds: {
+    scope: keyVault
+    name: guid(keyVault.id, id, roles.keyVaultSecretsOfficer)
+    properties: {
+      roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.keyVaultSecretsOfficer)
+      principalId: id
+      principalType: 'User'
+    }
+  }
+]
+
 resource appUsesCosmos 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
   parent: cosmos
   name: guid(cosmos.id, webApp.id, roles.cosmosDataContributor)
@@ -394,4 +427,4 @@ output storageAccountName string = storage.name
 output foundryEndpoint string = foundry.properties.endpoint
 output deployClientId string = deployIdentity.properties.clientId
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
-output authIdentityPrincipalId string = authIdentity.properties.principalId
+output keyVaultName string = keyVault.name
