@@ -36,3 +36,6 @@ Thumbs.db
 # Large / generated data
 data/generated/
 *.parquet
+
+# Frontend build output (built by web/, served by FastAPI)
+src/prof_ai/static/
