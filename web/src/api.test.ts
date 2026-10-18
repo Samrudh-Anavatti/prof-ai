@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiError, getMe, signInUrl, type Me } from "./api";
+import { ApiError, getMe, sendMessage, signInUrl, type Me } from "./api";
 
 const ME: Me = {
   id: "oid-1",
@@ -84,5 +84,56 @@ describe("signInUrl", () => {
     expect(signInUrl("/assignments?week=3")).toBe(
       "/.auth/login/aad?post_login_redirect_uri=%2Fassignments%3Fweek%3D3",
     );
+  });
+});
+
+function sseResponse(...events: [string, unknown][]): Response {
+  const text = events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  return new Response(text.join(""), {
+    status: 200,
+    headers: { "Content-Type": "text/event-stream" },
+  });
+}
+
+describe("sendMessage", () => {
+  const noop = { onDelta: () => {} };
+
+  it("streams deltas and resolves with the title", async () => {
+    const fetchFn = fakeFetch(
+      sseResponse(
+        ["delta", { text: "Hel" }],
+        ["delta", { text: "lo" }],
+        ["done", { title: "Fractions" }],
+      ),
+    );
+    const deltas: string[] = [];
+    const title = await sendMessage("c1", "hi", { onDelta: (t) => deltas.push(t) }, { fetchFn });
+    expect(deltas).toEqual(["Hel", "lo"]);
+    expect(title).toBe("Fractions");
+    const [path, init] = fetchFn.mock.calls[0];
+    expect(path).toBe("/api/chat/conversations/c1/messages");
+    expect(init).toMatchObject({ method: "POST", body: JSON.stringify({ content: "hi" }) });
+  });
+
+  it("rejects with the server's message on an error event", async () => {
+    const message = "Sorry, I can't help with that.";
+    const fetchFn = fakeFetch(sseResponse(["delta", { text: "x" }], ["error", { message }]));
+    await expect(sendMessage("c1", "hi", noop, { fetchFn })).rejects.toMatchObject({ message });
+  });
+
+  it("rejects when the stream ends without finishing", async () => {
+    const fetchFn = fakeFetch(sseResponse(["delta", { text: "Hel" }]));
+    await expect(sendMessage("c1", "hi", noop, { fetchFn })).rejects.toMatchObject({
+      message: UNAVAILABLE,
+    });
+  });
+
+  it("surfaces refusals such as the daily allowance", async () => {
+    const detail = "You've used today's chat allowance. It resets at midnight UTC.";
+    const fetchFn = fakeFetch(jsonResponse(429, { detail }));
+    await expect(sendMessage("c1", "hi", noop, { fetchFn })).rejects.toMatchObject({
+      status: 429,
+      message: detail,
+    });
   });
 });

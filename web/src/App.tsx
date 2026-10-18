@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { ApiError, getMe, type Me } from "./api";
+import { ChatPage } from "./ChatPage";
+import { Logo } from "./Logo";
 
 type State = { kind: "loading" } | { kind: "ready"; me: Me } | { kind: "error"; message: string };
 
@@ -20,33 +22,29 @@ export function App() {
   }, []);
 
   return (
-    <div className="page">
+    <div className="app">
       <header className="top-bar">
-        <span className="brand">Prof AI</span>
-        {state.kind !== "loading" && <a href={SIGN_OUT_URL}>Sign out</a>}
+        <Logo />
+        {state.kind === "ready" && (
+          <nav className="account">
+            <span className="account-name">
+              {state.me.display_name}
+              {state.me.role === "tutor" && <span className="role-tag">Tutor</span>}
+            </span>
+            <a href={SIGN_OUT_URL}>Sign out</a>
+          </nav>
+        )}
+        {state.kind === "error" && <a href={SIGN_OUT_URL}>Sign out</a>}
       </header>
-      <main className="content">
-        {state.kind === "loading" && <p className="muted">Loading…</p>}
-        {state.kind === "error" && (
+      {state.kind === "loading" && <p className="centred muted">Loading…</p>}
+      {state.kind === "error" && (
+        <div className="centred">
           <div className="notice" role="alert">
             {state.message}
           </div>
-        )}
-        {state.kind === "ready" && <Welcome me={state.me} />}
-      </main>
+        </div>
+      )}
+      {state.kind === "ready" && <ChatPage me={state.me} />}
     </div>
-  );
-}
-
-function Welcome({ me }: { me: Me }) {
-  return (
-    <section>
-      <h1>Hi, {me.display_name}</h1>
-      <p className="muted">
-        {me.role === "tutor"
-          ? "Your tutor dashboard is on its way."
-          : "Your assignments will appear here."}
-      </p>
-    </section>
   );
 }
