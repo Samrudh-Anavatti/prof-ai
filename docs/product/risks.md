@@ -35,7 +35,7 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R6 | Wrong explanation or hallucination | Answers grounded in tutor content; groundedness check; "I'm not sure, ask your tutor" fallback; tutor sees transcripts | 1 |
 | R7 | Unfair or wrong AI marking | Deterministic marking where possible; rubric-based AI marking with confidence; low confidence goes to the tutor; tutor override; marks provisional until confirmed or after a review window | 1 |
 | R8 | One student sees another's data | Every query scoped by student ID server-side; authorization tests in the regression suite | 1 |
-| R9 | Account takeover / shared logins | Entra External ID (built); sign-up disabled, tutor invites via `prof users add` (built); app-side allowlist + per-request lock check (built); anomaly flags (new device, odd hours, volume) still to do | 1 |
+| R9 | Account takeover / shared logins | Entra External ID (built); open email-code sign-up, but only emails a tutor invited get in: app-side allowlist, invite linked by the verified email claim, per-request lock check (built, ADR 0004); anomaly flags (new device, odd hours, volume) still to do | 1 |
 | R10 | Children's personal data mishandled | Data minimisation (first name only?); no real data in repo or logs; encryption at rest; retention policy; parental consent | 1 (before real students) |
 | R11 | Safeguarding disclosure missed | Base prompt points to a trusted adult and Childline (built); content-filter hits flagged on the conversation (built); self-harm/violence categories trigger an immediate tutor flag (to do, guard pipeline, before real students); safeguarding exception above | 1 |
 | R12 | Textbook licence breach | Licence check before uploading a book; prefer our own content; limit verbatim excerpt length | 1 |
@@ -46,6 +46,7 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R18 | Cross-site scripting injects script into a student's or tutor's session | React escaping; `dangerouslySetInnerHTML` banned by lint; strict CSP (`script-src 'self'`, no inline, `frame-ancestors 'none'`) on the app shell (built) | 1 |
 | R19 | Compromised npm package runs code at build time or ships in the bundle | Few dependencies; exact versions; committed lockfile; `npm ci` only; no runtime CDN scripts (CSP) | 1 |
 | R20 | A tutor-editable teaching style weakens the tutor prompt, or the app's write access to `profiles` is misused | Base prompt (safety rules) always comes first; tutor-only API, path fixed to the signed-in tutor; every save audited; app identity can write only the `profiles` container; 14-day blob soft delete (built) | 1 |
+| R21 | A tutor manages accounts they shouldn't (other tutors' students, tutors, admin rights) | Server-side checks in `/api/users`: non-admins act only on their own students, nobody acts on themselves, `is_admin` only settable via CLI (built, tested) | 1 |
 | R16 | Student prompts processed outside the UK (GlobalStandard model deployment) | Synthetic data only until resolved; before real students, review the data processing terms or move to a regional/data-zone deployment | 1 (before real students) |
 
 ## Risk checklist for a feature plan

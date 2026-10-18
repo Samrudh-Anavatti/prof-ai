@@ -53,6 +53,14 @@ class CosmosChatStore:
         )
         return int(next(iter(items), 0) or 0)
 
+    def delete_user_data(self, user_id: str) -> None:
+        for container in (self._conversations, self._usage):
+            ids = container.query_items(
+                "SELECT VALUE c.id FROM c", partition_key=user_id, max_item_count=100
+            )
+            for item_id in list(ids):
+                container.delete_item(item_id, partition_key=user_id)
+
     def add_tokens(self, user_id: str, day: date, tokens: int) -> None:
         item_id = usage_id(user_id, day)
         try:

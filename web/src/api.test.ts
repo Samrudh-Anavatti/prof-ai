@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   ApiError,
+  deleteUser,
   getMe,
+  inviteUser,
+  lockUser,
   saveTeachingStyle,
   sendMessage,
   signInUrl,
@@ -16,6 +19,7 @@ const ME: Me = {
   display_name: "Alex",
   role: "student",
   status: "active",
+  is_admin: false,
 };
 
 const UNAVAILABLE = "Prof AI is unavailable right now. Try again later.";
@@ -168,5 +172,37 @@ describe("saveTeachingStyle", () => {
       status: 400,
       message: detail,
     });
+  });
+});
+
+describe("user admin", () => {
+  it("invites with a JSON POST", async () => {
+    const created = { id: "invite-1", email: "cara@example.com", status: "invited" };
+    const fetchFn = fakeFetch(jsonResponse(201, created));
+    const user = { email: "cara@example.com", display_name: "Cara", role: "student" as const };
+    await expect(inviteUser(user, { fetchFn })).resolves.toEqual(created);
+    const [path, init] = fetchFn.mock.calls[0];
+    expect(path).toBe("/api/users");
+    expect(init).toMatchObject({ method: "POST", body: JSON.stringify(user) });
+  });
+
+  it("locks with a reason", async () => {
+    const fetchFn = fakeFetch(jsonResponse(200, { id: "a/b" }));
+    await lockUser("a/b", "Spam", { fetchFn });
+    const [path, init] = fetchFn.mock.calls[0];
+    expect(path).toBe("/api/users/a%2Fb/lock");
+    expect(init).toMatchObject({ method: "POST", body: JSON.stringify({ reason: "Spam" }) });
+  });
+
+  it("deletes without reading a body from the 204", async () => {
+    const fetchFn = fakeFetch(new Response(null, { status: 204 }));
+    await expect(deleteUser("alex", { fetchFn })).resolves.toBeUndefined();
+    expect(fetchFn.mock.calls[0][1]).toMatchObject({ method: "DELETE" });
+  });
+
+  it("surfaces refusals such as deleting a tutor with students", async () => {
+    const detail = "punjy@example.com still has students. Remove them first.";
+    const fetchFn = fakeFetch(jsonResponse(400, { detail }));
+    await expect(deleteUser("punjy", { fetchFn })).rejects.toMatchObject({ message: detail });
   });
 });

@@ -9,7 +9,7 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
 
 - **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
-- Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md), [ADR 0003](docs/decisions/0003-frontend.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication. Bicep for infrastructure, GitHub Actions for CI/CD. Frontend: React + TypeScript (Vite) in `web/`, built into `src/prof_ai/static/` and served by FastAPI from the same origin. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
+- Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md), [ADR 0003](docs/decisions/0003-frontend.md), [ADR 0004](docs/decisions/0004-invites-and-sign-up.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication, with open email-code sign-up gated by tutor invites in the app's `users` container. Bicep for infrastructure, GitHub Actions for CI/CD. Frontend: React + TypeScript (Vite) in `web/`, built into `src/prof_ai/static/` and served by FastAPI from the same origin. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
 - No keys in code or config: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity. The one unavoidable secret (App Service Authentication's client secret) lives in Key Vault; rotate it with `scripts/rotate_auth_secret.py`.
 - **Every endpoint except `/healthz` and the static frontend shell must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced. All JSON endpoints live under `/api/`; a regression test fails if one doesn't require sign-in. The shell carries no data.
 - Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
@@ -61,10 +61,12 @@ Tutor CLI (installed by `requirements-dev.txt` into the venv, so run it as `.ven
 .venv/Scripts/prof content add-book book.pdf --slug maths-9-core --title "Maths 9" --subject maths --grades 9 --licence-type licensed
 .venv/Scripts/prof content list
 .venv/Scripts/prof content show maths-9-core
-.venv/Scripts/prof users add --email alex@example.com --name Alex --role student --tutor <tutor email>
+.venv/Scripts/prof users add --email alex@example.com --name Alex --role student --tutor <tutor email>  # invite; they sign up with an email code
 .venv/Scripts/prof users list
 .venv/Scripts/prof users lock alex@example.com --reason "Prompt injection attempt"
 .venv/Scripts/prof users unlock alex@example.com
+.venv/Scripts/prof users remove alex@example.com                          # deletes account, chats, usage, profiles
+.venv/Scripts/prof users set-admin sam@example.com [--revoke]             # admins manage everyone at /users
 .venv/Scripts/prof profiles set alex@example.com --profile alex.md        # what the AI is told about Alex
 .venv/Scripts/prof profiles set sam@example.com --teaching-style style.md # tutors: applies to their students
 .venv/Scripts/prof profiles show alex@example.com                         # files + full system prompt
@@ -73,6 +75,8 @@ Tutor CLI (installed by `requirements-dev.txt` into the venv, so run it as `.ven
 ```
 
 Tutors can also edit their teaching style in the web app at `/teaching-style` (`GET`/`PUT /api/teaching-style`, tutors only, audited). The app's identity can write only to the `profiles` container.
+
+Tutors manage accounts at `/users` (`/api/users`): admins manage everyone; other tutors manage only their own students. The web app never calls Graph. **Any new per-user data must be erased in `main.user_data_eraser`**, so deleting a user really deletes their data.
 
 The tutor chat calls Luna through `prof_ai.chat`. Every model call must go through `ChatService`, which enforces the input cap, budgets, kill switch and rate limit before calling the model. Locally it uses your `az login` and costs real tokens.
 

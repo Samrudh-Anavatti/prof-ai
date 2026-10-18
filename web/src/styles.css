@@ -405,6 +405,164 @@ textarea {
   font-size: 0.85rem;
 }
 
+.nav-link.current {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 6px;
+}
+
+.admin-page {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.admin-page h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.invite-form {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.invite-form h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.invite-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.invite-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.invite-fields input,
+.invite-fields select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 400;
+}
+
+.admin-status {
+  margin: 0 0 0.75rem;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.user-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.user-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.user-row:first-child {
+  border-top: none;
+}
+
+.user-main,
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.user-meta {
+  align-items: flex-start;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-email {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.user-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.user-actions button {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.pill {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pill.active {
+  background: #e3f4e8;
+  color: #1d6b3a;
+}
+
+.pill.invited {
+  background: var(--notice-bg);
+  color: var(--accent-ink);
+}
+
+.pill.account_locked {
+  background: #fbe4e1;
+  color: #a1281b;
+}
+
+.danger {
+  border: 1px solid #e3b4ad;
+  border-radius: 10px;
+  background: var(--surface);
+  color: #a1281b;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.danger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 @media (max-width: 720px) {
   .chat-layout {
     grid-template-columns: 1fr;
@@ -439,5 +597,24 @@ textarea {
 
   .account-name {
     display: none;
+  }
+
+  .top-bar {
+    flex-wrap: wrap;
+    row-gap: 0.4rem;
+  }
+
+  .account {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .user-row {
+    grid-template-columns: 1fr;
+  }
+
+  .user-actions {
+    justify-content: flex-start;
   }
 }

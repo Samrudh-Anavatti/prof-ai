@@ -32,6 +32,12 @@ class ProfileStore:
         data = self._backend.download(PROFILES_CONTAINER, path)[:MAX_PROFILE_BYTES]
         return data.decode("utf-8", errors="ignore").strip() or None
 
+    def delete_all(self, user_id: str) -> None:
+        for file in ProfileFile:
+            path = profile_path(user_id, file)
+            if self._backend.exists(PROFILES_CONTAINER, path):
+                self._backend.delete(PROFILES_CONTAINER, path)
+
     def put(self, user_id: str, file: ProfileFile, text: str) -> None:
         data = text.strip().encode("utf-8")
         if not data:

@@ -10,6 +10,7 @@ class Role(StrEnum):
 
 
 class AccountStatus(StrEnum):
+    INVITED = "invited"
     ACTIVE = "active"
     ACCOUNT_LOCKED = "account_locked"
 
@@ -23,6 +24,7 @@ class User(BaseModel):
     role: Role
     status: AccountStatus = AccountStatus.ACTIVE
     tutor_id: str | None = None
+    is_admin: bool = False
     created_at: datetime
     updated_at: datetime
 

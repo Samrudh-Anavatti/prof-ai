@@ -74,6 +74,9 @@ class ChatService:
     def list_conversations(self, user: User) -> list[Conversation]:
         return self._store.list_conversations(user.id)
 
+    def erase_user_data(self, user_id: str) -> None:
+        self._store.delete_user_data(user_id)
+
     def start_conversation(self, user: User) -> Conversation:
         now = self._clock()
         conversation = Conversation(

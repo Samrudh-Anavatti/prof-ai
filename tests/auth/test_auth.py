@@ -36,6 +36,7 @@ def test_me_returns_the_signed_in_user(repository):
         "display_name": "Alex",
         "role": "tutor",
         "status": "active",
+        "is_admin": False,
     }
 
 
