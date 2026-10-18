@@ -19,6 +19,8 @@ class BlobBackend(Protocol):
 
     def list_names(self, container: str, prefix: str) -> Iterable[str]: ...
 
+    def delete(self, container: str, name: str) -> None: ...
+
 
 class BookExistsError(Exception):
     pass

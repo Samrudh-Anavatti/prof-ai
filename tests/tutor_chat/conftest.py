@@ -35,6 +35,9 @@ class InMemoryBlobBackend:
     def list_names(self, container: str, prefix: str) -> Iterable[str]:
         return [n for (c, n) in self.blobs if c == container and n.startswith(prefix)]
 
+    def delete(self, container: str, name: str) -> None:
+        del self.blobs[(container, name)]
+
 
 class InMemoryChatStore:
     def __init__(self) -> None:
@@ -68,6 +71,10 @@ class InMemoryChatStore:
 
     def add_tokens(self, user_id: str, day: date, tokens: int) -> None:
         self.usage[(user_id, day)] = self.usage.get((user_id, day), 0) + tokens
+
+    def delete_user_data(self, user_id: str) -> None:
+        self.conversations = {k: v for k, v in self.conversations.items() if k[0] != user_id}
+        self.usage = {k: v for k, v in self.usage.items() if k[0] != user_id}
 
 
 class FakeModel:

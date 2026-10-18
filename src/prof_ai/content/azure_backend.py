@@ -22,6 +22,9 @@ class AzureBlobBackend:
     def download(self, container: str, name: str) -> bytes:
         return self._service.get_blob_client(container, name).download_blob().readall()
 
+    def delete(self, container: str, name: str) -> None:
+        self._service.get_blob_client(container, name).delete_blob(delete_snapshots="include")
+
     def exists(self, container: str, name: str) -> bool:
         return self._service.get_blob_client(container, name).exists()
 

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
@@ -8,6 +9,7 @@ from prof_ai.chat.service import ChatLimits, ChatService
 from prof_ai.config import Settings, load_settings
 from prof_ai.profiles.api import create_profiles_router
 from prof_ai.profiles.store import ProfileStore
+from prof_ai.users.api import create_users_router
 from prof_ai.users.repository import UserRepository
 from prof_ai.web import STATIC_DIR, mount_frontend
 
@@ -16,17 +18,19 @@ def create_api_router() -> APIRouter:
     api = APIRouter(prefix="/api")
 
     @api.get("/me")
-    def me(user: CurrentUser) -> dict[str, str]:
+    def me(user: CurrentUser) -> dict[str, str | bool]:
         return {
             "id": user.id,
             "email": user.email,
             "display_name": user.display_name,
             "role": user.role,
             "status": user.status,
+            "is_admin": user.is_admin,
         }
 
     api.include_router(create_chat_router())
     api.include_router(create_profiles_router())
+    api.include_router(create_users_router())
     return api
 
 
@@ -60,6 +64,19 @@ def azure_chat_service(settings: Settings, profiles: ProfileStore | None) -> Cha
     )
 
 
+def user_data_eraser(
+    chat_service: ChatService | None, profile_store: ProfileStore | None
+) -> Callable[[str], None] | None:
+    if chat_service is None or profile_store is None:
+        return None
+
+    def erase(user_id: str) -> None:
+        chat_service.erase_user_data(user_id)
+        profile_store.delete_all(user_id)
+
+    return erase
+
+
 def create_app(
     settings: Settings | None = None,
     user_repository: UserRepository | None = None,
@@ -89,6 +106,7 @@ def create_app(
     app.state.user_repository = user_repository
     app.state.chat_service = chat_service
     app.state.profile_store = profile_store
+    app.state.erase_user_data = user_data_eraser(chat_service, profile_store)
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

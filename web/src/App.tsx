@@ -4,12 +4,19 @@ import { ApiError, getMe, type Me } from "./api";
 import { ChatPage } from "./ChatPage";
 import { Logo } from "./Logo";
 import { TeachingStylePage } from "./TeachingStylePage";
+import { UsersPage } from "./UsersPage";
 
 type State = { kind: "loading" } | { kind: "ready"; me: Me } | { kind: "error"; message: string };
 
 const SIGN_OUT_URL = "/.auth/logout?post_logout_redirect_uri=/";
 const CHAT_PATH = "/";
 const TEACHING_STYLE_PATH = "/teaching-style";
+const USERS_PATH = "/users";
+const TUTOR_PAGES = [
+  { path: CHAT_PATH, label: "Chat" },
+  { path: TEACHING_STYLE_PATH, label: "Teaching style" },
+  { path: USERS_PATH, label: "Users" },
+];
 const UNSAVED_WARNING = "You have unsaved changes to your teaching style. Leave anyway?";
 
 export function App() {
@@ -47,7 +54,7 @@ export function App() {
   }
 
   const isTutor = state.kind === "ready" && state.me.role === "tutor";
-  const onTeachingStyle = isTutor && path === TEACHING_STYLE_PATH;
+  const page = isTutor && TUTOR_PAGES.some((p) => p.path === path) ? path : CHAT_PATH;
 
   return (
     <div className="app">
@@ -55,15 +62,18 @@ export function App() {
         <Logo />
         {state.kind === "ready" && (
           <nav className="account">
-            {isTutor && (
-              <a
-                className="nav-link"
-                href={onTeachingStyle ? CHAT_PATH : TEACHING_STYLE_PATH}
-                onClick={(e) => onNavClick(e, onTeachingStyle ? CHAT_PATH : TEACHING_STYLE_PATH)}
-              >
-                {onTeachingStyle ? "Chat" : "Teaching style"}
-              </a>
-            )}
+            {isTutor &&
+              TUTOR_PAGES.map((p) => (
+                <a
+                  key={p.path}
+                  className={p.path === page ? "nav-link current" : "nav-link"}
+                  href={p.path}
+                  aria-current={p.path === page ? "page" : undefined}
+                  onClick={(e) => onNavClick(e, p.path)}
+                >
+                  {p.label}
+                </a>
+              ))}
             <span className="account-name">
               {state.me.display_name}
               {isTutor && <span className="role-tag">Tutor</span>}
@@ -81,12 +91,11 @@ export function App() {
           </div>
         </div>
       )}
-      {state.kind === "ready" &&
-        (onTeachingStyle ? (
-          <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
-        ) : (
-          <ChatPage me={state.me} />
-        ))}
+      {state.kind === "ready" && page === TEACHING_STYLE_PATH && (
+        <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
+      )}
+      {state.kind === "ready" && page === USERS_PATH && <UsersPage me={state.me} />}
+      {state.kind === "ready" && page === CHAT_PATH && <ChatPage me={state.me} />}
     </div>
   );
 }

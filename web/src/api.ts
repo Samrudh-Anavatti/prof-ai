@@ -8,6 +8,27 @@ export interface Me {
   display_name: string;
   role: Role;
   status: string;
+  is_admin: boolean;
+}
+
+export type AccountStatus = "invited" | "active" | "account_locked";
+
+export interface UserView {
+  id: string;
+  email: string;
+  display_name: string;
+  role: Role;
+  status: AccountStatus;
+  is_admin: boolean;
+  tutor_email: string | null;
+  created_at: string;
+}
+
+export interface NewUser {
+  email: string;
+  display_name: string;
+  role: Role;
+  tutor_email?: string;
 }
 
 export interface ConversationSummary {
@@ -139,6 +160,30 @@ export function getTeachingStyle(options?: ApiOptions): Promise<TeachingStyle> {
 
 export function saveTeachingStyle(content: string, options?: ApiOptions): Promise<TeachingStyle> {
   return sendJson<TeachingStyle>("PUT", "/api/teaching-style", { content }, options);
+}
+
+export function listUsers(options?: ApiOptions): Promise<UserView[]> {
+  return getJson<UserView[]>("/api/users", options);
+}
+
+export function inviteUser(user: NewUser, options?: ApiOptions): Promise<UserView> {
+  return sendJson<UserView>("POST", "/api/users", user, options);
+}
+
+function userPath(id: string, action = ""): string {
+  return `/api/users/${encodeURIComponent(id)}${action}`;
+}
+
+export function lockUser(id: string, reason: string, options?: ApiOptions): Promise<UserView> {
+  return sendJson<UserView>("POST", userPath(id, "/lock"), { reason }, options);
+}
+
+export function unlockUser(id: string, options?: ApiOptions): Promise<UserView> {
+  return sendJson<UserView>("POST", userPath(id, "/unlock"), {}, options);
+}
+
+export async function deleteUser(id: string, options: ApiOptions = {}): Promise<void> {
+  await request(userPath(id), { method: "DELETE" }, options);
 }
 
 export interface ReplyHandlers {

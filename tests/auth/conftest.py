@@ -9,6 +9,7 @@ from prof_ai.users.models import AccountStatus, AuditEvent, Role, User
 
 FIXED_NOW = datetime(2026, 10, 14, 9, 0, tzinfo=UTC)
 OBJECT_ID_CLAIM = "http://schemas.microsoft.com/identity/claims/objectidentifier"
+EMAIL_CLAIM = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
 
 
 class InMemoryUserRepository:
@@ -31,24 +32,27 @@ class InMemoryUserRepository:
     def save(self, user: User) -> None:
         self.users[user.id] = user
 
+    def delete(self, user_id: str) -> None:
+        self.users.pop(user_id, None)
+
     def record(self, event: AuditEvent) -> None:
         self.events.append(event)
 
 
 class FakeDirectory:
+    """External ID accounts, as created by people signing up themselves."""
+
     def __init__(self) -> None:
         self.accounts: dict[str, dict] = {}
 
-    def find_user_id(self, email: str) -> str | None:
-        return next((i for i, a in self.accounts.items() if a["email"] == email), None)
-
-    def create_user(self, email: str, display_name: str) -> str:
-        user_id = f"oid-{len(self.accounts) + 1}"
-        self.accounts[user_id] = {"email": email, "name": display_name, "enabled": True}
-        return user_id
+    def sign_up(self, user_id: str, email: str) -> None:
+        self.accounts[user_id] = {"email": email, "enabled": True}
 
     def set_enabled(self, user_id: str, enabled: bool) -> None:
         self.accounts[user_id]["enabled"] = enabled
+
+    def delete_user(self, user_id: str) -> None:
+        del self.accounts[user_id]
 
 
 def make_user(user_id="oid-1", role=Role.STUDENT, status=AccountStatus.ACTIVE, **fields) -> User:
@@ -64,8 +68,11 @@ def make_user(user_id="oid-1", role=Role.STUDENT, status=AccountStatus.ACTIVE, *
     )
 
 
-def principal_header(object_id: str) -> str:
-    principal = {"auth_typ": "aad", "claims": [{"typ": OBJECT_ID_CLAIM, "val": object_id}]}
+def principal_header(object_id: str, email: str | None = None) -> str:
+    claims = [{"typ": OBJECT_ID_CLAIM, "val": object_id}]
+    if email:
+        claims.append({"typ": EMAIL_CLAIM, "val": email})
+    principal = {"auth_typ": "aad", "claims": claims}
     return base64.b64encode(json.dumps(principal).encode()).decode()
 
 
@@ -80,5 +87,12 @@ def directory() -> FakeDirectory:
 
 
 @pytest.fixture
-def admin(repository, directory) -> UserAdmin:
-    return UserAdmin(repository, directory, actor="sam@example.com", clock=lambda: FIXED_NOW)
+def erased() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def admin(repository, directory, erased) -> UserAdmin:
+    return UserAdmin(
+        repository, directory, "sam@example.com", erased.append, clock=lambda: FIXED_NOW
+    )

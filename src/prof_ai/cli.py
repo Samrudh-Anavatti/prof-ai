@@ -17,7 +17,7 @@ from prof_ai.content.pdf import InvalidPdfError
 from prof_ai.content.store import BookExistsError, BookNotFoundError, ContentStore
 from prof_ai.graph import GraphError
 from prof_ai.profiles.store import InvalidProfileError, ProfileFile, ProfileStore
-from prof_ai.users.admin import UserAdmin, UserAdminError
+from prof_ai.users.admin import SIGN_UP_INSTRUCTIONS, UserAdmin, UserAdminError
 from prof_ai.users.models import Role, User
 from prof_ai.users.repository import UserRepository
 
@@ -68,18 +68,18 @@ def azure_user_admin() -> UserAdmin:
     from azure.identity import AzureCliCredential
 
     from prof_ai.graph import GraphClient
-    from prof_ai.users.cosmos_repository import CosmosUserRepository
     from prof_ai.users.directory import ExternalIdDirectory
 
+    tools = azure_tutor_tools()
     directory = ExternalIdDirectory(
-        GraphClient(AzureCliCredential(tenant_id=require_env("EXTERNAL_TENANT_ID"))),
-        require_env("EXTERNAL_TENANT_DOMAIN"),
+        GraphClient(AzureCliCredential(tenant_id=require_env("EXTERNAL_TENANT_ID")))
     )
-    return UserAdmin(
-        CosmosUserRepository(require_env("COSMOS_ENDPOINT")),
-        directory,
-        actor=signed_in_actor(AzureCliCredential()),
-    )
+
+    def erase_user_data(user_id: str) -> None:
+        tools.chats.delete_user_data(user_id)
+        tools.profiles.delete_all(user_id)
+
+    return UserAdmin(tools.users, directory, signed_in_actor(AzureCliCredential()), erase_user_data)
 
 
 def azure_tutor_tools() -> TutorTools:
@@ -151,6 +151,17 @@ def build_parser() -> argparse.ArgumentParser:
     unlock.add_argument("email")
     unlock.add_argument("--reason", default="")
 
+    remove = user_commands.add_parser(
+        "remove", help="Delete an account with its chats, usage and profile files."
+    )
+    remove.add_argument("email")
+
+    set_admin = user_commands.add_parser(
+        "set-admin", help="Let a tutor manage every account in the web app."
+    )
+    set_admin.add_argument("email")
+    set_admin.add_argument("--revoke", action="store_true")
+
     profiles = groups.add_parser("profiles", help="What the AI is told about each user.")
     profile_commands = profiles.add_subparsers(dest="command", required=True)
 
@@ -179,16 +190,23 @@ def build_parser() -> argparse.ArgumentParser:
 def run_users(args: argparse.Namespace, admin: UserAdmin) -> None:
     if args.command == "add":
         user = admin.add(args.email, args.name, Role(args.role), args.tutor)
-        print(f"Added {user.role} {user.email} ({user.id}).")
+        print(f"Invited {user.role} {user.email}. {SIGN_UP_INSTRUCTIONS}")
     elif args.command == "list":
         for user in admin.list():
+            admin_flag = "admin" if user.is_admin else "-"
             print(
-                f"{user.email}	{user.display_name}	{user.role}	{user.status}	{user.id}"
+                f"{user.email}\t{user.display_name}\t{user.role}\t{user.status}\t"
+                f"{admin_flag}\t{user.id}"
             )
     elif args.command == "lock":
         print(f"Locked {admin.lock(args.email, args.reason).email}.")
     elif args.command == "unlock":
         print(f"Unlocked {admin.unlock(args.email, args.reason).email}.")
+    elif args.command == "remove":
+        print(f"Removed {admin.remove(args.email).email} and their data.")
+    elif args.command == "set-admin":
+        user = admin.set_admin(args.email, not args.revoke)
+        print(f"{user.email} is {'now' if user.is_admin else 'no longer'} an admin.")
 
 
 def run_profiles(args: argparse.Namespace, tools: TutorTools) -> None:

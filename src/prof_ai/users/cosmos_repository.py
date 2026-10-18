@@ -36,5 +36,11 @@ class CosmosUserRepository:
     def save(self, user: User) -> None:
         self._users.upsert_item(user.model_dump(mode="json"))
 
+    def delete(self, user_id: str) -> None:
+        try:
+            self._users.delete_item(user_id, partition_key=user_id)
+        except CosmosResourceNotFoundError:
+            pass
+
     def record(self, event: AuditEvent) -> None:
         self._audit.create_item(event.model_dump(mode="json"))

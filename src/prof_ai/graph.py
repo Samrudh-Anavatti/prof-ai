@@ -39,3 +39,6 @@ class GraphClient:
 
     def patch(self, path: str, json: Any) -> Any:
         return self.request("PATCH", path, json)
+
+    def delete(self, path: str) -> Any:
+        return self.request("DELETE", path)

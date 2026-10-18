@@ -1,5 +1,8 @@
 """Configures the External ID tenant: web app registration, consent, email-OTP user flow.
 
+Sign-up is open: anyone can create an account, but the app only lets in emails a tutor invited
+(ADR 0004). The app links an invite through the ID token's email claim.
+
 Idempotent. Before the first run, enable "Email OTP" in the External ID tenant's authentication
 methods (Entra admin center); the Azure CLI's Graph token can't change that policy.
 Run as a tenant admin after `az login`:
@@ -34,12 +37,13 @@ def ensure_app(graph: GraphClient) -> dict:
     app = find_one(graph, f"/applications?$filter=displayName eq '{APP_NAME}'")
     # App Service Authentication signs in with the hybrid flow (response_type=code id_token).
     web = {"redirectUris": REDIRECT_URIS, "implicitGrantSettings": {"enableIdTokenIssuance": True}}
+    settings = {"web": web, "optionalClaims": {"idToken": [{"name": "email"}]}}
     if app:
-        graph.patch(f"/applications/{app['id']}", {"web": web})
+        graph.patch(f"/applications/{app['id']}", settings)
         return app
     return graph.post(
         "/applications",
-        {"displayName": APP_NAME, "signInAudience": "AzureADMyOrg", "web": web},
+        {"displayName": APP_NAME, "signInAudience": "AzureADMyOrg", **settings},
     )
 
 
@@ -72,16 +76,23 @@ def ensure_sign_in_consent(graph: GraphClient, client_sp_id: str) -> None:
 def ensure_user_flow(graph: GraphClient, app_id: str) -> dict:
     flows = graph.get("/identity/authenticationEventsFlows")["value"]
     flow = next((f for f in flows if f["displayName"] == USER_FLOW_NAME), None)
-    if not flow:
+    flow_type = ODATA + "externalUsersSelfServiceSignUpEventsFlow"
+    sign_up = {
+        "@odata.type": ODATA + "onInteractiveAuthFlowStart" + SIGN_UP_FLOW_TYPE,
+        "isSignUpAllowed": True,
+    }
+    if flow:
+        graph.patch(
+            f"/identity/authenticationEventsFlows/{flow['id']}",
+            {"@odata.type": flow_type, "onInteractiveAuthFlowStart": sign_up},
+        )
+    else:
         flow = graph.post(
             "/identity/authenticationEventsFlows",
             {
-                "@odata.type": "#microsoft.graph.externalUsersSelfServiceSignUpEventsFlow",
+                "@odata.type": flow_type,
                 "displayName": USER_FLOW_NAME,
-                "onInteractiveAuthFlowStart": {
-                    "@odata.type": ODATA + "onInteractiveAuthFlowStart" + SIGN_UP_FLOW_TYPE,
-                    "isSignUpAllowed": False,
-                },
+                "onInteractiveAuthFlowStart": sign_up,
                 "onAuthenticationMethodLoadStart": {
                     "@odata.type": ODATA + "onAuthenticationMethodLoadStart" + SIGN_UP_FLOW_TYPE,
                     "identityProviders": [{"id": "EmailOtpSignup-OAUTH"}],
