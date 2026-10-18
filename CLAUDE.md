@@ -64,7 +64,14 @@ Tutor CLI (installed by `requirements-dev.txt`, needs `az login` and `STORAGE_AC
 .venv/Scripts/prof users list
 .venv/Scripts/prof users lock alex@example.com --reason "Prompt injection attempt"
 .venv/Scripts/prof users unlock alex@example.com
+.venv/Scripts/prof profiles set alex@example.com --profile alex.md        # what the AI is told about Alex
+.venv/Scripts/prof profiles set sam@example.com --teaching-style style.md # tutors: applies to their students
+.venv/Scripts/prof profiles show alex@example.com                         # files + full system prompt
+.venv/Scripts/prof chats list alex@example.com
+.venv/Scripts/prof chats show alex@example.com <conversation-id>
 ```
+
+The tutor chat calls Luna through `prof_ai.chat`. Every model call must go through `ChatService`, which enforces the input cap, budgets, kill switch and rate limit before calling the model. Locally it uses your `az login` and costs real tokens.
 
 For local runs without signing in, set `DEV_USER_ID` in `.env` to your External ID object ID (from `prof users list`). The app refuses it anywhere but local.
 
