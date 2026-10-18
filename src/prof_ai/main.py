@@ -6,6 +6,8 @@ from prof_ai.auth import CurrentUser
 from prof_ai.chat.api import create_chat_router
 from prof_ai.chat.service import ChatLimits, ChatService
 from prof_ai.config import Settings, load_settings
+from prof_ai.profiles.api import create_profiles_router
+from prof_ai.profiles.store import ProfileStore
 from prof_ai.users.repository import UserRepository
 from prof_ai.web import STATIC_DIR, mount_frontend
 
@@ -24,6 +26,7 @@ def create_api_router() -> APIRouter:
         }
 
     api.include_router(create_chat_router())
+    api.include_router(create_profiles_router())
     return api
 
 
@@ -35,20 +38,24 @@ def chat_limits(settings: Settings) -> ChatLimits:
     )
 
 
-def azure_chat_service(settings: Settings) -> ChatService | None:
-    if not (
-        settings.foundry_endpoint and settings.cosmos_endpoint and settings.storage_account_url
-    ):
+def azure_profile_store(settings: Settings) -> ProfileStore | None:
+    if not settings.storage_account_url:
+        return None
+    from prof_ai.content.azure_backend import AzureBlobBackend
+
+    return ProfileStore(AzureBlobBackend(settings.storage_account_url))
+
+
+def azure_chat_service(settings: Settings, profiles: ProfileStore | None) -> ChatService | None:
+    if not (settings.foundry_endpoint and settings.cosmos_endpoint and profiles):
         return None
     from prof_ai.chat.cosmos_store import CosmosChatStore
     from prof_ai.chat.model import FoundryChatModel
-    from prof_ai.content.azure_backend import AzureBlobBackend
-    from prof_ai.profiles.store import ProfileStore
 
     return ChatService(
         FoundryChatModel(settings.foundry_endpoint, settings.chat_deployment),
         CosmosChatStore(settings.cosmos_endpoint),
-        ProfileStore(AzureBlobBackend(settings.storage_account_url)),
+        profiles,
         chat_limits(settings),
     )
 
@@ -57,6 +64,7 @@ def create_app(
     settings: Settings | None = None,
     user_repository: UserRepository | None = None,
     chat_service: ChatService | None = None,
+    profile_store: ProfileStore | None = None,
     static_dir: Path = STATIC_DIR,
 ) -> FastAPI:
     settings = settings or load_settings()
@@ -65,8 +73,10 @@ def create_app(
         from prof_ai.users.cosmos_repository import CosmosUserRepository
 
         user_repository = CosmosUserRepository(settings.cosmos_endpoint)
+    if profile_store is None:
+        profile_store = azure_profile_store(settings)
     if chat_service is None:
-        chat_service = azure_chat_service(settings)
+        chat_service = azure_chat_service(settings, profile_store)
 
     docs_enabled = not settings.is_production
     app = FastAPI(
@@ -78,6 +88,7 @@ def create_app(
     app.state.settings = settings
     app.state.user_repository = user_repository
     app.state.chat_service = chat_service
+    app.state.profile_store = profile_store
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

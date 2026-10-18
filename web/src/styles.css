@@ -298,6 +298,113 @@ textarea {
   font-size: 0.8rem;
 }
 
+.nav-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.style-page {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.style-page h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.style-editor {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.92rem;
+  resize: vertical;
+}
+
+.style-editor:focus {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.style-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
+
+.byte-count {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.byte-count.over {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.primary,
+.secondary {
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.secondary {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.style-status {
+  margin: 0 0 0.6rem;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.prompt-preview {
+  margin-top: 1.25rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.prompt-preview summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.prompt-preview pre {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: var(--paper);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 720px) {
   .chat-layout {
     grid-template-columns: 1fr;

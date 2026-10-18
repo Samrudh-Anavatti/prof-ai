@@ -28,6 +28,7 @@ Every feature, however small, gets a folder: `docs/features/YYYY-MM-DD-<short-sl
 2. Build the feature on its branch.
 3. Add regression tests (see Testing).
 4. **Before merging**, write `handover.md`: what was actually built (and how it differs from the plan), how to run or use it, contracts other code now relies on, the tests added, known issues or TODOs, and anything the other person needs to know or do. Set the INDEX row to `merged`.
+   - **Update `README.md`:** replace the **🆕 Latest** section with your feature (date, owner, what changed, links to plan and handover), and move the previous one into the "Earlier features" table. Also update "Where we are", "Open items" and the architecture diagram or access table if your feature changed them. The README is how the other person sees what changed without reading every handover.
 5. Run the full test suite. Only merge if it's green.
 
 Don't skip the docs. The other person's agent depends on them because it wasn't there for the work.
@@ -48,13 +49,13 @@ python -m venv .venv
 cp .env.example .env
 (cd web && npm ci)                                             # frontend deps (Node 22)
 bash scripts/test.sh                                           # full suite (pytest + vitest)
-.venv/Scripts/python -m uvicorn prof_ai.main:app --app-dir src --reload
+.venv/Scripts/python -m uvicorn prof_ai.main:app --app-dir src --reload --env-file .env
 (cd web && npm run dev)                                        # Vite on :5173, proxies /api to :8000
 (cd web && npm run build)                                      # or build once and use :8000 alone
 bash scripts/deploy-infra.sh --what-if                         # preview infra changes, then run without the flag
 ```
 
-Tutor CLI (installed by `requirements-dev.txt`, needs `az login` and `STORAGE_ACCOUNT_URL` in `.env`):
+Tutor CLI (installed by `requirements-dev.txt` into the venv, so run it as `.venv/Scripts/prof` from the repo root or activate the venv first; needs `az login` and `STORAGE_ACCOUNT_URL` in `.env`):
 
 ```bash
 .venv/Scripts/prof content add-book book.pdf --slug maths-9-core --title "Maths 9" --subject maths --grades 9 --licence-type licensed
@@ -70,6 +71,8 @@ Tutor CLI (installed by `requirements-dev.txt`, needs `az login` and `STORAGE_AC
 .venv/Scripts/prof chats list alex@example.com
 .venv/Scripts/prof chats show alex@example.com <conversation-id>
 ```
+
+Tutors can also edit their teaching style in the web app at `/teaching-style` (`GET`/`PUT /api/teaching-style`, tutors only, audited). The app's identity can write only to the `profiles` container.
 
 The tutor chat calls Luna through `prof_ai.chat`. Every model call must go through `ChatService`, which enforces the input cap, budgets, kill switch and rate limit before calling the model. Locally it uses your `az login` and costs real tokens.
 

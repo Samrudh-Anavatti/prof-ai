@@ -48,7 +48,7 @@ content/
   worksheets/<slug>/questions.json                          visible to student agent
 answer-keys/                                                separate container; marking only
 profiles/<user-id>/profile.md                               what the AI is told about a user (built)
-profiles/<user-id>/teaching-style.md                        a tutor's style, applied to them and their students (built)
+profiles/<user-id>/teaching-style.md                        a tutor's style, applied to them and their students; editable in the web app (built)
 ```
 
 **2. Lazy ingestion.** A chapter is extracted to markdown (e.g. with Document Intelligence, priced per page) and chunked only when a tutor first assigns it. We pay per chapter used, not per library.

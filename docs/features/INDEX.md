@@ -12,6 +12,7 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-14 | Auth: invite-only sign-in, users, locks | Sam | merged | [plan](2026-10-14-auth/plan.md) · [handover](2026-10-14-auth/handover.md) |
 | 2026-10-18 | Frontend skeleton: React SPA served by FastAPI (ADR 0003) | Sam | merged | [plan](2026-10-18-frontend-skeleton/plan.md) · [handover](2026-10-18-frontend-skeleton/handover.md) |
 | 2026-10-18 | Tutor chat PoC with per-user AI profiles | Sam | merged | [plan](2026-10-18-tutor-chat/plan.md) · [handover](2026-10-18-tutor-chat/handover.md) |
+| 2026-10-18 | Teaching style editor in the web UI, plus README overhaul | Sam | merged | [plan](2026-10-18-teaching-style-editor/plan.md) · [handover](2026-10-18-teaching-style-editor/handover.md) |
 | — | Next: knowledge base (chapter extraction, curricula) and context injection | Sam | planned | — |
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
