@@ -97,10 +97,15 @@ export async function getJson<T>(path: string, options: ApiOptions = {}): Promis
   return (await (await request(path, {}, options)).json()) as T;
 }
 
-async function postJson<T>(path: string, body: unknown, options: ApiOptions = {}): Promise<T> {
+async function sendJson<T>(
+  method: "POST" | "PUT",
+  path: string,
+  body: unknown,
+  options: ApiOptions = {},
+): Promise<T> {
   const response = await request(
     path,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+    { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
     options,
   );
   return (await response.json()) as T;
@@ -115,11 +120,25 @@ export function listConversations(options?: ApiOptions): Promise<ConversationSum
 }
 
 export function startConversation(options?: ApiOptions): Promise<ConversationSummary> {
-  return postJson<ConversationSummary>("/api/chat/conversations", {}, options);
+  return sendJson<ConversationSummary>("POST", "/api/chat/conversations", {}, options);
 }
 
 export function getConversation(id: string, options?: ApiOptions): Promise<ConversationDetail> {
   return getJson<ConversationDetail>(`/api/chat/conversations/${encodeURIComponent(id)}`, options);
+}
+
+export interface TeachingStyle {
+  content: string;
+  system_prompt: string;
+  max_bytes: number;
+}
+
+export function getTeachingStyle(options?: ApiOptions): Promise<TeachingStyle> {
+  return getJson<TeachingStyle>("/api/teaching-style", options);
+}
+
+export function saveTeachingStyle(content: string, options?: ApiOptions): Promise<TeachingStyle> {
+  return sendJson<TeachingStyle>("PUT", "/api/teaching-style", { content }, options);
 }
 
 export interface ReplyHandlers {

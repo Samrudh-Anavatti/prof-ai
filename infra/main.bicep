@@ -312,11 +312,12 @@ resource profilesContainer 'Microsoft.Storage/storageAccounts/blobServices/conta
   name: 'profiles'
 }
 
-resource appReadsProfiles 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+// Tutors save their teaching style through the app; scoped to this container only.
+resource appWritesProfiles 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: profilesContainer
-  name: guid(profilesContainer.id, webApp.id, roles.blobReader)
+  name: guid(profilesContainer.id, webApp.id, roles.blobContributor)
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobReader)
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobContributor)
     principalId: webApp.identity.principalId
     principalType: 'ServicePrincipal'
   }

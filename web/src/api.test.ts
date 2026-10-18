@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ApiError, getMe, sendMessage, signInUrl, type Me } from "./api";
+import {
+  ApiError,
+  getMe,
+  saveTeachingStyle,
+  sendMessage,
+  signInUrl,
+  type Me,
+  type TeachingStyle,
+} from "./api";
 
 const ME: Me = {
   id: "oid-1",
@@ -133,6 +141,31 @@ describe("sendMessage", () => {
     const fetchFn = fakeFetch(jsonResponse(429, { detail }));
     await expect(sendMessage("c1", "hi", noop, { fetchFn })).rejects.toMatchObject({
       status: 429,
+      message: detail,
+    });
+  });
+});
+
+describe("saveTeachingStyle", () => {
+  const STYLE: TeachingStyle = { content: "Be brief.", system_prompt: "...", max_bytes: 8192 };
+
+  it("PUTs the content as JSON and returns the saved style", async () => {
+    const fetchFn = fakeFetch(jsonResponse(200, STYLE));
+    await expect(saveTeachingStyle("Be brief.", { fetchFn })).resolves.toEqual(STYLE);
+    const [path, init] = fetchFn.mock.calls[0];
+    expect(path).toBe("/api/teaching-style");
+    expect(init).toMatchObject({
+      method: "PUT",
+      body: JSON.stringify({ content: "Be brief." }),
+      headers: expect.objectContaining({ "Content-Type": "application/json" }),
+    });
+  });
+
+  it("surfaces validation errors from the server", async () => {
+    const detail = "The profile is 9000 bytes; the limit is 8192.";
+    const fetchFn = fakeFetch(jsonResponse(400, { detail }));
+    await expect(saveTeachingStyle("x", { fetchFn })).rejects.toMatchObject({
+      status: 400,
       message: detail,
     });
   });
