@@ -7,9 +7,9 @@ Direction only, not settled. Decisions get recorded as ADRs in `docs/decisions/`
 ```
 Student browser ─┐                       ┌─ Foundry: chat model (small) / marking model
 Tutor browser ───┼─> Web app ─> API ─────┼─ Azure AI Content Safety (Prompt Shields, harm filters)
-Tutor CLI ───────┘   (App Service)       ├─ PostgreSQL flexible server (app data, usage, audit; pgvector if needed)
+Tutor CLI ───────┘   (App Service)       ├─ Cosmos DB serverless (users, audit; later assignments, chats, usage)
                                          └─ Blob storage: content store (private, read-only to agents)
-Identity: Entra External ID · Secrets: Key Vault + managed identity · Telemetry: App Insights
+Identity: Entra External ID + App Service Authentication · Secrets: Key Vault · Telemetry: App Insights
 ```
 
 - **API.** One backend service that owns auth, authorization, guardrails, budgets and every model call. The browser never talks to a model directly.
@@ -54,7 +54,7 @@ answer-keys/                                                separate container; 
 **3. Tiered context for the assistant:**
   1. **Chapter in context.** A chapter is typically small enough to fit in the prompt. With prompt caching, this is cheap and gives the strongest grounding. This is the default.
   2. **Traversal.** The agent reads the manifest/syllabus to pull a linked section or prerequisite topic.
-  3. **Session vector lookup.** For large material, load that chapter's `chunks.json` and run a similarity search in-process. Move to pgvector only if that gets slow. No search service.
+  3. **Session vector lookup.** For large material, load that chapter's `chunks.json` and run a similarity search in-process. Move to Cosmos DB vector search only if that gets slow. No search service.
 
 **4. Isolation by storage, not prompts.** The student agent's identity can read `content/` but not `answer-keys/`, and can only fetch paths under its current assignment.
 
@@ -63,13 +63,13 @@ answer-keys/                                                separate container; 
 - A small model by default; a larger one only for marking edge cases.
 - Prompt caching for the chapter context; truncate or summarise long chats.
 - Per-student token budgets enforced in the API; global monthly cap; Azure budget alert on `rg-prof-ai`.
-- Cheap tiers: App Service B-tier, Postgres Burstable, Blob hot/cool, Entra External ID (free at our scale).
+- Cheap tiers: App Service B-tier, Cosmos DB serverless, Blob hot/cool, Entra External ID (free at our scale).
 
 ## To decide (ADRs)
 
 - **Languages:** probably Python (FastAPI) for the API plus TypeScript (React) for the web app.
 - **Agent framework:** Microsoft Agent Framework or a plain Foundry SDK tool loop.
 - **Models:** the chat model and the marking model, picked from what's deployable in Foundry at the time, by cost.
-- **Data store:** Postgres, or Cosmos DB serverless.
+- ~~Data store~~: Cosmos DB serverless ([ADR 0002](../decisions/0002-auth-and-users.md)).
 - **Rate limiting:** API Management (has LLM token-limit policies) or limits in the app.
 - **IaC:** Bicep.

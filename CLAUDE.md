@@ -9,8 +9,9 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
 
 - **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
-- Stack ([ADR 0001](docs/decisions/0001-stack.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage. Bicep for infrastructure, GitHub Actions for CI/CD. The frontend isn't chosen yet. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
-- No keys anywhere: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity.
+- Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication. Bicep for infrastructure, GitHub Actions for CI/CD. The frontend isn't chosen yet. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
+- No keys in code or config: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity. The one unavoidable secret (App Service Authentication's client secret) lives in Key Vault; rotate it with `scripts/rotate_auth_secret.py`.
+- **Every endpoint except `/healthz` must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced.
 - Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
@@ -56,7 +57,13 @@ Tutor CLI (installed by `requirements-dev.txt`, needs `az login` and `STORAGE_AC
 .venv/Scripts/prof content add-book book.pdf --slug maths-9-core --title "Maths 9" --subject maths --grades 9 --licence-type licensed
 .venv/Scripts/prof content list
 .venv/Scripts/prof content show maths-9-core
+.venv/Scripts/prof users add --email alex@example.com --name Alex --role student --tutor <tutor email>
+.venv/Scripts/prof users list
+.venv/Scripts/prof users lock alex@example.com --reason "Prompt injection attempt"
+.venv/Scripts/prof users unlock alex@example.com
 ```
+
+For local runs without signing in, set `DEV_USER_ID` in `.env` to your External ID object ID (from `prof users list`). The app refuses it anywhere but local.
 
 App code lives in `src/prof_ai/`. Pushing to `master` deploys automatically (`.github/workflows/deploy.yml`).
 

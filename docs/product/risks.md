@@ -35,13 +35,14 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R6 | Wrong explanation or hallucination | Answers grounded in tutor content; groundedness check; "I'm not sure, ask your tutor" fallback; tutor sees transcripts | 1 |
 | R7 | Unfair or wrong AI marking | Deterministic marking where possible; rubric-based AI marking with confidence; low confidence goes to the tutor; tutor override; marks provisional until confirmed or after a review window | 1 |
 | R8 | One student sees another's data | Every query scoped by student ID server-side; authorization tests in the regression suite | 1 |
-| R9 | Account takeover / shared logins | Managed identity provider (Entra External ID); no self-signup, the tutor invites; anomaly flags (new device, odd hours, volume) | 1 |
+| R9 | Account takeover / shared logins | Entra External ID (built); sign-up disabled, tutor invites via `prof users add` (built); app-side allowlist + per-request lock check (built); anomaly flags (new device, odd hours, volume) still to do | 1 |
 | R10 | Children's personal data mishandled | Data minimisation (first name only?); no real data in repo or logs; encryption at rest; retention policy; parental consent | 1 (before real students) |
 | R11 | Safeguarding disclosure missed | Self-harm/violence categories trigger an immediate tutor flag; safeguarding exception above | 1 |
 | R12 | Textbook licence breach | Licence check before uploading a book; prefer our own content; limit verbatim excerpt length | 1 |
 | R13 | Secrets leaked (public repo) | `.env` gitignored; Key Vault + managed identity in Azure; secret scanning on the repo | 0 |
 | R14 | Inappropriate images or PII in uploaded photos | Image content safety; strip EXIF; tutor-only visibility | 2 |
 | R15 | Generated questions are wrong or off-curriculum | Tutor approves generated questions before students see them | 2 |
+| R17 | Auth client secret leaks or expires | Stored only in Key Vault, read by the app's managed identity; 180-day expiry; `scripts/rotate_auth_secret.py`. Current secret expires 2027-04-16 | 1 |
 | R16 | Student prompts processed outside the UK (GlobalStandard model deployment) | Synthetic data only until resolved; before real students, review the data processing terms or move to a regional/data-zone deployment | 1 (before real students) |
 
 ## Risk checklist for a feature plan
