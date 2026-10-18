@@ -25,7 +25,7 @@ var tags = {
   owner: owner
 }
 var suffix = take(uniqueString(resourceGroup().id), 6)
-var contentContainers = ['sources', 'content', 'answer-keys']
+var contentContainers = ['sources', 'content', 'answer-keys', 'profiles']
 var roles = {
   openAiUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
   blobReader: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
@@ -161,6 +161,8 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
   for container in [
     { name: 'users', partitionKey: '/id' }
     { name: 'audit', partitionKey: '/user_id' }
+    { name: 'conversations', partitionKey: '/user_id' }
+    { name: 'usage', partitionKey: '/user_id' }
   ]: {
     parent: cosmosDatabase
     name: container.name
@@ -219,6 +221,9 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights.properties.ConnectionString }
         { name: 'FOUNDRY_ENDPOINT', value: foundry.properties.endpoint }
         { name: 'CHAT_DEPLOYMENT', value: chatDeployment.name }
+        { name: 'CHAT_ENABLED', value: 'true' }
+        { name: 'CHAT_DAILY_USER_TOKENS', value: '50000' }
+        { name: 'CHAT_DAILY_GLOBAL_TOKENS', value: '500000' }
         { name: 'STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
         { name: 'EXTERNAL_TENANT_ID', value: externalTenantId }
@@ -294,6 +299,22 @@ resource contentContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
 resource appReadsContent 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: contentContainer
   name: guid(contentContainer.id, webApp.id, roles.blobReader)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobReader)
+    principalId: webApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [containers]
+}
+
+resource profilesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' existing = {
+  parent: blobService
+  name: 'profiles'
+}
+
+resource appReadsProfiles 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: profilesContainer
+  name: guid(profilesContainer.id, webApp.id, roles.blobReader)
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.blobReader)
     principalId: webApp.identity.principalId
