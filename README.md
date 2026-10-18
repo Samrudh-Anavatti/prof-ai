@@ -50,12 +50,13 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | | Area | State |
 |---|------|-------|
 | ✅ | **Infra**: App Service, Foundry, Cosmos, Blob, Key Vault, budget alerts, all in Bicep | Live |
-| ✅ | **Sign-in**: invite-only Entra External ID, per-request account locks | Live |
+| ✅ | **Sign-in**: Entra External ID with email-code sign-up; only invited emails get in; per-request account locks | Live |
 | ✅ | **Content store**: upload textbooks with `prof content add-book` | Live (CLI) |
 | ✅ | **Web app**: React SPA served by FastAPI on one origin, strict CSP | Live |
 | ✅ | **Tutor chat with Luna**: streamed replies, transcripts, per-user budgets and kill switch | Live |
 | ✅ | **Per-user AI configuration**: tutor teaching style + per-user profile in the system prompt | Live |
-| ✅ | **Teaching style editor** in the web UI for tutors | This branch → live after merge |
+| ✅ | **Teaching style editor** in the web UI for tutors | Live |
+| ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live after merge + tenant setup |
 | 🔜 | **Knowledge base**: chapter extraction, curricula, context injection | Next |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -66,23 +67,30 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Teaching style editor · 2026-10-18 · Sam
+### Users admin page and email-code invites · 2026-10-18 · Sam
 
-Tutors can now shape how Luna teaches **without the CLI**:
+Managing accounts no longer needs the CLI, and new users don't need a password:
 
-- **Teaching style** in the top bar (tutors only) opens an editor for `profiles/<tutor-id>/teaching-style.md`.
-- **Save and try it** saves, then opens a new chat, so you see the effect straight away. Changes apply from the next message, to you and every student you tutor.
-- **What Luna is told** shows the fully assembled system prompt.
-- Saves are capped at 8 KB and audited; students get 403.
-- **API:** `GET` / `PUT /api/teaching-style`.
+- **Users** in the top bar (tutors) lists accounts with status pills: Invited, Active, Locked.
+  - **Admins** (`prof users set-admin`) see and manage everyone, and can invite tutors.
+  - **Other tutors** see and manage only their own students.
+- **Invite** takes an email and a first name. The person opens the site, **creates an account with that email** and enters the emailed code. Their first sign-in links the invite, with no "Forgot password" step ([ADR 0004](docs/decisions/0004-invites-and-sign-up.md)).
+- **Lock** (needs a reason) and **Unlock** take effect immediately.
+- **Delete** erases the account, chats, usage and profile files.
+- Everything is audited. You can't lock or delete yourself.
+- **CLI:**
+  - `prof users add` now sends an invite.
+  - New `prof users remove` and `prof users set-admin`.
+- **API:** `GET` / `POST /api/users`, `POST /api/users/{id}/lock|unlock`, `DELETE /api/users/{id}`.
 
-📄 [plan](docs/features/2026-10-18-teaching-style-editor/plan.md) · [handover](docs/features/2026-10-18-teaching-style-editor/handover.md)
+📄 [plan](docs/features/2026-10-18-user-admin/plan.md) · [handover](docs/features/2026-10-18-user-admin/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-18 | **Teaching style editor**: edit and try your teaching style in the web app | Sam | [handover](docs/features/2026-10-18-teaching-style-editor/handover.md) |
 | 2026-10-18 | **Tutor chat PoC**: chat with Luna, per-user profiles, budgets, transcripts CLI | Sam | [handover](docs/features/2026-10-18-tutor-chat/handover.md) |
 | 2026-10-18 | **Frontend skeleton**: React SPA served by FastAPI | Sam | [handover](docs/features/2026-10-18-frontend-skeleton/handover.md) |
 | 2026-10-14 | **Auth**: invite-only sign-in, users, locks | Sam | [handover](docs/features/2026-10-14-auth/handover.md) |
@@ -100,6 +108,7 @@ Tutors can now shape how Luna teaches **without the CLI**:
 | Live app | https://prof-ai.azurewebsites.net |
 | Health check (no sign-in) | https://prof-ai.azurewebsites.net/healthz |
 | Teaching style editor (tutors) | https://prof-ai.azurewebsites.net/teaching-style |
+| Users admin (tutors) | https://prof-ai.azurewebsites.net/users |
 | Repository | https://github.com/Samrudh-Anavatti/prof-ai |
 | Pull requests | https://github.com/Samrudh-Anavatti/prof-ai/pulls |
 | CI / deploy runs | https://github.com/Samrudh-Anavatti/prof-ai/actions |
@@ -124,7 +133,7 @@ Tutors can now shape how Luna teaches **without the CLI**:
 |------|------|
 | Feature index (read first) | [docs/features/INDEX.md](docs/features/INDEX.md) |
 | Vision, architecture, risk register | [vision](docs/product/vision.md) · [architecture](docs/product/architecture.md) · [risks](docs/product/risks.md) |
-| Decisions (ADRs) | [0001 stack](docs/decisions/0001-stack.md) · [0002 auth](docs/decisions/0002-auth-and-users.md) · [0003 frontend](docs/decisions/0003-frontend.md) |
+| Decisions (ADRs) | [0001 stack](docs/decisions/0001-stack.md) · [0002 auth](docs/decisions/0002-auth-and-users.md) · [0003 frontend](docs/decisions/0003-frontend.md) · [0004 invites](docs/decisions/0004-invites-and-sign-up.md) |
 | Agent and contributor rules | [CLAUDE.md](CLAUDE.md) |
 
 ## ☁️ Azure architecture
@@ -172,8 +181,8 @@ flowchart LR
     EA -. reads secret .-> KV
     APP -. telemetry .-> MON
     CLI -- "upload books, set profiles" --> BLOB
-    CLI -- "users, locks, transcripts" --> COS
-    CLI -- "invite / disable accounts (Graph)" --> EXT
+    CLI -- "invites, locks, transcripts" --> COS
+    CLI -- "disable / delete accounts (Graph)" --> EXT
     GHA -- "OIDC, no secrets" --> DEP
     DEP -- "deploys the app" --> APP
 ```
@@ -184,7 +193,7 @@ flowchart LR
 |---------|----------|-----------------|------------------|--------------|
 | **App Service** (Linux B1) | `prof-ai` on `plan-prof-ai` | Runs one FastAPI app that serves both the JSON API (`/api/*`) and the built React app. Owns every rule: sign-in check, account locks, budgets, rate limits and every model call. The browser never talks to a model directly. | The public internet, but only through Easy Auth | ~£10/month fixed |
 | **Easy Auth** (App Service Authentication) | config on `prof-ai` | Forces sign-in on every path except `/healthz` and hands the app a trusted identity header. | n/a | free |
-| **Entra External ID** | `profai.onmicrosoft.com` | Holds student and tutor accounts in a tenant **separate** from the one that controls Azure, so a child's account has no reach into infra. Sign-up is off; tutors invite with `prof users add`. | Tutors (admin) via CLI/portal | free at our scale |
+| **Entra External ID** | `profai.onmicrosoft.com` | Holds student and tutor accounts in a tenant **separate** from the one that controls Azure, so a child's account has no reach into infra. Anyone can sign up with an email code, but the app only admits emails a tutor invited ([ADR 0004](docs/decisions/0004-invites-and-sign-up.md)). The web app never calls Graph. | Tutors (admin) via CLI/portal | free at our scale |
 | **Microsoft Foundry** | `foundry-prof-ai`, deployment `gpt-5.6-luna` (GlobalStandard, 10k TPM) | The tutor model ("Luna"). Content filters (DefaultV2) run on input and output. Key auth is disabled. | App and tutors (Entra role) | pay per token |
 | **Cosmos DB** (serverless) | `cosmos-prof-ai`, database `prof-ai` | App data: `users` (role, status, tutor), `audit` (locks, unlocks, style edits), `conversations` (messages, tokens, flags), `usage` (tokens per user per UTC day). Entra-only, with continuous 7-day backup. | App and tutors (data role) | ~£0 at our scale |
 | **Blob storage** | `stprofaicjzzqh` | The content store: `sources/` (original PDFs, tutors only), `content/` (manifests and extracted chapters, app reads), `answer-keys/` (marking only), `profiles/` (per-user markdown injected into the prompt). No public access, no shared keys, 14-day soft delete. | See the access table below | pennies |
@@ -246,6 +255,7 @@ sequenceDiagram
 | [0001](docs/decisions/0001-stack.md) | **Python 3.11 + FastAPI on App Service B1**, Foundry `gpt-5.6-luna`, Blob, Bicep, GitHub Actions; managed identity everywhere | Fast, cheap (~£10/month fixed), a path the team knows, and no keys next to a public repo |
 | [0002](docs/decisions/0002-auth-and-users.md) | **Entra External ID** (separate tenant) + **Easy Auth**; invite-only; **Cosmos DB serverless** for app data | Children's accounts kept away from the Azure tenant; locks checked on every request; ~£0 vs ~£12/month for Postgres |
 | [0003](docs/decisions/0003-frontend.md) | **React + TypeScript (Vite)**, built into the Python package and served by FastAPI from one origin | One cookie covers the app and API, with no CORS and no second auth setup; strict CSP |
+| [0004](docs/decisions/0004-invites-and-sign-up.md) | **Email-code sign-up, gated by invites in the app**; the first sign-in links the invite by its verified email | No passwords or reset step for new users, and no Graph rights for the web app |
 | *(in feature plans)* | **A content store in Blob, not a search index**: chapter-in-context first, lazy extraction | A student only needs the chapter they're on, so an always-on search cluster would be wasted money |
 | *(in feature plans)* | **Per-user AI configuration as markdown files in Blob**, layered after the base prompt | Easy for tutors to read and edit; safety rules always come first |
 | *(in feature plans)* | **Hard budgets in the app**: per-user and global daily token caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
@@ -277,13 +287,12 @@ sequenceDiagram
 
 **Decisions for Sam**
 
-- [ ] **Student sign-in**: keep email + password, or move to passwordless email codes (see the [auth handover](docs/features/2026-10-14-auth/handover.md)).
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
 
 **Setup and housekeeping**
 
-- [ ] **Punjy's access**: add Punjy to the workforce tenant and `tutorPrincipalIds`, make Punjy an External ID admin, and create a tutor account (`prof users add --role tutor`).
-- [ ] **After this branch's infra deploy**: delete the app's old *Storage Blob Data Reader* assignment on the `profiles` container (now superseded by Contributor).
+- [ ] **Punjy's access**: invite Punjy as a tutor at `/users` (and `prof users set-admin` if Punjy should manage everyone); for Azure and CLI access, add Punjy to the workforce tenant and `tutorPrincipalIds`.
+- [ ] **Roll out invites** (after merging the users admin page): run `scripts/setup_external_id.py` (opens sign-up and adds the email claim), `prof users set-admin` yourself, then test an invite end to end.
 - [ ] **Rotate the auth secret by 2027-04-16** (`scripts/rotate_auth_secret.py`).
 - [ ] **Verify live**: Easy Auth returns 401 rather than 302 to `fetch` when a session expires; replies stream word by word on App Service.
 
@@ -321,9 +330,11 @@ The CLI lives in the virtual environment. Run it as `.venv/Scripts/prof …` fro
 
 | Task | Command |
 |------|---------|
-| Invite a student | `prof users add --email alex@example.com --name Alex --role student --tutor <tutor email>` |
+| Invite a student (or use `/users`) | `prof users add --email alex@example.com --name Alex --role student --tutor <tutor email>` |
 | List users | `prof users list` |
 | Lock / unlock | `prof users lock alex@example.com --reason "…"` · `prof users unlock alex@example.com` |
+| Delete someone and their data | `prof users remove alex@example.com` (also deletes their sign-in account) |
+| Make a tutor an admin | `prof users set-admin you@example.com` (`--revoke` to undo) |
 | Set what the AI knows about someone | `prof profiles set alex@example.com --profile alex.md` |
 | Set your teaching style (or use the web page) | `prof profiles set you@example.com --teaching-style style.md` |
 | See the exact system prompt | `prof profiles show alex@example.com` |
@@ -340,10 +351,10 @@ src/prof_ai/
   web.py               serves the React shell with a strict CSP
   chat/                ChatService (all model calls), Foundry client, prompts, Cosmos store, limits
   profiles/            per-user markdown store + the teaching-style API
-  users/               user model, Cosmos repository, External ID admin
+  users/               user model, invites, the /api/users admin API, Cosmos repository
   content/             Blob content store, PDF manifests
   cli.py               the `prof` tutor CLI
-web/src/               React app: App, ChatPage, TeachingStylePage, API client, SSE parser
+web/src/               React app: App, ChatPage, TeachingStylePage, UsersPage, API client, SSE parser
 tests/<feature>/       shared regression suite, one folder per feature
 infra/                 main.bicep + main.bicepparam
 docs/                  product drafts, ADRs, one folder per feature (plan + handover)
