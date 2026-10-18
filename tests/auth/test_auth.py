@@ -26,7 +26,9 @@ def test_principal_object_id_rejects_malformed_headers(value):
 
 def test_me_returns_the_signed_in_user(repository):
     repository.save(make_user("oid-1", role=Role.TUTOR, email="sam@example.com"))
-    response = client(repository).get("/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")})
+    response = client(repository).get(
+        "/api/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")}
+    )
     assert response.status_code == 200
     assert response.json() == {
         "id": "oid-1",
@@ -38,21 +40,21 @@ def test_me_returns_the_signed_in_user(repository):
 
 
 def test_missing_principal_is_unauthorised(repository):
-    assert client(repository).get("/me").status_code == 401
+    assert client(repository).get("/api/me").status_code == 401
 
 
 def test_principal_header_ignored_when_platform_auth_is_off_in_production(repository):
     repository.save(make_user("oid-1"))
     settings = Settings(app_env="production", on_app_service=True, platform_auth_enabled=False)
     response = client(repository, settings).get(
-        "/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")}
+        "/api/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")}
     )
     assert response.status_code == 401
 
 
 def test_uninvited_identity_is_forbidden(repository):
     response = client(repository).get(
-        "/me", headers={PRINCIPAL_HEADER: principal_header("stranger")}
+        "/api/me", headers={PRINCIPAL_HEADER: principal_header("stranger")}
     )
     assert response.status_code == 403
     assert "invited" in response.json()["detail"]
@@ -60,7 +62,9 @@ def test_uninvited_identity_is_forbidden(repository):
 
 def test_locked_account_is_forbidden(repository):
     repository.save(make_user("oid-1", status=AccountStatus.ACCOUNT_LOCKED))
-    response = client(repository).get("/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")})
+    response = client(repository).get(
+        "/api/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")}
+    )
     assert response.status_code == 403
     assert "locked" in response.json()["detail"]
 
@@ -68,7 +72,9 @@ def test_locked_account_is_forbidden(repository):
 def test_user_store_failure_fails_closed(repository):
     repository.save(make_user("oid-1"))
     repository.fail = True
-    response = client(repository).get("/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")})
+    response = client(repository).get(
+        "/api/me", headers={PRINCIPAL_HEADER: principal_header("oid-1")}
+    )
     assert response.status_code == 503
 
 
@@ -79,7 +85,7 @@ def test_healthz_needs_no_sign_in(repository):
 def test_dev_user_works_locally(repository):
     repository.save(make_user("oid-dev"))
     settings = Settings(app_env="local", dev_user_id="oid-dev")
-    assert client(repository, settings).get("/me").json()["id"] == "oid-dev"
+    assert client(repository, settings).get("/api/me").json()["id"] == "oid-dev"
 
 
 @pytest.mark.parametrize(

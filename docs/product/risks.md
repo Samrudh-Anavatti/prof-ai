@@ -29,7 +29,7 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 |----|------|----------|-------|
 | R1 | Jailbreak or prompt injection makes the assistant misbehave or reveal its system prompt | Prompt Shields (Azure AI Content Safety) on input; Foundry content filters; narrow tools; account lock on detection | 1 |
 | R2 | Off-topic use (homework for other subjects, general chat, nonsense) | Topic-relevance check against the assigned chapter; strikes then chat lock | 1 |
-| R3 | Runaway API cost (spam, long prompts, scripted abuse) | Per-student daily/monthly token budgets; max input length; max output tokens; rate limits; global monthly cap + kill switch; Azure budget alerts | 1 |
+| R3 | Runaway API cost (spam, long prompts, scripted abuse) | Built: per-user daily token budget (50k), global daily cap (500k), 2,000-char input cap, 1,000 output-token cap, last-20-message history, 10 msgs/min and one reply in flight per user, `CHAT_ENABLED` kill switch. Azure budget alerts. To do: monthly caps | 1 |
 | R4 | Assistant hands over answers instead of teaching | Answer keys stored where the student agent can't read them; tutoring-style system prompt; output check against the answer key before sending | 1 |
 | R5 | Harmful or inappropriate output to a child | Foundry/Content Safety output filtering at strict thresholds; grounded-only answers | 1 |
 | R6 | Wrong explanation or hallucination | Answers grounded in tutor content; groundedness check; "I'm not sure, ask your tutor" fallback; tutor sees transcripts | 1 |
@@ -37,12 +37,14 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R8 | One student sees another's data | Every query scoped by student ID server-side; authorization tests in the regression suite | 1 |
 | R9 | Account takeover / shared logins | Entra External ID (built); sign-up disabled, tutor invites via `prof users add` (built); app-side allowlist + per-request lock check (built); anomaly flags (new device, odd hours, volume) still to do | 1 |
 | R10 | Children's personal data mishandled | Data minimisation (first name only?); no real data in repo or logs; encryption at rest; retention policy; parental consent | 1 (before real students) |
-| R11 | Safeguarding disclosure missed | Self-harm/violence categories trigger an immediate tutor flag; safeguarding exception above | 1 |
+| R11 | Safeguarding disclosure missed | Base prompt points to a trusted adult and Childline (built); content-filter hits flagged on the conversation (built); self-harm/violence categories trigger an immediate tutor flag (to do, guard pipeline, before real students); safeguarding exception above | 1 |
 | R12 | Textbook licence breach | Licence check before uploading a book; prefer our own content; limit verbatim excerpt length | 1 |
 | R13 | Secrets leaked (public repo) | `.env` gitignored; Key Vault + managed identity in Azure; secret scanning on the repo | 0 |
 | R14 | Inappropriate images or PII in uploaded photos | Image content safety; strip EXIF; tutor-only visibility | 2 |
 | R15 | Generated questions are wrong or off-curriculum | Tutor approves generated questions before students see them | 2 |
 | R17 | Auth client secret leaks or expires | Stored only in Key Vault, read by the app's managed identity; 180-day expiry; `scripts/rotate_auth_secret.py`. Current secret expires 2027-04-16 | 1 |
+| R18 | Cross-site scripting injects script into a student's or tutor's session | React escaping; `dangerouslySetInnerHTML` banned by lint; strict CSP (`script-src 'self'`, no inline, `frame-ancestors 'none'`) on the app shell (built) | 1 |
+| R19 | Compromised npm package runs code at build time or ships in the bundle | Few dependencies; exact versions; committed lockfile; `npm ci` only; no runtime CDN scripts (CSP) | 1 |
 | R16 | Student prompts processed outside the UK (GlobalStandard model deployment) | Synthetic data only until resolved; before real students, review the data processing terms or move to a regional/data-zone deployment | 1 (before real students) |
 
 ## Risk checklist for a feature plan

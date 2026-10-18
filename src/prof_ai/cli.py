@@ -4,20 +4,44 @@ import json
 import os
 import sys
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from prof_ai.chat.prompts import build_system_prompt
+from prof_ai.chat.store import ChatStore
 from prof_ai.content.manifest import InvalidSlugError, Licence, LicenceType
 from prof_ai.content.pdf import InvalidPdfError
 from prof_ai.content.store import BookExistsError, BookNotFoundError, ContentStore
 from prof_ai.graph import GraphError
+from prof_ai.profiles.store import InvalidProfileError, ProfileFile, ProfileStore
 from prof_ai.users.admin import UserAdmin, UserAdminError
-from prof_ai.users.models import Role
+from prof_ai.users.models import Role, User
+from prof_ai.users.repository import UserRepository
+
+
+class NotFoundError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class TutorTools:
+    users: UserRepository
+    profiles: ProfileStore
+    chats: ChatStore
+
+    def user(self, email: str) -> User:
+        user = self.users.find_by_email(email.strip().lower())
+        if user is None:
+            raise NotFoundError(f"No account for {email}.")
+        return user
+
 
 StoreFactory = Callable[[], ContentStore]
 AdminFactory = Callable[[], UserAdmin]
+ToolsFactory = Callable[[], TutorTools]
 
 
 def azure_store() -> ContentStore:
@@ -55,6 +79,22 @@ def azure_user_admin() -> UserAdmin:
         CosmosUserRepository(require_env("COSMOS_ENDPOINT")),
         directory,
         actor=signed_in_actor(AzureCliCredential()),
+    )
+
+
+def azure_tutor_tools() -> TutorTools:
+    from azure.identity import AzureCliCredential
+
+    from prof_ai.chat.cosmos_store import CosmosChatStore
+    from prof_ai.content.azure_backend import AzureBlobBackend
+    from prof_ai.users.cosmos_repository import CosmosUserRepository
+
+    credential = AzureCliCredential()
+    cosmos_endpoint = require_env("COSMOS_ENDPOINT")
+    return TutorTools(
+        CosmosUserRepository(cosmos_endpoint, credential),
+        ProfileStore(AzureBlobBackend(require_env("STORAGE_ACCOUNT_URL"), credential)),
+        CosmosChatStore(cosmos_endpoint, credential),
     )
 
 
@@ -110,6 +150,29 @@ def build_parser() -> argparse.ArgumentParser:
     unlock = user_commands.add_parser("unlock", help="Unlock an account.")
     unlock.add_argument("email")
     unlock.add_argument("--reason", default="")
+
+    profiles = groups.add_parser("profiles", help="What the AI is told about each user.")
+    profile_commands = profiles.add_subparsers(dest="command", required=True)
+
+    show_profile = profile_commands.add_parser(
+        "show", help="Print a user's profile files and the full system prompt."
+    )
+    show_profile.add_argument("email")
+
+    set_profile = profile_commands.add_parser("set", help="Upload a user's profile files.")
+    set_profile.add_argument("email")
+    set_profile.add_argument("--profile", type=Path, help="Markdown about this user.")
+    set_profile.add_argument(
+        "--teaching-style", type=Path, help="Tutors only: applies to them and their students."
+    )
+
+    chats = groups.add_parser("chats", help="Read chat transcripts.")
+    chat_commands = chats.add_subparsers(dest="command", required=True)
+    list_chats = chat_commands.add_parser("list", help="List a user's chats.")
+    list_chats.add_argument("email")
+    show_chat = chat_commands.add_parser("show", help="Print a chat transcript.")
+    show_chat.add_argument("email")
+    show_chat.add_argument("conversation_id")
     return parser
 
 
@@ -126,6 +189,46 @@ def run_users(args: argparse.Namespace, admin: UserAdmin) -> None:
         print(f"Locked {admin.lock(args.email, args.reason).email}.")
     elif args.command == "unlock":
         print(f"Unlocked {admin.unlock(args.email, args.reason).email}.")
+
+
+def run_profiles(args: argparse.Namespace, tools: TutorTools) -> None:
+    user = tools.user(args.email)
+    if args.command == "show":
+        for file in ProfileFile:
+            text = tools.profiles.get(user.id, file)
+            print(f"--- {file} ---\n{text or '(none)'}\n")
+        print(f"--- system prompt ---\n{build_system_prompt(user, tools.profiles)}")
+    elif args.command == "set":
+        if not (args.profile or args.teaching_style):
+            raise InvalidProfileError("Pass --profile and/or --teaching-style.")
+        if args.teaching_style and user.role != Role.TUTOR:
+            raise InvalidProfileError("Only tutors have a teaching style.")
+        if args.profile:
+            tools.profiles.put(user.id, ProfileFile.PROFILE, args.profile.read_text("utf-8"))
+            print(f"Updated {ProfileFile.PROFILE} for {user.email}.")
+        if args.teaching_style:
+            text = args.teaching_style.read_text("utf-8")
+            tools.profiles.put(user.id, ProfileFile.TEACHING_STYLE, text)
+            print(f"Updated {ProfileFile.TEACHING_STYLE} for {user.email}.")
+
+
+def run_chats(args: argparse.Namespace, tools: TutorTools) -> None:
+    user = tools.user(args.email)
+    if args.command == "list":
+        for chat in tools.chats.list_conversations(user.id):
+            print(
+                f"{chat.id}\t{chat.updated_at:%Y-%m-%d %H:%M}\t{len(chat.messages)} messages\t"
+                f"{chat.input_tokens + chat.output_tokens} tokens\t{len(chat.flags)} flags\t"
+                f"{chat.title or '(untitled)'}"
+            )
+    elif args.command == "show":
+        chat = tools.chats.get_conversation(user.id, args.conversation_id)
+        if chat is None:
+            raise NotFoundError(f"No chat {args.conversation_id} for {user.email}.")
+        for message in chat.messages:
+            print(f"[{message.at:%Y-%m-%d %H:%M}] {message.role}:\n{message.content}\n")
+        for flag in chat.flags:
+            print(f"FLAG [{flag.at:%Y-%m-%d %H:%M}] {flag.kind}: {flag.message}")
 
 
 def run_content(args: argparse.Namespace, store: ContentStore) -> None:
@@ -160,14 +263,19 @@ def main(
     argv: Sequence[str] | None = None,
     store_factory: StoreFactory = azure_store,
     admin_factory: AdminFactory = azure_user_admin,
+    tools_factory: ToolsFactory = azure_tutor_tools,
 ) -> int:
     load_dotenv()
     args = build_parser().parse_args(argv)
     try:
         if args.group == "content":
             run_content(args, store_factory())
-        else:
+        elif args.group == "users":
             run_users(args, admin_factory())
+        elif args.group == "profiles":
+            run_profiles(args, tools_factory())
+        else:
+            run_chats(args, tools_factory())
     except (
         BookExistsError,
         BookNotFoundError,
@@ -177,6 +285,8 @@ def main(
         FileNotFoundError,
         UserAdminError,
         GraphError,
+        InvalidProfileError,
+        NotFoundError,
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

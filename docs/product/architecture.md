@@ -47,6 +47,8 @@ content/
   books/<book>/chapters/<nn-slug>/chunks.json               chunk text + embeddings, built lazily
   worksheets/<slug>/questions.json                          visible to student agent
 answer-keys/                                                separate container; marking only
+profiles/<user-id>/profile.md                               what the AI is told about a user (built)
+profiles/<user-id>/teaching-style.md                        a tutor's style, applied to them and their students (built)
 ```
 
 **2. Lazy ingestion.** A chapter is extracted to markdown (e.g. with Document Intelligence, priced per page) and chunked only when a tutor first assigns it. We pay per chapter used, not per library.
@@ -67,7 +69,7 @@ answer-keys/                                                separate container; 
 
 ## To decide (ADRs)
 
-- **Languages:** probably Python (FastAPI) for the API plus TypeScript (React) for the web app.
+- ~~Languages~~: Python (FastAPI) for the API, React + TypeScript for the web app, served from the same App Service ([ADR 0003](../decisions/0003-frontend.md)).
 - **Agent framework:** Microsoft Agent Framework or a plain Foundry SDK tool loop.
 - **Models:** the chat model and the marking model, picked from what's deployable in Foundry at the time, by cost.
 - ~~Data store~~: Cosmos DB serverless ([ADR 0002](../decisions/0002-auth-and-users.md)).
