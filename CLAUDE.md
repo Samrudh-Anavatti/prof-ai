@@ -9,9 +9,9 @@ Instructions for every coding agent (Claude Code, Copilot, etc.) working in this
 The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
 
 - **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
-- Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication. Bicep for infrastructure, GitHub Actions for CI/CD. The frontend isn't chosen yet. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
+- Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md), [ADR 0003](docs/decisions/0003-frontend.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication. Bicep for infrastructure, GitHub Actions for CI/CD. Frontend: React + TypeScript (Vite) in `web/`, built into `src/prof_ai/static/` and served by FastAPI from the same origin. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
 - No keys in code or config: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity. The one unavoidable secret (App Service Authentication's client secret) lives in Key Vault; rotate it with `scripts/rotate_auth_secret.py`.
-- **Every endpoint except `/healthz` must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced.
+- **Every endpoint except `/healthz` and the static frontend shell must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced. All JSON endpoints live under `/api/`; a regression test fails if one doesn't require sign-in. The shell carries no data.
 - Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
 
 ## Start of every session
@@ -46,8 +46,11 @@ Don't skip the docs. The other person's agent depends on them because it wasn't 
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements-dev.txt   # .venv/bin/python on macOS/Linux
 cp .env.example .env
-bash scripts/test.sh                                           # full suite
+(cd web && npm ci)                                             # frontend deps (Node 22)
+bash scripts/test.sh                                           # full suite (pytest + vitest)
 .venv/Scripts/python -m uvicorn prof_ai.main:app --app-dir src --reload
+(cd web && npm run dev)                                        # Vite on :5173, proxies /api to :8000
+(cd web && npm run build)                                      # or build once and use :8000 alone
 bash scripts/deploy-infra.sh --what-if                         # preview infra changes, then run without the flag
 ```
 
@@ -81,7 +84,8 @@ Tests exist mainly so **we don't break each other's work**. Proving your own fea
 
 - Formatters and linters are the source of truth. Run them on every file you touch:
   - Python: `ruff format` + `ruff check --fix` (line length 100).
-  - TypeScript/JS: `prettier` + `eslint` (once there's a frontend).
+  - TypeScript/JS: `npm run format` + `npm run lint` + `npm run typecheck` in `web/`. CI fails on any of them.
+  - npm dependencies: add as few as possible, pin exact versions (`npm install --save-exact`), commit `package-lock.json`, and use `npm ci` (risk R19). Never use `dangerouslySetInnerHTML` (lint-enforced, R18).
   - CI fails on unformatted or lint-failing Python.
 - **Comments: minimal.** Write clear names instead of comments. Comment only *why* something non-obvious is done, never *what* the code does. No commented-out code, no banner comments, no "added for feature X" notes, and no restating of the function name in a docstring. Public interfaces may have a one-line docstring if it adds information.
 - Small, focused modules. Match the style of the surrounding code.
@@ -101,7 +105,8 @@ docs/
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features
   decisions/          Short architecture decision records (ADRs)
-src/prof_ai/          Application code (FastAPI)
+src/prof_ai/          Application code (FastAPI); static/ is the frontend build output (gitignored)
+web/                  Frontend (React + TypeScript + Vite); tests are web/src/*.test.ts
 tests/                Shared regression suite, one folder per feature
 infra/                Bicep (main.bicep + main.bicepparam)
 .github/workflows/    CI (lint + tests) and deploy to App Service

@@ -67,7 +67,7 @@ answer-keys/                                                separate container; 
 
 ## To decide (ADRs)
 
-- **Languages:** probably Python (FastAPI) for the API plus TypeScript (React) for the web app.
+- ~~Languages~~: Python (FastAPI) for the API, React + TypeScript for the web app, served from the same App Service ([ADR 0003](../decisions/0003-frontend.md)).
 - **Agent framework:** Microsoft Agent Framework or a plain Foundry SDK tool loop.
 - **Models:** the chat model and the marking model, picked from what's deployable in Foundry at the time, by cost.
 - ~~Data store~~: Cosmos DB serverless ([ADR 0002](../decisions/0002-auth-and-users.md)).

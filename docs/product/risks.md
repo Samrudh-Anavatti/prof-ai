@@ -43,6 +43,8 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | R14 | Inappropriate images or PII in uploaded photos | Image content safety; strip EXIF; tutor-only visibility | 2 |
 | R15 | Generated questions are wrong or off-curriculum | Tutor approves generated questions before students see them | 2 |
 | R17 | Auth client secret leaks or expires | Stored only in Key Vault, read by the app's managed identity; 180-day expiry; `scripts/rotate_auth_secret.py`. Current secret expires 2027-04-16 | 1 |
+| R18 | Cross-site scripting injects script into a student's or tutor's session | React escaping; `dangerouslySetInnerHTML` banned by lint; strict CSP (`script-src 'self'`, no inline, `frame-ancestors 'none'`) on the app shell (built) | 1 |
+| R19 | Compromised npm package runs code at build time or ships in the bundle | Few dependencies; exact versions; committed lockfile; `npm ci` only; no runtime CDN scripts (CSP) | 1 |
 | R16 | Student prompts processed outside the UK (GlobalStandard model deployment) | Synthetic data only until resolved; before real students, review the data processing terms or move to a regional/data-zone deployment | 1 (before real students) |
 
 ## Risk checklist for a feature plan

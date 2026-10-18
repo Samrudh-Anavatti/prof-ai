@@ -20,7 +20,7 @@
   - `prof_ai.auth`: `CurrentUser` / `require_role` dependencies and Easy Auth principal parsing.
   - `prof_ai.users`: models, repository protocol, Cosmos repository, the External ID directory over Graph, and `UserAdmin`.
   - `prof_ai.graph`: a minimal Graph client.
-  - `GET /me`.
+  - `GET /me` (now `GET /api/me`).
 - **CLI:** `prof users add | list | lock | unlock`.
 - **Verified live on 2026-10-18:** Sam signed in at https://prof-ai.azurewebsites.net/me and got his tutor record. Unauthenticated requests and requests with a spoofed principal header both get 401.
 
@@ -48,7 +48,7 @@
   - `role` (`tutor` | `student`), `status` (`active` | `account_locked`)
   - `tutor_id` (students only), `created_at`, `updated_at`
 - **`AuditEvent`:** `id`, `user_id`, `action` (`user_added` | `account_locked` | `account_unlocked`), `actor`, `reason`, `at`.
-- **`GET /me`** returns `{id, email, display_name, role, status}`.
+- **`GET /me`** returns `{id, email, display_name, role, status}`. Since the frontend skeleton (2026-10-18) this is **`GET /api/me`**.
 - **Failure modes:** a missing or invalid principal gets 401; uninvited or locked accounts get 403; a store that's down or not configured gets 503.
 - **App settings:** `COSMOS_ENDPOINT`, `EXTERNAL_TENANT_ID`, `AUTH_CLIENT_SECRET` (Key Vault reference). App Service sets `WEBSITE_AUTH_ENABLED`.
 
