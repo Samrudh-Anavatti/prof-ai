@@ -10,7 +10,8 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-14 | App skeleton and Azure infrastructure | Sam | merged | [plan](2026-10-14-app-skeleton-infra/plan.md) · [handover](2026-10-14-app-skeleton-infra/handover.md) |
 | 2026-10-14 | Content store basics | Sam | merged | [plan](2026-10-14-content-store/plan.md) · [handover](2026-10-14-content-store/handover.md) |
 | 2026-10-14 | Auth: invite-only sign-in, users, locks | Sam | merged | [plan](2026-10-14-auth/plan.md) · [handover](2026-10-14-auth/handover.md) |
-| — | Next: app backend + frontend (frontend ADR first; assignments, student and tutor views) | Sam | planned | — |
+| 2026-10-18 | Frontend skeleton: React SPA served by FastAPI (ADR 0003) | Sam | in-progress | [plan](2026-10-18-frontend-skeleton/plan.md) |
+| — | Next: assignments, student and tutor views | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
 
 Status values: `planned`, `in-progress`, `merged`, `abandoned`.
