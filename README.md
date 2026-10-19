@@ -56,8 +56,10 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Tutor chat with Luna**: streamed replies, transcripts, per-user budgets and kill switch | Live |
 | ✅ | **Per-user AI configuration**: tutor teaching style + per-user profile in the system prompt | Live |
 | ✅ | **Teaching style editor** in the web UI for tutors | Live |
-| ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live after merge + tenant setup |
-| 🔜 | **Knowledge base**: chapter extraction, curricula, context injection | Next |
+| ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live |
+| ✅ | **Context budget**: capped prompt layers under a 256k ceiling, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live after merge |
+| 🔜 | **Lessons and shared chats**: tutor-created chats per lesson (5 per student), tutor and student in one chat, `@AI` to call Luna | Next |
+| 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the 64k reference layer | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
 
@@ -67,34 +69,44 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Users admin page and email-code invites · 2026-10-18 · Sam
+### Context budget, conversation memory and dollar budgets · 2026-10-19 · Sam
 
-Managing accounts no longer needs the CLI, and new users don't need a password:
+The prompt is now a measured, capped thing, ready for lessons and the knowledge graph to plug into ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)):
 
-- **Users** in the top bar (tutors) lists accounts with status pills: Invited, Active, Locked.
-  - **Admins** (`prof users set-admin`) see and manage everyone, and can invite tutors.
-  - **Other tutors** see and manage only their own students.
-- **Invite** takes an email and a first name. The person then creates their account using the **[🔗 create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)**. Their first sign-in links the invite, with no "Forgot password" step ([ADR 0004](docs/decisions/0004-invites-and-sign-up.md)).
+- **Every chat call is built by one assembler** from capped layers, under a **256k ceiling** (Luna's window is ~922k):
 
-> [!TIP]
-> **Send new people this link:** https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/
->
-> It opens Microsoft's "create account" page directly. They enter the email you invited and the code that's emailed to them, then land in Prof AI. The normal sign-in page only works for accounts that already exist, so new people get stuck there. The code email can take a few minutes and may land in spam; work email systems sometimes hold it.
-- **Lock** (needs a reason) and **Unlock** take effect immediately.
-- **Delete** erases the account, chats, usage and profile files.
-- Everything is audited. You can't lock or delete yourself.
-- **CLI:**
-  - `prof users add` now sends an invite.
-  - New `prof users remove` and `prof users set-admin`.
-- **API:** `GET` / `POST /api/users`, `POST /api/users/{id}/lock|unlock`, `DELETE /api/users/{id}`.
+  | Layer | Cap (est. tokens) |
+  |---|---|
+  | Base prompt | 2k |
+  | Teaching style | 3k |
+  | **Lesson** (feature b) | **64k** |
+  | Profile | 3k |
+  | Conversation summary | 4k |
+  | Recent messages | 32k |
+  | **Reference material** (knowledge graph) | **64k** |
+  | New message | 3k |
+  | Safety reminder | 0.5k |
+  | Output reserve | 8k |
 
-📄 [plan](docs/features/2026-10-18-user-admin/plan.md) · [handover](docs/features/2026-10-18-user-admin/handover.md)
+  - **Order:** stable layers come first, so Luna's prompt cache works. In a live test, 2,449 of 2,510 input tokens were cached on the second call, and it cost 5× less.
+  - **A safety reminder now comes last**, as well as the base prompt first.
+- **Long chats remember:**
+  - history is the newest messages that fit in 32k, not the last 20;
+  - older messages are folded into a rolling summary, which tutors see in `prof chats show`.
+- **Budgets are in dollars**, from real prices including cached input:
+  - $0.50 per student a day and $1.50 a day for everyone (`CHAT_DAILY_USER_USD` / `CHAT_DAILY_GLOBAL_USD`);
+  - **tutors are unlimited per user** but count towards the global cap.
+- **Every reply records what Luna was sent** (size per layer, cached tokens, cost); see `prof chats show`.
+- **Next:** lessons and tutor-created chats (5 per student), then the shared tutor–student chat with `@AI`.
+
+📄 [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [plan](docs/features/2026-10-19-context-budget/plan.md) · [handover](docs/features/2026-10-19-context-budget/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-18 | **Users admin page**: invite, lock, unlock and delete at `/users`; email-code sign-up ([create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)) | Sam | [handover](docs/features/2026-10-18-user-admin/handover.md) |
 | 2026-10-18 | **Teaching style editor**: edit and try your teaching style in the web app | Sam | [handover](docs/features/2026-10-18-teaching-style-editor/handover.md) |
 | 2026-10-18 | **Tutor chat PoC**: chat with Luna, per-user profiles, budgets, transcripts CLI | Sam | [handover](docs/features/2026-10-18-tutor-chat/handover.md) |
 | 2026-10-18 | **Frontend skeleton**: React SPA served by FastAPI | Sam | [handover](docs/features/2026-10-18-frontend-skeleton/handover.md) |
@@ -237,12 +249,14 @@ sequenceDiagram
     EA->>API: request + signed-in identity
     API->>C: user exists, not locked?
     API->>API: kill switch · ≤2,000 chars · 10/min · one reply in flight
-    API->>C: today's tokens under 50k (user) and 500k (everyone)?
+    API->>C: today's spend under $0.50 (students) and $1.50 (everyone)?
     API->>B: teaching-style.md (tutor) + profile.md (user)
-    API->>L: system prompt + last 20 messages (max 1,000 output tokens)
+    API->>API: assemble capped layers (ADR 0005), summary, history window ≤32k
+    API->>L: system prompt + history + message + safety reminder (max 4,000 output tokens)
     L-->>API: streamed text (or content-filter hit)
     API-->>U: server-sent events: delta… then done
-    API->>C: save the turn + token usage (only once complete)
+    API->>C: save the turn + cost + context ledger (only once complete)
+    API->>L: if old messages piled up: fold them into the summary
 ```
 
 **The system prompt is layered**, and you can always see the result with `prof profiles show <email>` or on the Teaching style page:
@@ -250,7 +264,7 @@ sequenceDiagram
 1. **Base tutor prompt**, in the repo ([`tutor.md`](src/prof_ai/chat/prompts/tutor.md)): coach rather than give answers, stay on school topics, no personal details, distress → trusted adult and Childline.
 2. **The tutor's teaching style**: `profiles/<tutor-id>/teaching-style.md`. A student gets their tutor's style, so Sam's and Punjy's students get different behaviour.
 3. **The user's profile**: `profiles/<user-id>/profile.md`.
-4. *Next:* knowledge-base context (the assigned chapter) and memory.
+4. **Lesson material** (feature b) and the **conversation summary**, then the history, the new message with any **reference material**, and a closing safety reminder. Caps and order: [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
 
 ## 🧭 Decisions and direction
 
@@ -264,7 +278,8 @@ sequenceDiagram
 | [0004](docs/decisions/0004-invites-and-sign-up.md) | **Email-code sign-up, gated by invites in the app**; the first sign-in links the invite by its verified email | No passwords or reset step for new users, and no Graph rights for the web app |
 | *(in feature plans)* | **A content store in Blob, not a search index**: chapter-in-context first, lazy extraction | A student only needs the chapter they're on, so an always-on search cluster would be wasted money |
 | *(in feature plans)* | **Per-user AI configuration as markdown files in Blob**, layered after the base prompt | Easy for tutors to read and edit; safety rules always come first |
-| *(in feature plans)* | **Hard budgets in the app**: per-user and global daily token caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
+| *(in feature plans)* | **Hard budgets in the app**: per-user and global daily caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
+| [0005](docs/decisions/0005-models-and-context-budget.md) | **Frontier models (Luna default, Foundry-hosted preferred); every prompt layer capped under a 256k ceiling; dollar budgets; tutor-created shared chats with `@AI`** | Lessons and the knowledge graph get a fixed, enforced 64k each; caching and model choice show up in the budget; Ollama Cloud rejected for student data |
 
 ### Direction
 
@@ -305,10 +320,11 @@ sequenceDiagram
 **Known limitations**
 
 - The rate limiter is in memory (one B1 instance); it resets on restart.
-- Content-filtered and failed turns don't count towards token budgets (the rate limit bounds them).
+- Content-filtered and failed turns don't count towards budgets (the rate limit bounds them).
+- Luna's cached-input price is assumed at 10% of input until it shows on the bill.
 - Chat renders plain text only: no Markdown or maths yet.
 - Chapter detection needs PDF bookmarks; there's no command to edit chapters yet.
-- No monthly token caps yet (daily caps plus the Azure budget alert).
+- No monthly caps yet (daily dollar caps plus the Azure budget alert).
 - Luna makes mistakes (a wrong 7 × 8 hint in testing), so tutors should read transcripts (R6).
 
 ## 🛠️ Run it locally
