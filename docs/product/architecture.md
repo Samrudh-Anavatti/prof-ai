@@ -53,7 +53,7 @@ profiles/<user-id>/teaching-style.md                        a tutor's style, app
 
 **2. Lazy ingestion.** A chapter is extracted to markdown (e.g. with Document Intelligence, priced per page) and chunked only when a tutor first assigns it. We pay per chapter used, not per library.
 
-**3. Tiered context for the assistant:**
+**3. Tiered context for the assistant** (sizes and enforcement fixed in [ADR 0005](../decisions/0005-models-and-context-budget.md): a 256k ceiling, 64k for the lesson and 64k for reference material per turn):
   1. **Chapter in context.** A chapter is typically small enough to fit in the prompt. With prompt caching, this is cheap and gives the strongest grounding. This is the default.
   2. **Traversal.** The agent reads the manifest/syllabus to pull a linked section or prerequisite topic.
   3. **Session vector lookup.** For large material, load that chapter's `chunks.json` and run a similarity search in-process. Move to Cosmos DB vector search only if that gets slow. No search service.
@@ -62,8 +62,8 @@ profiles/<user-id>/teaching-style.md                        a tutor's style, app
 
 ## Cost levers
 
-- A small model by default; a larger one only for marking edge cases.
-- Prompt caching for the chapter context; truncate or summarise long chats.
+- Prompt caching: context is ordered stable-first so the base prompt, style, lesson and history are a reusable prefix (ADR 0005).
+- Long chats keep a token-budgeted window plus a rolling summary (ADR 0005).
 - Per-student token budgets enforced in the API; global monthly cap; Azure budget alert on `rg-prof-ai`.
 - Cheap tiers: App Service B-tier, Cosmos DB serverless, Blob hot/cool, Entra External ID (free at our scale).
 
@@ -71,7 +71,7 @@ profiles/<user-id>/teaching-style.md                        a tutor's style, app
 
 - ~~Languages~~: Python (FastAPI) for the API, React + TypeScript for the web app, served from the same App Service ([ADR 0003](../decisions/0003-frontend.md)).
 - **Agent framework:** Microsoft Agent Framework or a plain Foundry SDK tool loop.
-- **Models:** the chat model and the marking model, picked from what's deployable in Foundry at the time, by cost.
+- ~~Models~~: frontier models only, Foundry-hosted preferred, Luna by default; each has a profile with its window and prices ([ADR 0005](../decisions/0005-models-and-context-budget.md)). The marking model is still to pick.
 - ~~Data store~~: Cosmos DB serverless ([ADR 0002](../decisions/0002-auth-and-users.md)).
 - **Rate limiting:** API Management (has LLM token-limit policies) or limits in the app.
 - **IaC:** Bicep.

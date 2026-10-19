@@ -14,7 +14,11 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-18 | Tutor chat PoC with per-user AI profiles | Sam | merged | [plan](2026-10-18-tutor-chat/plan.md) · [handover](2026-10-18-tutor-chat/handover.md) |
 | 2026-10-18 | Teaching style editor in the web UI, plus README overhaul | Sam | merged | [plan](2026-10-18-teaching-style-editor/plan.md) · [handover](2026-10-18-teaching-style-editor/handover.md) |
 | 2026-10-18 | Users admin page with email-code invites (ADR 0004) | Sam | merged | [plan](2026-10-18-user-admin/plan.md) · [handover](2026-10-18-user-admin/handover.md) |
-| — | Next: knowledge base (chapter extraction, curricula) and context injection | Sam | planned | — |
+| 2026-10-19 | Context budget, conversation memory and money-based budgets (ADR 0005, feature a) | Sam | in-progress | [plan](2026-10-19-context-budget/plan.md) |
+| — | Lessons and tutor-created chats: lesson setup, uploads within the 64k lesson cap, N chats per student (ADR 0005, feature b) | Sam | planned | — |
+| — | Shared tutor–student chat with `@AI` (ADR 0005, feature c) | Sam | planned | — |
+| — | Context dilution eval: safety and coaching scenarios with the lesson layer at 16k/32k/64k | Sam | planned | — |
+| — | Knowledge graph (chapter extraction, curricula) filling the 64k reference layer | Sam | planned | — |
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
 
