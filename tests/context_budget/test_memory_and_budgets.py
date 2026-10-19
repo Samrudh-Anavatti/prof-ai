@@ -150,7 +150,7 @@ def test_the_ledger_and_summary_are_not_sent_to_the_browser(h):
     detail = h.client.get(
         f"/api/chat/conversations/{conversation_id}", headers=h.as_user("alex")
     ).json()
-    assert set(detail) == {"id", "title", "updated_at", "messages"}
+    assert set(detail) == {"id", "title", "updated_at", "lesson", "messages"}
     assert all(set(m) == {"role", "content", "at"} for m in detail["messages"])
 
 
@@ -164,8 +164,9 @@ def test_tutors_are_not_held_to_the_student_budget():
 
 def test_tutor_spend_counts_towards_the_global_cap():
     h = Harness(ChatLimits(daily_user_usd=1.0, daily_global_usd=0.001))
+    conversation_id = h.start("sam")
     for _ in range(int(1_000 / TURN_COST) + 1):
-        h.send("sam", h.start("sam"), "hi")
+        h.send("sam", conversation_id, "hi")
     response = h.send("alex", h.start("alex"), "hi")
     assert response.status_code == 503
     assert h.store.cost_used("alex", TODAY) == 0

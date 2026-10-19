@@ -7,8 +7,10 @@ from prof_ai.auth import CurrentUser
 from prof_ai.chat.api import create_chat_router
 from prof_ai.chat.service import ChatLimits, ChatService
 from prof_ai.config import Settings, load_settings
+from prof_ai.lessons.api import MAX_EXTRACT_REQUEST_BYTES, create_lessons_router
 from prof_ai.profiles.api import create_profiles_router
 from prof_ai.profiles.store import ProfileStore
+from prof_ai.request_limits import body_size_limit
 from prof_ai.users.api import create_users_router
 from prof_ai.users.repository import UserRepository
 from prof_ai.web import STATIC_DIR, mount_frontend
@@ -31,6 +33,7 @@ def create_api_router() -> APIRouter:
     api.include_router(create_chat_router())
     api.include_router(create_profiles_router())
     api.include_router(create_users_router())
+    api.include_router(create_lessons_router())
     return api
 
 
@@ -110,6 +113,8 @@ def create_app(
     app.state.chat_service = chat_service
     app.state.profile_store = profile_store
     app.state.erase_user_data = user_data_eraser(chat_service, profile_store)
+
+    app.middleware("http")(body_size_limit({"/api/lessons/extract": MAX_EXTRACT_REQUEST_BYTES}))
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:

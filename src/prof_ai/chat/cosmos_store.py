@@ -38,6 +38,12 @@ class CosmosChatStore:
     def save_conversation(self, conversation: Conversation) -> None:
         self._conversations.upsert_item(conversation.model_dump(mode="json"))
 
+    def delete_conversation(self, user_id: str, conversation_id: str) -> None:
+        try:
+            self._conversations.delete_item(conversation_id, partition_key=user_id)
+        except CosmosResourceNotFoundError:
+            pass
+
     def cost_used(self, user_id: str, day: date) -> int:
         try:
             item = self._usage.read_item(usage_id(user_id, day), partition_key=user_id)
