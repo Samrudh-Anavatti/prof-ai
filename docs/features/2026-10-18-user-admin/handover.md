@@ -75,6 +75,10 @@
 - **`tests/auth/`** (Sam's): `UserAdmin` tests updated from "creates a directory account" to the invite contract, plus remove, set-admin and the CLI. `/api/me` now includes `is_admin`.
 - **`web/src/api.test.ts`:** invite, lock (with path encoding), a 204 delete, and delete refusals.
 
+## Follow-up (2026-10-19)
+- **Live test passed:** an invited Gmail address signed up with an email code and landed in the app. Ebury's work email held the code for a while, so warn invitees it can be slow or land in spam.
+- **New invitees get stuck at the normal sign-in box**, because their account doesn't exist yet. After an invite, the Users page now shows the direct create-account link (`/.auth/login/aad?prompt=create&post_login_redirect_uri=/`) with a **Copy link** button, and `prof users add` prints it (`SIGN_UP_URL` in `prof_ai.users.admin`).
+
 ## Known issues / TODOs
 - **Not verified in a browser** or against the live tenant yet; see the rollout steps. The email claim's name in Easy Auth's principal is handled for both `email` and the `…/emailaddress` URI.
 - **Invites don't expire.**

@@ -9,9 +9,12 @@ from prof_ai.users.repository import UserRepository
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 INVITE_ID_PREFIX = "invite-"
+SIGN_UP_URL = (
+    "https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/"
+)
 SIGN_UP_INSTRUCTIONS = (
-    "Ask them to open https://prof-ai.azurewebsites.net, choose to create an account "
-    "with this email address, and enter the code that's emailed to them."
+    f"Send them this link to create an account with this email address: {SIGN_UP_URL} "
+    "They'll be emailed a code (it can take a few minutes and may land in spam)."
 )
 
 Clock = Callable[[], datetime]
