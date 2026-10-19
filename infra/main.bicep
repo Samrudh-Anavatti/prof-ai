@@ -8,7 +8,7 @@ param githubRepo string = 'Samrudh-Anavatti@95168210/prof-ai@1408891815'
 param chatModel object = {
   name: 'gpt-5.6-luna'
   version: '2026-07-09'
-  capacity: 10
+  capacity: 50
 }
 @description('Entra object IDs of tutors who upload content and run the app locally.')
 param tutorPrincipalIds array
