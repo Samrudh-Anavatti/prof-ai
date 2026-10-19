@@ -89,16 +89,19 @@ def test_layers_are_ordered_most_stable_first_with_the_reminder_last():
     assert system.role == "system" and system.content.startswith(BASE_PROMPT)
     positions = [system.content.index(t) for t in ("STYLE", "LESSON", "PROFILE", "SUMMARY")]
     assert positions == sorted(positions)
-    assert [(m.role, m.content) for m in middle] == [("user", "earlier"), ("assistant", "reply")]
+    assert [(m.role, m.content) for m in middle] == [
+        ("user", "⟦Student⟧ earlier"),
+        ("assistant", "reply"),
+    ]
     assert user.role == "user"
     assert user.content.index("REFERENCE") < user.content.index("What's a ratio?")
     assert "information to teach from" in user.content
     assert (reminder.role, reminder.content) == ("system", REMINDER)
 
 
-def test_message_without_references_is_sent_as_typed():
+def test_message_without_references_is_sent_with_just_its_label():
     assembled = assemble(ContextInput(message="hi"))
-    assert assembled.messages[-2].content == "hi"
+    assert assembled.messages[-2].content == "⟦Student⟧ hi"
     assert assembled.layers[Layer.REFERENCE] == 0
 
 
@@ -123,7 +126,7 @@ def test_history_keeps_the_newest_messages_that_fit():
     assembled = assemble(ContextInput(message="now", history=history))
     sent = assembled.messages[1:-2]
     assert len(sent) == LAYER_CAPS[Layer.HISTORY] // 2_000
-    assert sent[-1].content.startswith("39")
+    assert sent[-1].content.startswith("⟦Student⟧ 39")
     assert assembled.layers[Layer.HISTORY] <= LAYER_CAPS[Layer.HISTORY]
 
 
@@ -135,7 +138,7 @@ def test_an_oversized_old_message_cuts_the_window_there():
         message("assistant", "recent answer"),
     ]
     sent = assemble(ContextInput(message="now", history=history)).messages[1:-2]
-    assert [m.content for m in sent] == ["recent question", "recent answer"]
+    assert [m.content for m in sent] == ["⟦Student⟧ recent question", "recent answer"]
 
 
 def test_references_beyond_the_cap_drop_lowest_ranked_first():

@@ -8,12 +8,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from prof_ai.auth import CurrentUser, require_role
-from prof_ai.chat.models import Conversation
+from prof_ai.chat.models import ChatMessage, Conversation
 from prof_ai.chat.service import (
     ChatEvent,
     ChatRefusedError,
     ChatService,
     ConversationNotFoundError,
+    author_of,
 )
 from prof_ai.users.models import Role, User
 
@@ -28,6 +29,8 @@ class ConversationSummary(BaseModel):
 
 class MessageOut(BaseModel):
     role: Literal["user", "assistant"]
+    author: Literal["student", "tutor", "ai"]
+    author_name: str
     content: str
     at: datetime
 
@@ -44,6 +47,10 @@ class ConversationDetail(ConversationSummary):
     messages: list[MessageOut]
 
 
+class ConversationVersion(BaseModel):
+    updated_at: datetime
+
+
 class NewMessage(BaseModel):
     content: str
 
@@ -51,6 +58,25 @@ class NewMessage(BaseModel):
 def summary(conversation: Conversation) -> ConversationSummary:
     return ConversationSummary(
         id=conversation.id, title=conversation.title, updated_at=conversation.updated_at
+    )
+
+
+def message_out(message: ChatMessage, owner: User) -> MessageOut:
+    if message.role == "assistant":
+        return MessageOut(
+            role="assistant",
+            author="ai",
+            author_name="Prof AI",
+            content=message.content,
+            at=message.at,
+        )
+    # Messages from before shared chats have no author: the owner wrote them.
+    return MessageOut(
+        role="user",
+        author=message.author or author_of(owner),
+        author_name=message.author_name or owner.display_name,
+        content=message.content,
+        at=message.at,
     )
 
 
@@ -64,6 +90,48 @@ def chat_service(request: Request) -> ChatService:
 def server_sent_events(events: Iterator[ChatEvent]) -> Iterator[str]:
     for event in events:
         yield f"event: {event.kind}\ndata: {json.dumps(event.data)}\n\n"
+
+
+def conversation_detail(request: Request, owner: User, conversation_id: str) -> ConversationDetail:
+    try:
+        conversation = chat_service(request).get_conversation(owner, conversation_id)
+    except ConversationNotFoundError as error:
+        raise HTTPException(404, "Chat not found.") from error
+    return ConversationDetail(
+        **summary(conversation).model_dump(),
+        lesson=LessonOverview(title=lesson.title, topics=lesson.topics)
+        if (lesson := conversation.lesson)
+        else None,
+        messages=[message_out(m, owner) for m in conversation.messages],
+    )
+
+
+def conversation_version(
+    request: Request, owner: User, conversation_id: str
+) -> ConversationVersion:
+    try:
+        updated_at = chat_service(request).conversation_version(owner, conversation_id)
+    except ConversationNotFoundError as error:
+        raise HTTPException(404, "Chat not found.") from error
+    return ConversationVersion(updated_at=updated_at)
+
+
+def send_message(
+    request: Request, sender: User, owner: User, conversation_id: str, content: str
+) -> StreamingResponse:
+    """Server-sent events: deltas if Prof AI replies, then done {title, ai} or error."""
+    service = chat_service(request)
+    try:
+        turn = service.begin_turn(sender, owner, conversation_id, content)
+    except ConversationNotFoundError as error:
+        raise HTTPException(404, "Chat not found.") from error
+    except ChatRefusedError as error:
+        raise HTTPException(error.status_code, error.message) from error
+    return StreamingResponse(
+        server_sent_events(service.run_turn(turn)),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def create_chat_router() -> APIRouter:
@@ -86,35 +154,18 @@ def create_chat_router() -> APIRouter:
     def get_conversation(
         conversation_id: str, user: CurrentUser, request: Request
     ) -> ConversationDetail:
-        try:
-            conversation = chat_service(request).get_conversation(user, conversation_id)
-        except ConversationNotFoundError as error:
-            raise HTTPException(404, "Chat not found.") from error
-        return ConversationDetail(
-            **summary(conversation).model_dump(),
-            lesson=LessonOverview(title=lesson.title, topics=lesson.topics)
-            if (lesson := conversation.lesson)
-            else None,
-            messages=[
-                MessageOut(role=m.role, content=m.content, at=m.at) for m in conversation.messages
-            ],
-        )
+        return conversation_detail(request, user, conversation_id)
+
+    @router.get("/conversations/{conversation_id}/version")
+    def get_version(
+        conversation_id: str, user: CurrentUser, request: Request
+    ) -> ConversationVersion:
+        return conversation_version(request, user, conversation_id)
 
     @router.post("/conversations/{conversation_id}/messages")
-    def send_message(
+    def post_message(
         conversation_id: str, body: NewMessage, user: CurrentUser, request: Request
     ) -> StreamingResponse:
-        service = chat_service(request)
-        try:
-            turn = service.begin_turn(user, conversation_id, body.content)
-        except ConversationNotFoundError as error:
-            raise HTTPException(404, "Chat not found.") from error
-        except ChatRefusedError as error:
-            raise HTTPException(error.status_code, error.message) from error
-        return StreamingResponse(
-            server_sent_events(service.run_turn(turn)),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
+        return send_message(request, user, user, conversation_id, body.content)
 
     return router

@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from datetime import UTC, date, datetime
 
 import pytest
@@ -64,6 +64,20 @@ class InMemoryChatStore:
         key = (conversation.user_id, conversation.id)
         self.conversations[key] = conversation.model_dump(mode="json")
 
+    def update_conversation(
+        self, user_id: str, conversation_id: str, change: Callable[[Conversation], None]
+    ) -> Conversation:
+        conversation = self.get_conversation(user_id, conversation_id)
+        if conversation is None:
+            raise LookupError(conversation_id)
+        change(conversation)
+        self.save_conversation(conversation)
+        return conversation
+
+    def conversation_version(self, user_id: str, conversation_id: str) -> datetime | None:
+        conversation = self.get_conversation(user_id, conversation_id)
+        return conversation.updated_at if conversation else None
+
     def delete_conversation(self, user_id: str, conversation_id: str) -> None:
         self.conversations.pop((user_id, conversation_id), None)
 
@@ -107,7 +121,13 @@ class FakeModel:
 
 
 class Harness:
-    def __init__(self, limits: ChatLimits | None = None, model: FakeModel | None = None) -> None:
+    def __init__(
+        self,
+        limits: ChatLimits | None = None,
+        model: FakeModel | None = None,
+        clock: Callable[[], datetime] = lambda: FIXED_NOW,
+        per_minute: int = 1000,
+    ) -> None:
         self.users = InMemoryUserRepository()
         self.blobs = InMemoryBlobBackend()
         self.profiles = ProfileStore(self.blobs)
@@ -123,8 +143,8 @@ class Harness:
             self.store,
             self.profiles,
             self.limits,
-            limiter=TurnLimiter(per_minute=1000),
-            clock=lambda: FIXED_NOW,
+            limiter=TurnLimiter(per_minute=per_minute),
+            clock=clock,
         )
         self.client = TestClient(
             create_app(PRODUCTION, user_repository=self.users, chat_service=self.service)

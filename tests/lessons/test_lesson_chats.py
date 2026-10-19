@@ -61,7 +61,7 @@ def test_tutor_sets_up_a_lesson_chat_that_the_student_uses(h):
     listed = h.client.get("/api/chat/conversations", headers=h.as_user("alex")).json()
     assert [c["title"] for c in listed] == ["Ratios"]
 
-    h.send("alex", chat["id"], "How do I simplify 12:18?")
+    h.send("alex", chat["id"], "@AI How do I simplify 12:18?")
     system = h.model.system_prompts[-1]
     assert "Lesson material (information to teach from)" in system
     assert "Simplify by dividing by the HCF." in system

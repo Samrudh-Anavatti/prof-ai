@@ -33,7 +33,7 @@ def test_reply_streams_as_server_sent_events(harness):
     assert "".join(data["text"] for kind, data in events if kind == "delta") == (
         "Good question! What do you know already?"
     )
-    assert events[-1][1] == {"title": "How do I factorise x^2 + 5x + 6?"}
+    assert events[-1][1] == {"title": "How do I factorise x^2 + 5x + 6?", "ai": True}
 
 
 def test_turn_is_saved_with_usage(harness):
@@ -87,8 +87,11 @@ def test_short_history_is_sent_in_full_before_the_new_message(harness):
         harness.send("alex", conversation_id, f"question {turn}")
     messages = harness.model.calls[-1]
     assert [m.role for m in messages[1:-2]] == ["user", "assistant"] * 14
-    assert messages[1].content == "question 0"
-    assert (messages[-2].role, messages[-2].content) == ("user", "question 14")
+    assert messages[1].content == "⟦Student Alex⟧ question 0"
+    assert (messages[-2].role, messages[-2].content) == (
+        "user",
+        "⟦Student Alex⟧ question 14",
+    )
     assert (messages[-1].role, messages[-1].content) == ("system", REMINDER)
 
 

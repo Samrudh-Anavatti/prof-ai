@@ -5,10 +5,19 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from prof_ai.auth import require_role
-from prof_ai.chat.api import chat_service
+from prof_ai.chat.api import (
+    ConversationDetail,
+    ConversationVersion,
+    NewMessage,
+    chat_service,
+    conversation_detail,
+    conversation_version,
+    send_message,
+)
 from prof_ai.chat.context import LAYER_CAPS, Layer
 from prof_ai.chat.models import Conversation, Lesson
 from prof_ai.chat.service import (
@@ -132,6 +141,28 @@ def create_lessons_router() -> APIRouter:
             raise HTTPException(503, "Couldn't create the chat. Try again later.") from error
         audit(request, tutor, student, "chat_created", conversation.title)
         return student_chat(conversation)
+
+    @router.get("/students/{student_id}/chats/{conversation_id}")
+    def get_student_chat(
+        student_id: str, conversation_id: str, tutor: Tutor, request: Request
+    ) -> ConversationDetail:
+        student = managed_student(request, tutor, student_id)
+        return conversation_detail(request, student, conversation_id)
+
+    @router.get("/students/{student_id}/chats/{conversation_id}/version")
+    def get_student_chat_version(
+        student_id: str, conversation_id: str, tutor: Tutor, request: Request
+    ) -> ConversationVersion:
+        student = managed_student(request, tutor, student_id)
+        return conversation_version(request, student, conversation_id)
+
+    @router.post("/students/{student_id}/chats/{conversation_id}/messages")
+    def post_student_chat_message(
+        student_id: str, conversation_id: str, body: NewMessage, tutor: Tutor, request: Request
+    ) -> StreamingResponse:
+        """The tutor writes in their student's chat; @AI asks Prof AI, charged to the tutor."""
+        student = managed_student(request, tutor, student_id)
+        return send_message(request, tutor, student, conversation_id, body.content)
 
     @router.delete("/students/{student_id}/chats/{conversation_id}", status_code=204)
     def delete_student_chat(

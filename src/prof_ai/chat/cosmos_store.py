@@ -1,12 +1,16 @@
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 
+from azure.core import MatchConditions
 from azure.core.credentials import TokenCredential
 from azure.cosmos import CosmosClient
-from azure.cosmos.exceptions import CosmosResourceNotFoundError
+from azure.cosmos.exceptions import CosmosAccessConditionFailedError, CosmosResourceNotFoundError
 from azure.identity import DefaultAzureCredential
 
 from prof_ai.chat.models import Conversation
 from prof_ai.users.cosmos_repository import DATABASE
+
+UPDATE_ATTEMPTS = 5
 
 
 def usage_id(user_id: str, day: date) -> str:
@@ -37,6 +41,40 @@ class CosmosChatStore:
 
     def save_conversation(self, conversation: Conversation) -> None:
         self._conversations.upsert_item(conversation.model_dump(mode="json"))
+
+    def update_conversation(
+        self, user_id: str, conversation_id: str, change: Callable[[Conversation], None]
+    ) -> Conversation:
+        for _ in range(UPDATE_ATTEMPTS - 1):
+            try:
+                return self._update_once(user_id, conversation_id, change)
+            except CosmosAccessConditionFailedError:
+                continue
+        return self._update_once(user_id, conversation_id, change)
+
+    def _update_once(
+        self, user_id: str, conversation_id: str, change: Callable[[Conversation], None]
+    ) -> Conversation:
+        item = self._conversations.read_item(conversation_id, partition_key=user_id)
+        conversation = Conversation.model_validate(item)
+        change(conversation)
+        # Fails if someone else wrote since the read, so their change is never overwritten.
+        self._conversations.replace_item(
+            conversation_id,
+            conversation.model_dump(mode="json"),
+            etag=item["_etag"],
+            match_condition=MatchConditions.IfNotModified,
+        )
+        return conversation
+
+    def conversation_version(self, user_id: str, conversation_id: str) -> datetime | None:
+        items = self._conversations.query_items(
+            "SELECT VALUE c.updated_at FROM c WHERE c.id = @id",
+            parameters=[{"name": "@id", "value": conversation_id}],
+            partition_key=user_id,
+        )
+        value = next(iter(items), None)
+        return datetime.fromisoformat(value) if value else None
 
     def delete_conversation(self, user_id: str, conversation_id: str) -> None:
         try:
