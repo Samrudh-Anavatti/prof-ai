@@ -5,8 +5,8 @@ from prof_ai.chat.models import ChatMessage, Conversation, PromptMessage
 from prof_ai.chat.prompts import SUMMARISE_PROMPT
 
 SUMMARY_TRIGGER_TOKENS = 8_000
-SUMMARY_BATCH_TOKENS = 24_000
-SUMMARY_OUTPUT_TOKENS = 3_000
+SUMMARY_BATCH_TOKENS = 12_000
+SUMMARY_OUTPUT_TOKENS = 1_500
 MAX_SUMMARY_BYTES = LAYER_CAPS[Layer.SUMMARY] * 3
 SPEAKERS = {"user": "Student", "assistant": "Prof AI"}
 

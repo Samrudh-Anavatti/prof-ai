@@ -19,7 +19,7 @@ from prof_ai.chat.memory import (
     messages_to_summarise,
     summary_request,
 )
-from prof_ai.chat.model import ChatModel, ContentFilteredError
+from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import LUNA, ModelProfile
 from prof_ai.chat.models import (
     ChatMessage,
@@ -41,7 +41,14 @@ MAX_MESSAGES_PER_CONVERSATION = 200
 TITLE_CHARS = 60
 MICRO_USD = 1_000_000
 UNAVAILABLE = "Prof AI is unavailable right now. Try again later."
-FILTERED = "Sorry, I can't help with that. Try asking another way, or talk to your tutor."
+BUSY = "Prof AI is busy right now. Try again in a minute."
+# Shown for every filter hit, including self-harm disclosures, so it must point to help (R11).
+FILTERED = (
+    "I can't reply to that message, and your tutor will be able to see it. "
+    "If you're upset or worried about your safety, please talk to your tutor, a parent or "
+    "another adult you trust straight away. You can also call Childline free on 0800 1111 "
+    "or visit childline.org.uk."
+)
 
 
 class ChatRefusedError(Exception):
@@ -88,8 +95,9 @@ class ChatService:
         limiter: TurnLimiter | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         model_profile: ModelProfile = LUNA,
+        tokens_per_minute: int = 50_000,
     ):
-        check_budget(model_profile)
+        check_budget(model_profile, tokens_per_minute)
         self._model = model
         self._store = store
         self._profiles = profiles
@@ -193,6 +201,10 @@ class ChatService:
         except ContentFilteredError:
             self._record_filter_hit(turn)
             yield ChatEvent("error", {"message": FILTERED})
+            return
+        except ModelRateLimitedError:
+            logger.warning("Model rate limit hit for conversation %s", conversation.id)
+            yield ChatEvent("error", {"message": BUSY})
             return
         except Exception:
             logger.exception("Chat turn failed for conversation %s", conversation.id)

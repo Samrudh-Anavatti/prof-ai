@@ -8,7 +8,7 @@ param githubRepo string = 'Samrudh-Anavatti@95168210/prof-ai@1408891815'
 param chatModel object = {
   name: 'gpt-5.6-luna'
   version: '2026-07-09'
-  capacity: 10
+  capacity: 50
 }
 @description('Entra object IDs of tutors who upload content and run the app locally.')
 param tutorPrincipalIds array
@@ -224,6 +224,7 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'CHAT_ENABLED', value: 'true' }
         { name: 'CHAT_DAILY_USER_USD', value: '0.50' }
         { name: 'CHAT_DAILY_GLOBAL_USD', value: '1.50' }
+        { name: 'CHAT_TOKENS_PER_MINUTE', value: string(chatModel.capacity * 1000) }
         { name: 'STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
         { name: 'EXTERNAL_TENANT_ID', value: externalTenantId }

@@ -10,12 +10,22 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from prof_ai.chat.model import ChatModel
+from prof_ai.chat.model_profiles import LUNA, ModelProfile, UnknownModelError, model_profile
 from prof_ai.chat.models import TurnContext
 from prof_ai.chat.prompts import build_system_prompt
 from prof_ai.chat.store import ChatStore
 from prof_ai.content.manifest import InvalidSlugError, Licence, LicenceType
 from prof_ai.content.pdf import InvalidPdfError
 from prof_ai.content.store import BookExistsError, BookNotFoundError, ContentStore
+from prof_ai.evals.dilution import (
+    DEFAULT_LEVELS,
+    DilutionEval,
+    load_scenarios,
+    render_markdown,
+    worst_case_cost_usd,
+    write_report,
+)
 from prof_ai.graph import GraphError
 from prof_ai.profiles.store import InvalidProfileError, ProfileFile, ProfileStore
 from prof_ai.users.admin import SIGN_UP_INSTRUCTIONS, UserAdmin, UserAdminError
@@ -43,6 +53,7 @@ class TutorTools:
 StoreFactory = Callable[[], ContentStore]
 AdminFactory = Callable[[], UserAdmin]
 ToolsFactory = Callable[[], TutorTools]
+EvalModelFactory = Callable[[], tuple[ChatModel, ModelProfile]]
 
 
 def azure_store() -> ContentStore:
@@ -97,6 +108,20 @@ def azure_tutor_tools() -> TutorTools:
         ProfileStore(AzureBlobBackend(require_env("STORAGE_ACCOUNT_URL"), credential)),
         CosmosChatStore(cosmos_endpoint, credential),
     )
+
+
+def azure_eval_model() -> tuple[ChatModel, ModelProfile]:
+    from prof_ai.chat.model import FoundryChatModel
+
+    profile = model_profile(os.environ.get("CHAT_DEPLOYMENT") or LUNA.deployment)
+    return FoundryChatModel(require_env("FOUNDRY_ENDPOINT"), profile.deployment), profile
+
+
+def parse_levels(value: str) -> list[int]:
+    try:
+        return [int(level) for level in value.split(",") if level.strip()]
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("Levels are token counts, e.g. 2000,16000") from error
 
 
 def parse_grades(value: str) -> list[int]:
@@ -185,6 +210,23 @@ def build_parser() -> argparse.ArgumentParser:
     show_chat = chat_commands.add_parser("show", help="Print a chat transcript.")
     show_chat.add_argument("email")
     show_chat.add_argument("conversation_id")
+
+    evals = groups.add_parser("eval", help="Run model evals. These cost real tokens.")
+    eval_commands = evals.add_subparsers(dest="command", required=True)
+    dilution = eval_commands.add_parser(
+        "dilution", help="Safety and coaching scenarios at growing lesson sizes (ADR 0005)."
+    )
+    dilution.add_argument(
+        "--levels",
+        type=parse_levels,
+        default=list(DEFAULT_LEVELS),
+        help="Lesson sizes in estimated tokens (default 2000,16000,32000,64000).",
+    )
+    dilution.add_argument("--runs", type=int, default=3)
+    dilution.add_argument("--seed", type=int, default=0)
+    dilution.add_argument("--max-usd", type=float, default=2.0, help="Hard spend cap.")
+    dilution.add_argument("--out", type=Path, default=Path("data/generated/evals/dilution"))
+    dilution.add_argument("--yes", action="store_true", help="Call the model (costs money).")
     return parser
 
 
@@ -264,6 +306,30 @@ def run_chats(args: argparse.Namespace, tools: TutorTools) -> None:
             print(f"FLAG [{flag.at:%Y-%m-%d %H:%M}] {flag.kind}: {flag.message}")
 
 
+def run_eval(args: argparse.Namespace, model_factory: EvalModelFactory) -> None:
+    scenarios = load_scenarios()
+    cases = len(scenarios) * len(args.levels) * args.runs
+    profile = model_profile(os.environ.get("CHAT_DEPLOYMENT") or LUNA.deployment)
+    worst = worst_case_cost_usd(profile, len(scenarios), args.levels, args.runs)
+    print(
+        f"{cases} cases on {profile.deployment}: worst case ${worst:.2f} with no caching, "
+        f"capped at ${args.max_usd:.2f}."
+    )
+    if not args.yes:
+        print("Dry run. Add --yes to call the model.")
+        return
+    model, profile = model_factory()
+    report = DilutionEval(model, profile, args.max_usd).run(
+        scenarios,
+        args.levels,
+        args.runs,
+        args.seed,
+        progress=lambda r: print(f"{r.level // 1000}k run {r.run} {r.scenario}: {r.outcome}"),
+    )
+    path = write_report(report, args.levels, args.out)
+    print(f"\n{render_markdown(report, args.levels)}\n\nFull report: {path}")
+
+
 def run_content(args: argparse.Namespace, store: ContentStore) -> None:
     if args.command == "add-book":
         manifest = store.add_book(
@@ -297,6 +363,7 @@ def main(
     store_factory: StoreFactory = azure_store,
     admin_factory: AdminFactory = azure_user_admin,
     tools_factory: ToolsFactory = azure_tutor_tools,
+    eval_model_factory: EvalModelFactory = azure_eval_model,
 ) -> int:
     load_dotenv()
     args = build_parser().parse_args(argv)
@@ -307,6 +374,8 @@ def main(
             run_users(args, admin_factory())
         elif args.group == "profiles":
             run_profiles(args, tools_factory())
+        elif args.group == "eval":
+            run_eval(args, eval_model_factory)
         else:
             run_chats(args, tools_factory())
     except (
@@ -320,6 +389,7 @@ def main(
         GraphError,
         InvalidProfileError,
         NotFoundError,
+        UnknownModelError,
     ) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

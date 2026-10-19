@@ -72,6 +72,8 @@ Tutor CLI (installed by `requirements-dev.txt` into the venv, so run it as `.ven
 .venv/Scripts/prof profiles show alex@example.com                         # files + full system prompt
 .venv/Scripts/prof chats list alex@example.com
 .venv/Scripts/prof chats show alex@example.com <conversation-id>
+.venv/Scripts/prof eval dilution                                         # dry run: prints cases and worst-case cost
+.venv/Scripts/prof eval dilution --yes                                   # calls Luna (~$0.10-0.85, capped by --max-usd); needs FOUNDRY_ENDPOINT
 ```
 
 Tutors can also edit their teaching style in the web app at `/teaching-style` (`GET`/`PUT /api/teaching-style`, tutors only, audited). The app's identity can write only to the `profiles` container.
@@ -80,7 +82,9 @@ Tutors manage accounts at `/users` (`/api/users`): admins manage everyone; other
 
 The tutor chat calls Luna through `prof_ai.chat`. Every model call must go through `ChatService`, which enforces the input cap, budgets, kill switch and rate limit before calling the model. Locally it uses your `az login` and costs real tokens.
 
-**Everything sent to the model is built by `prof_ai.chat.context.assemble` from capped layers ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)).** Lessons get 64k estimated tokens and knowledge-graph reference material 64k per turn, under a 256k ceiling. Enforce a layer's cap where its content is written (e.g. refuse a lesson save over 64k, measured with `estimate_tokens`), and pass it in through `ContextInput`; never build prompts elsewhere. A new layer or model needs an ADR 0005 update, a `LAYER_CAPS` entry or `ModelProfile`, and must pass `check_budget`. Budgets are in dollars (`CHAT_DAILY_USER_USD`, `CHAT_DAILY_GLOBAL_USD`); tutors are exempt per user.
+**Everything sent to the model is built by `prof_ai.chat.context.assemble` from capped layers ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)).** Caps must fit the deployment's tokens per minute (`CHAT_TOKENS_PER_MINUTE`, 50k now; Azure counts the prompt plus `max_tokens`), so lessons get 12k estimated tokens and knowledge-graph reference material 4k per turn until the quota grows. Enforce a layer's cap where its content is written (e.g. refuse a lesson save over `LAYER_CAPS[Layer.LESSON]`, measured with `estimate_tokens`), and pass it in through `ContextInput`; never build prompts elsewhere. A new layer or model needs an ADR 0005 update, a `LAYER_CAPS` entry or `ModelProfile`, and must pass `check_budget`. Budgets are in dollars (`CHAT_DAILY_USER_USD`, `CHAT_DAILY_GLOBAL_USD`); tutors are exempt per user.
+
+Evals (`prof_ai.evals`, `prof eval ...`) are the one exception to going through `ChatService`: they run locally on your `az login` with synthetic data, use the same `assemble`, and have their own hard spend cap. Re-run `prof eval dilution` when you change the model, the base prompt or the caps.
 
 For local runs without signing in, set `DEV_USER_ID` in `.env` to your External ID object ID (from `prof users list`). The app refuses it anywhere but local.
 

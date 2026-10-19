@@ -63,6 +63,7 @@ def azure_chat_service(settings: Settings, profiles: ProfileStore | None) -> Cha
         profiles,
         chat_limits(settings),
         model_profile=model_profile(settings.chat_deployment),
+        tokens_per_minute=settings.chat_tokens_per_minute,
     )
 
 
