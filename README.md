@@ -59,8 +59,8 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live |
 | ✅ | **Context budget**: capped prompt layers that fit our 50k tokens a minute, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live |
 | ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live |
-| ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live after merge |
-| 🔜 | **Shared chats**: tutor and student in one chat, `@AI` to call Luna | Next |
+| ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live |
+| ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers `@AI` | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -71,28 +71,28 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lessons and tutor-created chats · 2026-10-20 · Sam
+### Shared tutor–student chats with @AI · 2026-10-20 · Sam
 
-Chats now belong to a lesson, and only tutors set them up:
+The chat redesign from [ADR 0005](docs/decisions/0005-models-and-context-budget.md) is complete:
 
-- **Lessons** in the top bar (tutors): pick a student (or yourself) and see their chats (**at most 5**; delete one to free a slot). Set up a new one with:
-  - a title, topics, and notes for Prof AI (what to focus on, what they found hard);
-  - **lesson material from a PDF**: upload a chapter (≤10 MB, ≤60 pages), tick pages, then edit the text;
-  - a live meter against the **12k lesson cap**, a "leave out answer pages" warning, and a licence checkbox.
-- **Students** pick from the chats their tutor made. The lesson title and topics show above the chat; the material and notes never reach their browser.
-- **Prof AI teaches from the lesson.** It's the lesson layer of every turn, capped when saved ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)).
-- **Every JSON request body** is limited to 1 MB (14 MB for the PDF upload) before it's read.
+- **Tutor and student share each lesson chat.** Tutors open a student's chat from **Lessons → Open**; students see their tutor's messages, labelled with their name.
+- **Prof AI only replies to messages that mention `@AI`** (or the **Ask Prof AI** button), from either of you. Messages between you cost nothing.
+  - A tutor's `@AI` uses the student's profile and is charged to the tutor (unlimited per tutor, but within the global cap).
+  - Chats without a lesson (your test chats) still answer every message.
+- **Prof AI knows who's talking.** The server adds labels like `⟦Tutor Sam⟧` that a student can't forge. A tutor can steer it ("show a full worked example") and its safety rules still apply. The re-run eval passed, including a forged tutor label and a real tutor's worked-example request.
+- **Live updates:** an open chat checks for new messages every 5 s. Messages written at the same moment are never lost (ETag-checked saves).
 
 > [!NOTE]
-> **Try it after merging:** set up a lesson for yourself on **Lessons** with a real chapter PDF, chat in it, then run `prof chats show` to see the lesson's size in the context line.
+> **Try it with two accounts:** you on Lessons → Open, and a test student in a private window. Post from each, try `@AI` from each, and watch the other side update.
 
-📄 [plan](docs/features/2026-10-19-lessons/plan.md) · [handover](docs/features/2026-10-19-lessons/handover.md)
+📄 [plan](docs/features/2026-10-20-shared-chat/plan.md) · [handover](docs/features/2026-10-20-shared-chat/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-20 | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Sam | [handover](docs/features/2026-10-19-lessons/handover.md) |
 | 2026-10-19 | **Dilution eval** (`prof eval dilution`): rules hold 3/3 at lessons up to 40k; hardened prompt; safer filtered message; caps fit 50k tokens a minute | Sam | [handover](docs/features/2026-10-19-context-dilution-eval/handover.md) |
 | 2026-10-19 | **Context budget**: capped prompt layers, rolling summaries, dollar budgets ($0.50/student, $1.50 global a day), a context ledger per reply | Sam | [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [handover](docs/features/2026-10-19-context-budget/handover.md) |
 | 2026-10-18 | **Users admin page**: invite, lock, unlock and delete at `/users`; email-code sign-up ([create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)) | Sam | [handover](docs/features/2026-10-18-user-admin/handover.md) |
