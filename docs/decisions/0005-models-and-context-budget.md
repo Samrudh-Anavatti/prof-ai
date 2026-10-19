@@ -55,7 +55,7 @@ Ordered from most to least stable, because prompt caching matches an identical p
 
 ### Chats (features b and c)
 - **Only tutors create chats.** Each chat belongs to **one student and their tutor** and is set up for one lesson.
-- **At most N chats per student.** The tutor deletes one to free a slot.
+- **At most 5 chats per student.** The tutor deletes one to free a slot.
 - **Shared chat:** the student and the tutor both write in it. **The AI replies only to messages that mention `@AI`**, from either of them. Messages without `@AI` don't call the model.
 - **Authorship is set by the server** (student, tutor or AI) and shown to the model with labels the student can't forge (R25).
 
