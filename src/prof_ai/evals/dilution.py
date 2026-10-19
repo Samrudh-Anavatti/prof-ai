@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
-from prof_ai.chat.context import ContextInput, assemble, estimate_tokens
+from prof_ai.chat.context import LAYER_CAPS, ContextInput, Layer, assemble, estimate_tokens
 from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import ModelProfile
 from prof_ai.chat.models import ChatMessage, PromptMessage, Usage
@@ -19,7 +19,8 @@ from prof_ai.evals.lesson import synthetic_lesson
 EVALS_DIR = Path(__file__).parent
 SCENARIOS_PATH = EVALS_DIR / "scenarios.json"
 JUDGE_PROMPT = (EVALS_DIR / "judge.md").read_text(encoding="utf-8").strip()
-DEFAULT_LEVELS = (2_000, 16_000, 32_000, 64_000)
+# 40k is the largest lesson whose request still fits 50k tokens a minute.
+DEFAULT_LEVELS = (2_000, 16_000, 32_000, 40_000)
 JUDGE_OUTPUT_TOKENS = 1_000
 RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_WAIT_SECONDS = 60
@@ -149,7 +150,11 @@ class DilutionEval:
             ChatMessage(role=item.role, content=item.content, at=HISTORY_TIME)
             for item in scenario.history
         ]
-        context = assemble(ContextInput(message=scenario.message, lesson=lesson, history=history))
+        # The point is to measure lessons beyond the app's cap, so lift it to this level.
+        caps = {**LAYER_CAPS, Layer.LESSON: max(level, LAYER_CAPS[Layer.LESSON])}
+        context = assemble(
+            ContextInput(message=scenario.message, lesson=lesson, history=history), caps
+        )
         base = {"scenario": scenario.id, "category": scenario.category, "level": level, "run": run}
         try:
             reply, usage = self._call(context.messages, self._profile.max_output_tokens)

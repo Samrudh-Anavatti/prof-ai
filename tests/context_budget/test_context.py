@@ -29,21 +29,30 @@ def sized(tokens: int, fill: str = "x") -> str:
     return fill * (tokens * 3)
 
 
-def test_default_caps_fit_the_ceiling_and_lunas_window():
+TOKENS_PER_MINUTE = 50_000
+
+
+def test_default_caps_fit_the_ceiling_and_a_minutes_quota():
     assert sum(LAYER_CAPS.values()) + OUTPUT_RESERVE <= CONTEXT_CEILING
-    assert LAYER_CAPS[Layer.LESSON] == 64_000
-    assert LAYER_CAPS[Layer.REFERENCE] == 64_000
-    check_budget(LUNA)
+    assert sum(LAYER_CAPS.values()) + LUNA.max_output_tokens <= TOKENS_PER_MINUTE
+    assert LAYER_CAPS[Layer.LESSON] == 12_000
+    assert LAYER_CAPS[Layer.REFERENCE] == 4_000
+    check_budget(LUNA, TOKENS_PER_MINUTE)
+
+
+def test_a_full_turn_that_could_never_fit_a_minutes_quota_is_refused():
+    with pytest.raises(ContextBudgetError, match="tokens a minute"):
+        check_budget(LUNA, tokens_per_minute=40_000)
 
 
 def test_a_model_with_a_smaller_window_is_refused():
-    with pytest.raises(ContextBudgetError):
-        check_budget(replace(LUNA, context_window=128_000))
+    with pytest.raises(ContextBudgetError, match="window"):
+        check_budget(replace(LUNA, context_window=128_000), TOKENS_PER_MINUTE)
 
 
 def test_a_model_allowed_more_output_than_the_reserve_is_refused():
-    with pytest.raises(ContextBudgetError):
-        check_budget(replace(LUNA, max_output_tokens=OUTPUT_RESERVE + 1))
+    with pytest.raises(ContextBudgetError, match="reserve"):
+        check_budget(replace(LUNA, max_output_tokens=OUTPUT_RESERVE + 1), 1_000_000)
 
 
 def test_unknown_deployment_has_no_profile():
@@ -130,11 +139,20 @@ def test_an_oversized_old_message_cuts_the_window_there():
 
 
 def test_references_beyond_the_cap_drop_lowest_ranked_first():
-    best, second, third = sized(30_000, "a"), sized(30_000, "b"), sized(30_000, "c")
+    size = LAYER_CAPS[Layer.REFERENCE] * 2 // 5
+    best, second, third = sized(size, "a"), sized(size, "b"), sized(size, "c")
     assembled = assemble(ContextInput(message="q", references=[best, second, third]))
     user = assembled.messages[-2].content
     assert best in user and second in user and third not in user
-    assert assembled.layers[Layer.REFERENCE] == 60_000
+    assert assembled.layers[Layer.REFERENCE] == 2 * size
+
+
+def test_evals_can_lift_a_cap_without_changing_the_apps():
+    lesson = sized(LAYER_CAPS[Layer.LESSON] + 1)
+    with pytest.raises(ContextOverflowError):
+        assemble(ContextInput(message="q", lesson=lesson))
+    lifted = {**LAYER_CAPS, Layer.LESSON: 40_000}
+    assert assemble(ContextInput(message="q", lesson=lesson), lifted).layers["lesson"] > 12_000
 
 
 @pytest.mark.parametrize(

@@ -81,7 +81,7 @@ def test_messages_that_fall_out_of_the_window_are_summarised(h):
     assert h.model.output_caps[-1] == SUMMARY_OUTPUT_TOKENS
     stored = h.store.get_conversation("alex", conversation_id)
     assert stored.summary == SUMMARY_TEXT
-    assert stored.summarised_count == 12
+    assert stored.summarised_count == 6
     assert len(stored.messages) == 42
 
 
@@ -184,6 +184,6 @@ def test_cli_shows_the_summary_and_context_sizes(h, capsys):
     code = main(["chats", "show", "alex@example.com", conversation_id], tools_factory=lambda: tools)
     out, _ = capsys.readouterr()
     assert code == 0
-    assert f"--- summary of the first 12 messages ---\n{SUMMARY_TEXT}" in out
+    assert f"--- summary of the first 6 messages ---\n{SUMMARY_TEXT}" in out
     assert "context: estimated" in out
     assert "reported 120 in (0 cached), 30 out" in out

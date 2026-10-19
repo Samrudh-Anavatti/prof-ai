@@ -31,7 +31,7 @@ class ModelProfile:
 LUNA = ModelProfile(
     deployment="gpt-5.6-luna",
     context_window=922_000,
-    max_output_tokens=4_000,
+    max_output_tokens=1_500,
     input_usd_per_m=0.20,
     cached_input_usd_per_m=0.02,
     output_usd_per_m=1.20,

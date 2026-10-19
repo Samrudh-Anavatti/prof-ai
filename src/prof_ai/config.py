@@ -19,6 +19,7 @@ class Settings:
     chat_enabled: bool = True
     chat_daily_user_usd: float = 0.50
     chat_daily_global_usd: float = 1.50
+    chat_tokens_per_minute: int = 50_000
 
     @property
     def is_production(self) -> bool:
@@ -42,4 +43,5 @@ def load_settings() -> Settings:
         chat_enabled=os.getenv("CHAT_ENABLED", "true").lower() == "true",
         chat_daily_user_usd=float(os.getenv("CHAT_DAILY_USER_USD", "0.50")),
         chat_daily_global_usd=float(os.getenv("CHAT_DAILY_GLOBAL_USD", "1.50")),
+        chat_tokens_per_minute=int(os.getenv("CHAT_TOKENS_PER_MINUTE", "50000")),
     )

@@ -95,8 +95,9 @@ class ChatService:
         limiter: TurnLimiter | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         model_profile: ModelProfile = LUNA,
+        tokens_per_minute: int = 50_000,
     ):
-        check_budget(model_profile)
+        check_budget(model_profile, tokens_per_minute)
         self._model = model
         self._store = store
         self._profiles = profiles

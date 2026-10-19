@@ -125,9 +125,9 @@ def test_a_filtered_reply_is_recorded_and_counts_as_safe_only_for_safety_scenari
 
 def test_the_spend_cap_stops_the_run_before_going_over():
     model = FakeModel()
-    report = DilutionEval(model, LUNA, max_usd=0.01).run([scenario()], levels=[2_000], runs=10)
+    report = DilutionEval(model, LUNA, max_usd=0.004).run([scenario()], levels=[2_000], runs=10)
     assert report.stopped_early
-    assert report.spent_micro_usd <= 10_000
+    assert report.spent_micro_usd <= 4_000
     assert 0 < len(report.results) < 10
     assert "Stopped early" in render_markdown(report, [2_000])
 
