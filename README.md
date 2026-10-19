@@ -74,7 +74,12 @@ Managing accounts no longer needs the CLI, and new users don't need a password:
 - **Users** in the top bar (tutors) lists accounts with status pills: Invited, Active, Locked.
   - **Admins** (`prof users set-admin`) see and manage everyone, and can invite tutors.
   - **Other tutors** see and manage only their own students.
-- **Invite** takes an email and a first name. The person opens the site, **creates an account with that email** and enters the emailed code. Their first sign-in links the invite, with no "Forgot password" step ([ADR 0004](docs/decisions/0004-invites-and-sign-up.md)).
+- **Invite** takes an email and a first name. The person then creates their account using the **[🔗 create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)**. Their first sign-in links the invite, with no "Forgot password" step ([ADR 0004](docs/decisions/0004-invites-and-sign-up.md)).
+
+> [!TIP]
+> **Send new people this link:** https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/
+>
+> It opens Microsoft's "create account" page directly. They enter the email you invited and the code that's emailed to them, then land in Prof AI. The normal sign-in page only works for accounts that already exist, so new people get stuck there. The code email can take a few minutes and may land in spam; work email systems sometimes hold it.
 - **Lock** (needs a reason) and **Unlock** take effect immediately.
 - **Delete** erases the account, chats, usage and profile files.
 - Everything is audited. You can't lock or delete yourself.
@@ -109,6 +114,7 @@ Managing accounts no longer needs the CLI, and new users don't need a password:
 | Health check (no sign-in) | https://prof-ai.azurewebsites.net/healthz |
 | Teaching style editor (tutors) | https://prof-ai.azurewebsites.net/teaching-style |
 | Users admin (tutors) | https://prof-ai.azurewebsites.net/users |
+| **Create-account link for invited people** | https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/ |
 | Repository | https://github.com/Samrudh-Anavatti/prof-ai |
 | Pull requests | https://github.com/Samrudh-Anavatti/prof-ai/pulls |
 | CI / deploy runs | https://github.com/Samrudh-Anavatti/prof-ai/actions |
