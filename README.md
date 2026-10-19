@@ -305,6 +305,7 @@ sequenceDiagram
 **Decisions for Sam**
 
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
+- [ ] **Important: a better serverless LLM provider** (proposed for Punjy): something like Ollama Cloud at a similar price without Azure's 50k-tokens-a-minute squeeze. ADR 0005 set Ollama aside for student data (US hosting, no DPA, no content filter, API key), so the pick must clear that bar and pass `prof eval dilution`. See the INDEX row.
 - [ ] **Request more Luna quota** (https://aka.ms/oai/stuquotarequest): Prof AI is capped at 50k tokens a minute because the football project holds 200 of 250. Then raise `chatModel.capacity` and the context caps (ADR 0005 amendment).
 
 **Setup and housekeeping**
