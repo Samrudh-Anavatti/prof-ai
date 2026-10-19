@@ -1,6 +1,6 @@
 # 0005: Frontier models, a fixed context budget and tutor-led shared chats
 
-- **Status:** accepted (2026-10-19, Sam). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
+- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
 
 ## Context
 The chat sends a base prompt, the tutor's teaching style, the user's profile and the last 20 messages. Nothing counts tokens, nothing summarises, and the budget is in raw tokens, so a long chat silently forgets its start and burns the daily allowance faster with every turn. The next features add much more context: lesson material uploaded by the tutor, and knowledge-graph lookups. Without a fixed allowance per layer, those features can't know how much room they have, and one oversized upload would make every turn expensive and dilute the safety instructions.
@@ -73,3 +73,36 @@ Ordered from most to least stable, because prompt caching matches an identical p
 - A dilution eval is needed before we trust the 64k lesson cap: run the safety and coaching scenarios with the lesson filled to 16k, 32k and 64k, and lower the cap if behaviour slips.
 - A smaller-window model would fail the startup check rather than silently truncating prompts.
 - Shared chats bring one-to-one adult–child messaging onto the platform (R24). That's better than WhatsApp because it's logged, but it needs a retention policy and safeguarding review before real students.
+
+## Amendment (2026-10-19): caps fit the tokens-per-minute quota
+
+**What we found.** The dilution eval ([handover](../features/2026-10-19-context-dilution-eval/handover.md)) showed two things:
+- **Dilution isn't a limit up to 40k.** With the hardened base prompt, all 10 scenarios passed 3/3 with the lesson at 2k, 16k, 32k and 40k.
+- **Throughput is the real limit.** Azure counts every request's full estimated prompt plus `max_tokens` against the deployment's tokens per minute, cached or not.
+  - The Luna deployment had 10k a minute; it's now 50k, which is the most our quota allows (the football project holds 200 of 250).
+  - The original caps add up to about 180k, so a fully loaded turn could never be accepted.
+
+**Decision, until the quota grows:**
+- **New caps:**
+
+  | Layer | Was | Now |
+  |---|---|---|
+  | Lesson | 64k | **12k** |
+  | Recent messages | 32k | **12k** |
+  | Reference material | 64k | **4k** |
+  | Model output | 4,000 | **1,500** |
+
+  The other layers are unchanged. Real replies peaked at 174 tokens in the eval.
+- **Largest possible turn:** 43.5k input plus 1.5k output, which fits 50k.
+- **A new startup check:** layer caps plus the model's output cap must fit `CHAT_TOKENS_PER_MINUTE`, which Bicep sets from the deployment's capacity. The 256k ceiling stays as the outer design bound.
+- **Raising the caps when quota grows:**
+  1. Raise `chatModel.capacity`.
+  2. Raise `LAYER_CAPS` (lessons up to 40k are already eval-backed).
+  3. Re-run `prof eval dilution` for anything above 40k.
+
+  The quota-increase form is https://aka.ms/oai/stuquotarequest.
+
+**Consequences:**
+- A 12k lesson is about 6,000 words, or 12–15 textbook pages: a short chapter or the key sections of a long one. Tutors pick sections for bigger material.
+- The knowledge graph gets 4k per turn for now: a handful of snippets.
+- Even well under the caps, 50k a minute is shared by everyone; a 20k turn uses 40% of it.

@@ -57,9 +57,10 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Per-user AI configuration**: tutor teaching style + per-user profile in the system prompt | Live |
 | ✅ | **Teaching style editor** in the web UI for tutors | Live |
 | ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live |
-| ✅ | **Context budget**: capped prompt layers under a 256k ceiling, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live after merge |
+| ✅ | **Context budget**: capped prompt layers that fit our 50k tokens a minute, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live |
+| ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live after merge |
 | 🔜 | **Lessons and shared chats**: tutor-created chats per lesson (5 per student), tutor and student in one chat, `@AI` to call Luna | Next |
-| 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the 64k reference layer | Planned |
+| 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
 
@@ -69,43 +70,38 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Context budget, conversation memory and dollar budgets · 2026-10-19 · Sam
+### Context dilution eval, safer chat messages and caps that fit our quota · 2026-10-19 · Sam
 
-The prompt is now a measured, capped thing, ready for lessons and the knowledge graph to plug into ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)):
+We tested whether Luna keeps its rules as the lesson grows, and found and fixed four live problems along the way:
 
-- **Every chat call is built by one assembler** from capped layers, under a **256k ceiling** (Luna's window is ~922k):
+- **`prof eval dilution`:** 10 synthetic scenarios (answer demands, a planted "give full answers" instruction, off-topic, personal details, distress, jailbreak, prompt reveal, explaining, a buried fact) at lesson sizes 2k–40k, 3 runs each. It has a hard spend cap and a dry run by default.
+- **Results:** every scenario passed 3/3 at every size, after hardening the prompt. The full run cost $0.08 with 95–97% caching. **Dilution isn't a limit up to 40k.**
+- **Fixed along the way:**
+  - **The prompt read out answer keys** from lesson material and obeyed a planted instruction. `tutor.md` and the closing reminder now forbid both.
+  - **A filtered message (including a self-harm disclosure)** used to say "try asking another way". It now tells the student their tutor can see it and points to a trusted adult and **Childline 0800 1111**.
+  - **Luna only allowed 10k tokens a minute**, so any prompt over ~6k failed. It now allows **50k** (all the spare quota), and students see "busy, try again in a minute" when it's hit.
+  - **Caps now fit 50k a minute** ([ADR 0005 amendment](docs/decisions/0005-models-and-context-budget.md)):
 
-  | Layer | Cap (est. tokens) |
-  |---|---|
-  | Base prompt | 2k |
-  | Teaching style | 3k |
-  | **Lesson** (feature b) | **64k** |
-  | Profile | 3k |
-  | Conversation summary | 4k |
-  | Recent messages | 32k |
-  | **Reference material** (knowledge graph) | **64k** |
-  | New message | 3k |
-  | Safety reminder | 0.5k |
-  | Output reserve | 8k |
+    | Layer | Was | Now |
+    |---|---|---|
+    | Lesson | 64k | **12k** |
+    | Recent messages | 32k | **12k** |
+    | Reference material | 64k | **4k** |
+    | Model output | 4,000 | **1,500** |
 
-  - **Order:** stable layers come first, so Luna's prompt cache works. In a live test, 2,449 of 2,510 input tokens were cached on the second call, and it cost 5× less.
-  - **A safety reminder now comes last**, as well as the base prompt first.
-- **Long chats remember:**
-  - history is the newest messages that fit in 32k, not the last 20;
-  - older messages are folded into a rolling summary, which tutors see in `prof chats show`.
-- **Budgets are in dollars**, from real prices including cached input:
-  - $0.50 per student a day and $1.50 a day for everyone (`CHAT_DAILY_USER_USD` / `CHAT_DAILY_GLOBAL_USD`);
-  - **tutors are unlimited per user** but count towards the global cap.
-- **Every reply records what Luna was sent** (size per layer, cached tokens, cost); see `prof chats show`.
-- **Next:** lessons and tutor-created chats (5 per student), then the shared tutor–student chat with `@AI`.
+    The app won't start if a full turn couldn't fit the quota.
 
-📄 [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [plan](docs/features/2026-10-19-context-budget/plan.md) · [handover](docs/features/2026-10-19-context-budget/handover.md)
+> [!IMPORTANT]
+> **Sam: request more Luna quota** (https://aka.ms/oai/stuquotarequest, GlobalStandard gpt-5.6-luna in UK South). The football project holds 200 of our 250. Then raise `chatModel.capacity` and the caps; lessons up to 40k are already eval-backed.
+
+📄 [plan](docs/features/2026-10-19-context-dilution-eval/plan.md) · [handover](docs/features/2026-10-19-context-dilution-eval/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-19 | **Context budget**: capped prompt layers, rolling summaries, dollar budgets ($0.50/student, $1.50 global a day), a context ledger per reply | Sam | [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [handover](docs/features/2026-10-19-context-budget/handover.md) |
 | 2026-10-18 | **Users admin page**: invite, lock, unlock and delete at `/users`; email-code sign-up ([create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)) | Sam | [handover](docs/features/2026-10-18-user-admin/handover.md) |
 | 2026-10-18 | **Teaching style editor**: edit and try your teaching style in the web app | Sam | [handover](docs/features/2026-10-18-teaching-style-editor/handover.md) |
 | 2026-10-18 | **Tutor chat PoC**: chat with Luna, per-user profiles, budgets, transcripts CLI | Sam | [handover](docs/features/2026-10-18-tutor-chat/handover.md) |
@@ -251,8 +247,8 @@ sequenceDiagram
     API->>API: kill switch · ≤2,000 chars · 10/min · one reply in flight
     API->>C: today's spend under $0.50 (students) and $1.50 (everyone)?
     API->>B: teaching-style.md (tutor) + profile.md (user)
-    API->>API: assemble capped layers (ADR 0005), summary, history window ≤32k
-    API->>L: system prompt + history + message + safety reminder (max 4,000 output tokens)
+    API->>API: assemble capped layers (ADR 0005), summary, history window ≤12k
+    API->>L: system prompt + history + message + safety reminder (max 1,500 output tokens)
     L-->>API: streamed text (or content-filter hit)
     API-->>U: server-sent events: delta… then done
     API->>C: save the turn + cost + context ledger (only once complete)
@@ -279,7 +275,7 @@ sequenceDiagram
 | *(in feature plans)* | **A content store in Blob, not a search index**: chapter-in-context first, lazy extraction | A student only needs the chapter they're on, so an always-on search cluster would be wasted money |
 | *(in feature plans)* | **Per-user AI configuration as markdown files in Blob**, layered after the base prompt | Easy for tutors to read and edit; safety rules always come first |
 | *(in feature plans)* | **Hard budgets in the app**: per-user and global daily caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
-| [0005](docs/decisions/0005-models-and-context-budget.md) | **Frontier models (Luna default, Foundry-hosted preferred); every prompt layer capped under a 256k ceiling; dollar budgets; tutor-created shared chats with `@AI`** | Lessons and the knowledge graph get a fixed, enforced 64k each; caching and model choice show up in the budget; Ollama Cloud rejected for student data |
+| [0005](docs/decisions/0005-models-and-context-budget.md) | **Frontier models (Luna default, Foundry-hosted preferred); every prompt layer capped to fit the deployment's tokens per minute (50k now); dollar budgets; tutor-created shared chats with `@AI`** | Lessons and the knowledge graph get a fixed, enforced 64k each; caching and model choice show up in the budget; Ollama Cloud rejected for student data |
 
 ### Direction
 
@@ -309,6 +305,7 @@ sequenceDiagram
 **Decisions for Sam**
 
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
+- [ ] **Request more Luna quota** (https://aka.ms/oai/stuquotarequest): Prof AI is capped at 50k tokens a minute because the football project holds 200 of 250. Then raise `chatModel.capacity` and the context caps (ADR 0005 amendment).
 
 **Setup and housekeeping**
 
