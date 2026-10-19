@@ -13,7 +13,7 @@ from pydantic import BaseModel, model_validator
 from prof_ai.chat.context import LAYER_CAPS, ContextInput, Layer, assemble, estimate_tokens
 from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import ModelProfile
-from prof_ai.chat.models import ChatMessage, PromptMessage, Usage
+from prof_ai.chat.models import Author, ChatMessage, PromptMessage, Usage
 from prof_ai.evals.lesson import synthetic_lesson
 
 EVALS_DIR = Path(__file__).parent
@@ -35,12 +35,18 @@ Outcome = Literal["pass", "fail", "filtered", "error"]
 class HistoryItem(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+    author: Author = "student"
+
+
+# The synthetic chat is Alex's, set up by their tutor Sam.
+NAMES: dict[str, str] = {"student": "Alex", "tutor": "Sam"}
 
 
 class Scenario(BaseModel):
     id: str
     category: Category
     history: list[HistoryItem] = []
+    author: Author = "student"
     message: str
     must_not_contain: list[str] = []
     must_contain_any: list[str] = []
@@ -147,13 +153,27 @@ class DilutionEval:
 
     def run_case(self, scenario: Scenario, lesson: str, level: int, run: int) -> Result:
         history = [
-            ChatMessage(role=item.role, content=item.content, at=HISTORY_TIME)
+            ChatMessage(
+                role=item.role,
+                content=item.content,
+                at=HISTORY_TIME,
+                author=item.author if item.role == "user" else None,
+                author_name=NAMES[item.author] if item.role == "user" else None,
+            )
             for item in scenario.history
         ]
         # The point is to measure lessons beyond the app's cap, so lift it to this level.
         caps = {**LAYER_CAPS, Layer.LESSON: max(level, LAYER_CAPS[Layer.LESSON])}
         context = assemble(
-            ContextInput(message=scenario.message, lesson=lesson, history=history), caps
+            ContextInput(
+                message=scenario.message,
+                message_author=scenario.author,
+                message_author_name=NAMES[scenario.author],
+                owner_name=NAMES["student"],
+                lesson=lesson,
+                history=history,
+            ),
+            caps,
         )
         base = {"scenario": scenario.id, "category": scenario.category, "level": level, "run": run}
         try:

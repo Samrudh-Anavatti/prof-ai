@@ -171,7 +171,7 @@ def test_cli_is_a_dry_run_without_yes(capsys):
     code = main(["eval", "dilution", "--runs", "1"], eval_model_factory=no_model)
     out, _ = capsys.readouterr()
     assert code == 0
-    assert "40 cases" in out and "Dry run" in out
+    assert f"{len(load_scenarios()) * 4} cases" in out and "Dry run" in out
 
 
 def test_cli_runs_and_writes_the_report_with_yes(capsys, tmp_path):
