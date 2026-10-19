@@ -9,6 +9,7 @@ import {
   UNAVAILABLE,
   type ChatMessage,
   type ConversationSummary,
+  type LessonOverview,
   type Me,
 } from "./api";
 
@@ -23,8 +24,10 @@ function firstName(me: Me): string {
 }
 
 export function ChatPage({ me }: { me: Me }) {
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const isTutor = me.role === "tutor";
+  const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [lesson, setLesson] = useState<LessonOverview | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState<string | null>(null);
@@ -32,12 +35,21 @@ export function ChatPage({ me }: { me: Me }) {
   const [showList, setShowList] = useState(false);
   const threadEnd = useRef<HTMLDivElement>(null);
   const sending = reply !== null;
+  // Students can only use chats their tutor set up; tutors can start test chats of their own.
+  const canSend = activeId !== null || isTutor;
 
   useEffect(() => {
     listConversations()
-      .then(setConversations)
+      .then(async (list) => {
+        setConversations(list);
+        if (isTutor || list.length === 0) return;
+        const detail = await getConversation(list[0].id);
+        setActiveId(detail.id);
+        setLesson(detail.lesson);
+        setMessages(detail.messages);
+      })
       .catch((e: unknown) => setError(messageOf(e)));
-  }, []);
+  }, [isTutor]);
 
   useEffect(() => {
     threadEnd.current?.scrollIntoView({ block: "end" });
@@ -49,6 +61,7 @@ export function ChatPage({ me }: { me: Me }) {
     try {
       const detail = await getConversation(id);
       setActiveId(detail.id);
+      setLesson(detail.lesson);
       setMessages(detail.messages);
     } catch (e) {
       setError(messageOf(e));
@@ -58,6 +71,7 @@ export function ChatPage({ me }: { me: Me }) {
   function newChat() {
     setShowList(false);
     setActiveId(null);
+    setLesson(null);
     setMessages([]);
     setError(null);
   }
@@ -65,7 +79,7 @@ export function ChatPage({ me }: { me: Me }) {
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || !canSend) return;
     setError(null);
     setDraft("");
     setReply("");
@@ -89,7 +103,7 @@ export function ChatPage({ me }: { me: Me }) {
       const conversationId = id;
       setConversations((current) => [
         { id: conversationId, title, updated_at: now },
-        ...current.filter((c) => c.id !== conversationId),
+        ...(current ?? []).filter((c) => c.id !== conversationId),
       ]);
     } catch (e) {
       setMessages(previous);
@@ -107,14 +121,18 @@ export function ChatPage({ me }: { me: Me }) {
     }
   }
 
+  const noChatsYet = !isTutor && conversations !== null && conversations.length === 0;
+
   return (
     <div className="chat-layout">
       <aside className={showList ? "sidebar open" : "sidebar"}>
-        <button type="button" className="new-chat" onClick={newChat}>
-          + New chat
-        </button>
+        {isTutor && (
+          <button type="button" className="new-chat" onClick={newChat}>
+            + New test chat
+          </button>
+        )}
         <ul className="conversation-list">
-          {conversations.map((c) => (
+          {(conversations ?? []).map((c) => (
             <li key={c.id}>
               <button
                 type="button"
@@ -132,13 +150,22 @@ export function ChatPage({ me }: { me: Me }) {
         <button type="button" className="toggle-list" onClick={() => setShowList(!showList)}>
           {showList ? "Close" : "Your chats"}
         </button>
+        {lesson && (
+          <header className="lesson-banner">
+            <strong>{lesson.title}</strong>
+            {lesson.topics.length > 0 && <span className="muted">{lesson.topics.join(" · ")}</span>}
+          </header>
+        )}
         <div className="thread" aria-live="polite">
           {messages.length === 0 && reply === null && (
             <div className="empty">
               <h1>Hi {firstName(me)}!</h1>
               <p className="muted">
-                What are you working on? Ask about a topic or a question you're stuck on, and we'll
-                work through it together.
+                {noChatsYet
+                  ? "Your tutor hasn't set up a chat for you yet. When they do, it'll appear here."
+                  : lesson
+                    ? `This chat is about ${lesson.title}. What would you like to go over?`
+                    : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
               </p>
             </div>
           )}
@@ -168,10 +195,11 @@ export function ChatPage({ me }: { me: Me }) {
             onKeyDown={onKeyDown}
             maxLength={MAX_INPUT_CHARS}
             rows={2}
-            placeholder="Ask your tutor…"
+            placeholder={canSend ? "Ask your tutor…" : "Pick a chat to start"}
             aria-label="Message"
+            disabled={!canSend}
           />
-          <button type="submit" disabled={sending || !draft.trim()}>
+          <button type="submit" disabled={sending || !canSend || !draft.trim()}>
             Send
           </button>
         </form>

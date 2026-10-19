@@ -1,13 +1,13 @@
 import json
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from prof_ai.auth import CurrentUser
+from prof_ai.auth import CurrentUser, require_role
 from prof_ai.chat.models import Conversation
 from prof_ai.chat.service import (
     ChatEvent,
@@ -15,6 +15,9 @@ from prof_ai.chat.service import (
     ChatService,
     ConversationNotFoundError,
 )
+from prof_ai.users.models import Role, User
+
+Tutor = Annotated[User, Depends(require_role(Role.TUTOR))]
 
 
 class ConversationSummary(BaseModel):
@@ -29,7 +32,15 @@ class MessageOut(BaseModel):
     at: datetime
 
 
+class LessonOverview(BaseModel):
+    """What a student may see of the lesson: never the material or the tutor's notes."""
+
+    title: str
+    topics: list[str]
+
+
 class ConversationDetail(ConversationSummary):
+    lesson: LessonOverview | None
     messages: list[MessageOut]
 
 
@@ -63,8 +74,13 @@ def create_chat_router() -> APIRouter:
         return [summary(c) for c in chat_service(request).list_conversations(user)]
 
     @router.post("/conversations", status_code=201)
-    def start_conversation(user: CurrentUser, request: Request) -> ConversationSummary:
-        return summary(chat_service(request).start_conversation(user))
+    def start_conversation(tutor: Tutor, request: Request) -> ConversationSummary:
+        """A tutor's own test chat. Students' chats are set up under /api/students."""
+        try:
+            conversation = chat_service(request).create_chat(tutor, tutor)
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+        return summary(conversation)
 
     @router.get("/conversations/{conversation_id}")
     def get_conversation(
@@ -76,6 +92,9 @@ def create_chat_router() -> APIRouter:
             raise HTTPException(404, "Chat not found.") from error
         return ConversationDetail(
             **summary(conversation).model_dump(),
+            lesson=LessonOverview(title=lesson.title, topics=lesson.topics)
+            if (lesson := conversation.lesson)
+            else None,
             messages=[
                 MessageOut(role=m.role, content=m.content, at=m.at) for m in conversation.messages
             ],

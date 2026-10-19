@@ -64,6 +64,9 @@ class InMemoryChatStore:
         key = (conversation.user_id, conversation.id)
         self.conversations[key] = conversation.model_dump(mode="json")
 
+    def delete_conversation(self, user_id: str, conversation_id: str) -> None:
+        self.conversations.pop((user_id, conversation_id), None)
+
     def cost_used(self, user_id: str, day: date) -> int:
         return self.usage.get((user_id, day), 0)
 
@@ -131,9 +134,10 @@ class Harness:
         return {PRINCIPAL_HEADER: principal_header(user_id)}
 
     def start(self, user_id: str) -> str:
-        response = self.client.post("/api/chat/conversations", headers=self.as_user(user_id))
-        assert response.status_code == 201
-        return response.json()["id"]
+        """A chat without a lesson, set up by the user's tutor (or a tutor for themselves)."""
+        user = self.users.get(user_id)
+        actor = self.users.get(user.tutor_id) if user.tutor_id else user
+        return self.service.create_chat(actor, user).id
 
     def send(self, user_id: str, conversation_id: str, content: str):
         return self.client.post(

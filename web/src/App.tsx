@@ -2,6 +2,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 
 import { ApiError, getMe, type Me } from "./api";
 import { ChatPage } from "./ChatPage";
+import { LessonsPage } from "./LessonsPage";
 import { Logo } from "./Logo";
 import { TeachingStylePage } from "./TeachingStylePage";
 import { UsersPage } from "./UsersPage";
@@ -10,10 +11,12 @@ type State = { kind: "loading" } | { kind: "ready"; me: Me } | { kind: "error"; 
 
 const SIGN_OUT_URL = "/.auth/logout?post_logout_redirect_uri=/";
 const CHAT_PATH = "/";
+const LESSONS_PATH = "/lessons";
 const TEACHING_STYLE_PATH = "/teaching-style";
 const USERS_PATH = "/users";
 const TUTOR_PAGES = [
   { path: CHAT_PATH, label: "Chat" },
+  { path: LESSONS_PATH, label: "Lessons" },
   { path: TEACHING_STYLE_PATH, label: "Teaching style" },
   { path: USERS_PATH, label: "Users" },
 ];
@@ -94,6 +97,7 @@ export function App() {
       {state.kind === "ready" && page === TEACHING_STYLE_PATH && (
         <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
       )}
+      {state.kind === "ready" && page === LESSONS_PATH && <LessonsPage me={state.me} />}
       {state.kind === "ready" && page === USERS_PATH && <UsersPage me={state.me} />}
       {state.kind === "ready" && page === CHAT_PATH && <ChatPage me={state.me} />}
     </div>

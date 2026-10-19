@@ -25,12 +25,14 @@ from prof_ai.chat.models import (
     ChatMessage,
     Conversation,
     Flag,
+    Lesson,
     PromptMessage,
     TurnContext,
     Usage,
 )
 from prof_ai.chat.prompts import load_profile_layers
 from prof_ai.chat.store import ChatStore
+from prof_ai.lessons.rules import InvalidLessonError, render_lesson, validate_lesson
 from prof_ai.profiles.store import ProfileStore
 from prof_ai.users.models import Role, User
 
@@ -38,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 MAX_INPUT_CHARS = 2000
 MAX_MESSAGES_PER_CONVERSATION = 200
+MAX_CHATS_PER_STUDENT = 5
 TITLE_CHARS = 60
 MICRO_USD = 1_000_000
 UNAVAILABLE = "Prof AI is unavailable right now. Try again later."
@@ -112,12 +115,43 @@ class ChatService:
     def erase_user_data(self, user_id: str) -> None:
         self._store.delete_user_data(user_id)
 
-    def start_conversation(self, user: User) -> Conversation:
+    def create_chat(
+        self,
+        actor: User,
+        student: User,
+        lesson: Lesson | None = None,
+        licence_confirmed: bool = False,
+    ) -> Conversation:
+        """A chat for one student. Callers check that the actor may manage the student."""
+        if lesson is not None:
+            try:
+                lesson = validate_lesson(lesson, licence_confirmed)
+            except InvalidLessonError as error:
+                raise ChatRefusedError(400, str(error)) from error
+        if len(self._store.list_conversations(student.id)) >= MAX_CHATS_PER_STUDENT:
+            raise ChatRefusedError(
+                409,
+                f"{student.display_name} already has {MAX_CHATS_PER_STUDENT} chats. "
+                "Delete one first.",
+            )
         now = self._clock()
         conversation = Conversation(
-            id=uuid.uuid4().hex, user_id=user.id, created_at=now, updated_at=now
+            id=uuid.uuid4().hex,
+            user_id=student.id,
+            title=lesson.title if lesson else "",
+            lesson=lesson,
+            created_by=actor.id,
+            created_at=now,
+            updated_at=now,
         )
         self._store.save_conversation(conversation)
+        return conversation
+
+    def delete_chat(self, student_id: str, conversation_id: str) -> Conversation:
+        conversation = self._store.get_conversation(student_id, conversation_id)
+        if conversation is None:
+            raise ConversationNotFoundError()
+        self._store.delete_conversation(student_id, conversation_id)
         return conversation
 
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
@@ -162,6 +196,7 @@ class ChatService:
                     message=content,
                     teaching_style=layers.teaching_style,
                     profile=layers.profile,
+                    lesson=render_lesson(conversation.lesson) if conversation.lesson else None,
                     summary=conversation.summary,
                     history=conversation.messages,
                 )

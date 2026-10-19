@@ -43,8 +43,54 @@ export interface ChatMessage {
   at: string;
 }
 
+export interface LessonOverview {
+  title: string;
+  topics: string[];
+}
+
 export interface ConversationDetail extends ConversationSummary {
+  lesson: LessonOverview | null;
   messages: ChatMessage[];
+}
+
+export interface LessonSource {
+  filename: string;
+  pages: number[];
+}
+
+export interface Lesson {
+  title: string;
+  topics: string[];
+  notes: string;
+  material: string;
+  sources: LessonSource[];
+}
+
+export interface StudentChat {
+  id: string;
+  title: string;
+  topics: string[];
+  has_material: boolean;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentChats {
+  chats: StudentChat[];
+  max_chats: number;
+  max_lesson_tokens: number;
+}
+
+export interface ExtractedPage {
+  number: number;
+  text: string;
+  tokens: number;
+}
+
+export interface ExtractedPdf {
+  pages: ExtractedPage[];
+  max_lesson_tokens: number;
 }
 
 export class ApiError extends Error {
@@ -184,6 +230,50 @@ export function unlockUser(id: string, options?: ApiOptions): Promise<UserView> 
 
 export async function deleteUser(id: string, options: ApiOptions = {}): Promise<void> {
   await request(userPath(id), { method: "DELETE" }, options);
+}
+
+function studentChatsPath(studentId: string, chatId = ""): string {
+  const base = `/api/students/${encodeURIComponent(studentId)}/chats`;
+  return chatId ? `${base}/${encodeURIComponent(chatId)}` : base;
+}
+
+export function listStudentChats(studentId: string, options?: ApiOptions): Promise<StudentChats> {
+  return getJson<StudentChats>(studentChatsPath(studentId), options);
+}
+
+export function createStudentChat(
+  studentId: string,
+  lesson: Lesson,
+  licenceConfirmed: boolean,
+  options?: ApiOptions,
+): Promise<StudentChat> {
+  return sendJson<StudentChat>(
+    "POST",
+    studentChatsPath(studentId),
+    { lesson, licence_confirmed: licenceConfirmed },
+    options,
+  );
+}
+
+export async function deleteStudentChat(
+  studentId: string,
+  chatId: string,
+  options: ApiOptions = {},
+): Promise<void> {
+  await request(studentChatsPath(studentId, chatId), { method: "DELETE" }, options);
+}
+
+export function extractPdf(
+  filename: string,
+  pdfBase64: string,
+  options?: ApiOptions,
+): Promise<ExtractedPdf> {
+  return sendJson<ExtractedPdf>(
+    "POST",
+    "/api/lessons/extract",
+    { filename, pdf_base64: pdfBase64 },
+    options,
+  );
 }
 
 export interface ReplyHandlers {

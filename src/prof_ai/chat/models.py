@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TurnContext(BaseModel):
@@ -33,12 +33,31 @@ class Flag(BaseModel):
     at: datetime
 
 
+class LessonSource(BaseModel):
+    filename: str = Field(max_length=200)
+    pages: list[int] = Field(default=[], max_length=500)
+
+
+class Lesson(BaseModel):
+    """What a tutor sets up for one chat. Rendered, it's the capped lesson layer (ADR 0005)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    title: str
+    topics: list[str] = []
+    notes: str = ""
+    material: str = ""
+    sources: list[LessonSource] = Field(default=[], max_length=20)
+
+
 class Conversation(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: str
     user_id: str
     title: str = ""
+    lesson: Lesson | None = None
+    created_by: str | None = None
     messages: list[ChatMessage] = []
     summary: str = ""
     summarised_count: int = 0

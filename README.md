@@ -58,8 +58,9 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Teaching style editor** in the web UI for tutors | Live |
 | ✅ | **Users admin page**: invite, lock, unlock and delete; admins manage everyone | Live |
 | ✅ | **Context budget**: capped prompt layers that fit our 50k tokens a minute, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live |
-| ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live after merge |
-| 🔜 | **Lessons and shared chats**: tutor-created chats per lesson (5 per student), tutor and student in one chat, `@AI` to call Luna | Next |
+| ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live |
+| ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live after merge |
+| 🔜 | **Shared chats**: tutor and student in one chat, `@AI` to call Luna | Next |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -70,37 +71,29 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Context dilution eval, safer chat messages and caps that fit our quota · 2026-10-19 · Sam
+### Lessons and tutor-created chats · 2026-10-20 · Sam
 
-We tested whether Luna keeps its rules as the lesson grows, and found and fixed four live problems along the way:
+Chats now belong to a lesson, and only tutors set them up:
 
-- **`prof eval dilution`:** 10 synthetic scenarios (answer demands, a planted "give full answers" instruction, off-topic, personal details, distress, jailbreak, prompt reveal, explaining, a buried fact) at lesson sizes 2k–40k, 3 runs each. It has a hard spend cap and a dry run by default.
-- **Results:** every scenario passed 3/3 at every size, after hardening the prompt. The full run cost $0.08 with 95–97% caching. **Dilution isn't a limit up to 40k.**
-- **Fixed along the way:**
-  - **The prompt read out answer keys** from lesson material and obeyed a planted instruction. `tutor.md` and the closing reminder now forbid both.
-  - **A filtered message (including a self-harm disclosure)** used to say "try asking another way". It now tells the student their tutor can see it and points to a trusted adult and **Childline 0800 1111**.
-  - **Luna only allowed 10k tokens a minute**, so any prompt over ~6k failed. It now allows **50k** (all the spare quota), and students see "busy, try again in a minute" when it's hit.
-  - **Caps now fit 50k a minute** ([ADR 0005 amendment](docs/decisions/0005-models-and-context-budget.md)):
+- **Lessons** in the top bar (tutors): pick a student (or yourself) and see their chats (**at most 5**; delete one to free a slot). Set up a new one with:
+  - a title, topics, and notes for Prof AI (what to focus on, what they found hard);
+  - **lesson material from a PDF**: upload a chapter (≤10 MB, ≤60 pages), tick pages, then edit the text;
+  - a live meter against the **12k lesson cap**, a "leave out answer pages" warning, and a licence checkbox.
+- **Students** pick from the chats their tutor made. The lesson title and topics show above the chat; the material and notes never reach their browser.
+- **Prof AI teaches from the lesson.** It's the lesson layer of every turn, capped when saved ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)).
+- **Every JSON request body** is limited to 1 MB (14 MB for the PDF upload) before it's read.
 
-    | Layer | Was | Now |
-    |---|---|---|
-    | Lesson | 64k | **12k** |
-    | Recent messages | 32k | **12k** |
-    | Reference material | 64k | **4k** |
-    | Model output | 4,000 | **1,500** |
+> [!NOTE]
+> **Try it after merging:** set up a lesson for yourself on **Lessons** with a real chapter PDF, chat in it, then run `prof chats show` to see the lesson's size in the context line.
 
-    The app won't start if a full turn couldn't fit the quota.
-
-> [!IMPORTANT]
-> **Sam: request more Luna quota** (https://aka.ms/oai/stuquotarequest, GlobalStandard gpt-5.6-luna in UK South). The football project holds 200 of our 250. Then raise `chatModel.capacity` and the caps; lessons up to 40k are already eval-backed.
-
-📄 [plan](docs/features/2026-10-19-context-dilution-eval/plan.md) · [handover](docs/features/2026-10-19-context-dilution-eval/handover.md)
+📄 [plan](docs/features/2026-10-19-lessons/plan.md) · [handover](docs/features/2026-10-19-lessons/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-19 | **Dilution eval** (`prof eval dilution`): rules hold 3/3 at lessons up to 40k; hardened prompt; safer filtered message; caps fit 50k tokens a minute | Sam | [handover](docs/features/2026-10-19-context-dilution-eval/handover.md) |
 | 2026-10-19 | **Context budget**: capped prompt layers, rolling summaries, dollar budgets ($0.50/student, $1.50 global a day), a context ledger per reply | Sam | [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [handover](docs/features/2026-10-19-context-budget/handover.md) |
 | 2026-10-18 | **Users admin page**: invite, lock, unlock and delete at `/users`; email-code sign-up ([create-account link](https://prof-ai.azurewebsites.net/.auth/login/aad?prompt=create&post_login_redirect_uri=/)) | Sam | [handover](docs/features/2026-10-18-user-admin/handover.md) |
 | 2026-10-18 | **Teaching style editor**: edit and try your teaching style in the web app | Sam | [handover](docs/features/2026-10-18-teaching-style-editor/handover.md) |
@@ -305,6 +298,7 @@ sequenceDiagram
 **Decisions for Sam**
 
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
+- [ ] **Important: a better serverless LLM provider** (proposed for Punjy): something like Ollama Cloud at a similar price without Azure's 50k-tokens-a-minute squeeze. ADR 0005 set Ollama aside for student data (US hosting, no DPA, no content filter, API key), so the pick must clear that bar and pass `prof eval dilution`. See the INDEX row.
 - [ ] **Request more Luna quota** (https://aka.ms/oai/stuquotarequest): Prof AI is capped at 50k tokens a minute because the football project holds 200 of 250. Then raise `chatModel.capacity` and the context caps (ADR 0005 amendment).
 
 **Setup and housekeeping**
