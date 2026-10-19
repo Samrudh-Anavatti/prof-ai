@@ -8,7 +8,6 @@ SUMMARY_TRIGGER_TOKENS = 8_000
 SUMMARY_BATCH_TOKENS = 12_000
 SUMMARY_OUTPUT_TOKENS = 1_500
 MAX_SUMMARY_BYTES = LAYER_CAPS[Layer.SUMMARY] * 3
-SPEAKERS = {"user": "Student", "assistant": "Prof AI"}
 
 
 def messages_to_summarise(conversation: Conversation) -> list[ChatMessage]:
@@ -27,8 +26,15 @@ def messages_to_summarise(conversation: Conversation) -> list[ChatMessage]:
     return batch
 
 
+def speaker(message: ChatMessage) -> str:
+    if message.role == "assistant":
+        return "Prof AI"
+    role = "Tutor" if message.author == "tutor" else "Student"
+    return f"{role} {message.author_name}" if message.author_name else role
+
+
 def summary_request(previous: str, messages: Sequence[ChatMessage]) -> list[PromptMessage]:
-    transcript = "\n\n".join(f"{SPEAKERS[m.role]}: {m.content}" for m in messages)
+    transcript = "\n\n".join(f"{speaker(m)}: {m.content}" for m in messages)
     return [
         PromptMessage(role="system", content=SUMMARISE_PROMPT),
         PromptMessage(

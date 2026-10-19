@@ -15,10 +15,17 @@ class TurnContext(BaseModel):
     cost_micro_usd: int = 0
 
 
+Author = Literal["student", "tutor"]
+
+
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
     at: datetime
+    # Who wrote a human message, from the signed-in user. None on messages from before shared
+    # chats, which were always written by the chat's owner.
+    author: Author | None = None
+    author_name: str | None = None
     context: TurnContext | None = None
 
 

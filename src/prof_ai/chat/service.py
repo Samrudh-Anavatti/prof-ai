@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from prof_ai.chat.memory import (
 from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import LUNA, ModelProfile
 from prof_ai.chat.models import (
+    Author,
     ChatMessage,
     Conversation,
     Flag,
@@ -78,12 +80,27 @@ class ChatEvent:
     data: dict
 
 
+# A whole word, so addresses like sam@ai.example don't count.
+AI_MENTION = re.compile(r"(?<![\w@.])@ai\b", re.IGNORECASE)
+
+
+def author_of(user: User) -> Author:
+    return "tutor" if user.role == Role.TUTOR else "student"
+
+
+def asks_ai(conversation: Conversation, content: str) -> bool:
+    """Lesson chats are shared, so Prof AI waits for @AI. Other chats answer every message."""
+    return conversation.lesson is None or bool(AI_MENTION.search(content))
+
+
 @dataclass(frozen=True)
 class Turn:
-    user: User
+    sender: User
+    owner: User
     conversation: Conversation
     message: ChatMessage
-    context: AssembledContext
+    # None when nobody asked Prof AI: the message is just saved.
+    context: AssembledContext | None
 
 
 class ChatService:
@@ -160,40 +177,67 @@ class ChatService:
             raise ConversationNotFoundError()
         return conversation
 
-    def begin_turn(self, user: User, conversation_id: str, content: str) -> Turn:
-        """Run every check that can refuse a message, before any model call."""
+    def begin_turn(self, sender: User, owner: User, conversation_id: str, content: str) -> Turn:
+        """Run every check that can refuse a message, before any model call.
+
+        The caller has checked that the sender may write in the owner's chat.
+        """
         content = content.strip()
-        if not self._limits.enabled:
-            raise ChatRefusedError(503, "Chat is switched off at the moment.")
         if not content:
             raise ChatRefusedError(400, "Type a message first.")
         if len(content) > MAX_INPUT_CHARS:
             raise ChatRefusedError(
                 400, f"That message is too long. Keep it under {MAX_INPUT_CHARS} characters."
             )
-        conversation = self.get_conversation(user, conversation_id)
+        conversation = self.get_conversation(owner, conversation_id)
         if len(conversation.messages) >= MAX_MESSAGES_PER_CONVERSATION:
             raise ChatRefusedError(409, "This chat is full. Start a new one.")
-        self._check_budgets(user)
-        context = self._assemble(user, conversation, content)
-        wait_reason = self._limiter.try_acquire(user.id)
+        message = ChatMessage(
+            role="user",
+            content=content,
+            at=self._clock(),
+            author=author_of(sender),
+            author_name=sender.display_name,
+        )
+        context = None
+        if asks_ai(conversation, content):
+            if not self._limits.enabled:
+                raise ChatRefusedError(503, "Chat is switched off at the moment.")
+            self._check_budgets(sender)
+            context = self._assemble(owner, conversation, message)
+        wait_reason = self._limiter.try_acquire(sender.id)
         if wait_reason:
             raise ChatRefusedError(429, wait_reason)
-        message = ChatMessage(role="user", content=content, at=self._clock())
-        return Turn(user, conversation, message, context)
+        return Turn(sender, owner, conversation, message, context)
 
     def run_turn(self, turn: Turn) -> Iterator[ChatEvent]:
         try:
-            yield from self._run_turn(turn)
+            if turn.context is None:
+                yield from self._save_message(turn)
+            else:
+                yield from self._run_turn(turn, turn.context)
         finally:
-            self._limiter.release(turn.user.id)
+            self._limiter.release(turn.sender.id)
 
-    def _assemble(self, user: User, conversation: Conversation, content: str) -> AssembledContext:
+    def conversation_version(self, owner: User, conversation_id: str) -> datetime:
+        version = self._store.conversation_version(owner.id, conversation_id)
+        if version is None:
+            raise ConversationNotFoundError()
+        return version
+
+    def _assemble(
+        self, owner: User, conversation: Conversation, message: ChatMessage
+    ) -> AssembledContext:
         try:
-            layers = load_profile_layers(user, self._profiles)
+            # The owner's profile and their tutor's style, whoever is asking.
+            layers = load_profile_layers(owner, self._profiles)
             return assemble(
                 ContextInput(
-                    message=content,
+                    message=message.content,
+                    message_author=message.author or author_of(owner),
+                    message_author_name=message.author_name,
+                    owner_author=author_of(owner),
+                    owner_name=owner.display_name,
                     teaching_style=layers.teaching_style,
                     profile=layers.profile,
                     lesson=render_lesson(conversation.lesson) if conversation.lesson else None,
@@ -222,12 +266,28 @@ class ChatService:
         if everyone_spend >= self._limits.daily_global_usd * MICRO_USD:
             raise ChatRefusedError(503, "Chat is paused for the rest of today.")
 
-    def _run_turn(self, turn: Turn) -> Iterator[ChatEvent]:
-        conversation = turn.conversation
+    def _save_message(self, turn: Turn) -> Iterator[ChatEvent]:
+        now = self._clock()
+
+        def append(conversation: Conversation) -> None:
+            conversation.messages.append(turn.message)
+            conversation.title = conversation.title or turn.message.content[:TITLE_CHARS]
+            conversation.updated_at = now
+
+        try:
+            saved = self._store.update_conversation(turn.owner.id, turn.conversation.id, append)
+        except Exception:
+            logger.exception("Saving a message failed for conversation %s", turn.conversation.id)
+            yield ChatEvent("error", {"message": UNAVAILABLE})
+            return
+        yield ChatEvent("done", {"title": saved.title, "ai": False})
+
+    def _run_turn(self, turn: Turn, context: AssembledContext) -> Iterator[ChatEvent]:
+        conversation_id = turn.conversation.id
         reply: list[str] = []
         usage: Usage | None = None
         try:
-            for item in self._model.stream(turn.context.messages, self._profile.max_output_tokens):
+            for item in self._model.stream(context.messages, self._profile.max_output_tokens):
                 if isinstance(item, Usage):
                     usage = item
                 else:
@@ -238,18 +298,16 @@ class ChatService:
             yield ChatEvent("error", {"message": FILTERED})
             return
         except ModelRateLimitedError:
-            logger.warning("Model rate limit hit for conversation %s", conversation.id)
+            logger.warning("Model rate limit hit for conversation %s", conversation_id)
             yield ChatEvent("error", {"message": BUSY})
             return
         except Exception:
-            logger.exception("Chat turn failed for conversation %s", conversation.id)
+            logger.exception("Chat turn failed for conversation %s", conversation_id)
             yield ChatEvent("error", {"message": UNAVAILABLE})
             return
 
         now = self._clock()
-        ledger = TurnContext(
-            layers=turn.context.layers, estimated_input=turn.context.estimated_input
-        )
+        ledger = TurnContext(layers=context.layers, estimated_input=context.estimated_input)
         if usage:
             ledger = ledger.model_copy(
                 update={
@@ -261,34 +319,35 @@ class ChatService:
             )
             logger.info(
                 "Context for %s: estimated %d tokens, reported %d (%d cached)",
-                conversation.id,
+                conversation_id,
                 ledger.estimated_input,
                 usage.input_tokens,
                 usage.cached_input_tokens,
             )
         answer = ChatMessage(role="assistant", content="".join(reply), at=now, context=ledger)
-        conversation.messages.extend([turn.message, answer])
-        conversation.title = conversation.title or turn.message.content[:TITLE_CHARS]
-        conversation.updated_at = now
+
+        def append(conversation: Conversation) -> None:
+            conversation.messages.extend([turn.message, answer])
+            conversation.title = conversation.title or turn.message.content[:TITLE_CHARS]
+            conversation.updated_at = now
+            add_tokens(conversation, usage)
+
         try:
-            self._save_with_usage(turn.user, conversation, usage)
+            saved = self._store.update_conversation(turn.owner.id, conversation_id, append)
+            self._charge(turn.sender, usage)
         except Exception:
-            logger.exception("Saving chat turn failed for conversation %s", conversation.id)
+            logger.exception("Saving chat turn failed for conversation %s", conversation_id)
             yield ChatEvent("error", {"message": UNAVAILABLE})
             return
-        self._summarise_if_due(turn.user, conversation)
-        yield ChatEvent("done", {"title": conversation.title})
+        self._summarise_if_due(turn.sender, turn.owner, saved)
+        yield ChatEvent("done", {"title": saved.title, "ai": True})
 
-    def _save_with_usage(self, user: User, conversation: Conversation, usage: Usage | None) -> None:
-        if usage:
-            conversation.input_tokens += usage.input_tokens
-            conversation.output_tokens += usage.output_tokens
-        self._store.save_conversation(conversation)
+    def _charge(self, user: User, usage: Usage | None) -> None:
         if usage:
             day = self._clock().date()
             self._store.add_usage(user.id, day, usage.total, self._profile.cost_micro_usd(usage))
 
-    def _summarise_if_due(self, user: User, conversation: Conversation) -> None:
+    def _summarise_if_due(self, sender: User, owner: User, conversation: Conversation) -> None:
         """Fold old messages into the summary. A failure is retried on the next turn."""
         batch = messages_to_summarise(conversation)
         if not batch:
@@ -300,12 +359,19 @@ class ChatService:
                 return
             text, usage = self._complete(summary_request(conversation.summary, batch))
             summary = clip_summary(text)
-            if summary:
-                conversation.summary = summary
-                conversation.summarised_count += len(batch)
-            else:
+            if not summary:
                 logger.warning("Empty summary for conversation %s", conversation.id)
-            self._save_with_usage(user, conversation, usage)
+            summarised_before = conversation.summarised_count
+
+            def apply(current: Conversation) -> None:
+                # Skip if another turn summarised these messages first.
+                if summary and current.summarised_count == summarised_before:
+                    current.summary = summary
+                    current.summarised_count += len(batch)
+                add_tokens(current, usage)
+
+            self._store.update_conversation(owner.id, conversation.id, apply)
+            self._charge(sender, usage)
         except Exception:
             logger.exception("Summarising failed for conversation %s", conversation.id)
 
@@ -320,11 +386,16 @@ class ChatService:
         return "".join(parts), usage
 
     def _record_filter_hit(self, turn: Turn) -> None:
-        conversation = turn.conversation
-        conversation.flags.append(
-            Flag(kind="content_filter", message=turn.message.content, at=turn.message.at)
-        )
+        flag = Flag(kind="content_filter", message=turn.message.content, at=turn.message.at)
         try:
-            self._store.save_conversation(conversation)
+            self._store.update_conversation(
+                turn.owner.id, turn.conversation.id, lambda c: c.flags.append(flag)
+            )
         except Exception:
-            logger.exception("Recording a content filter flag failed for %s", conversation.id)
+            logger.exception("Recording a content filter flag failed for %s", turn.conversation.id)
+
+
+def add_tokens(conversation: Conversation, usage: Usage | None) -> None:
+    if usage:
+        conversation.input_tokens += usage.input_tokens
+        conversation.output_tokens += usage.output_tokens

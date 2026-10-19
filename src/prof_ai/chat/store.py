@@ -1,4 +1,5 @@
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime
 from typing import Protocol
 
 from prof_ai.chat.models import Conversation
@@ -12,6 +13,16 @@ class ChatStore(Protocol):
     def save_conversation(self, conversation: Conversation) -> None: ...
 
     def delete_conversation(self, user_id: str, conversation_id: str) -> None: ...
+
+    def update_conversation(
+        self, user_id: str, conversation_id: str, change: Callable[[Conversation], None]
+    ) -> Conversation:
+        """Apply change to the latest copy and save it, without losing a concurrent write."""
+        ...
+
+    def conversation_version(self, user_id: str, conversation_id: str) -> datetime | None:
+        """When the conversation last changed; cheap enough to poll."""
+        ...
 
     def cost_used(self, user_id: str, day: date) -> int:
         """Micro-dollars spent by the user on that UTC day."""

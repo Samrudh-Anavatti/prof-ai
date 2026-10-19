@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from prof_ai.chat.model_profiles import ModelProfile
-from prof_ai.chat.models import ChatMessage, PromptMessage
+from prof_ai.chat.models import Author, ChatMessage, PromptMessage
 from prof_ai.chat.prompts import BASE_PROMPT, REMINDER, compose_system_prompt, with_references
 
 
@@ -96,15 +96,43 @@ def fit_references(references: Sequence[str], cap: int = LAYER_CAPS[Layer.REFERE
     return kept
 
 
+# Removed from message text so nobody can type a label that looks like the system's (R25).
+LABEL_MARKS = str.maketrans("", "", "⟦⟧")
+
+
+def speaker_label(author: Author, name: str | None) -> str:
+    role = "Tutor" if author == "tutor" else "Student"
+    name = (name or "").translate(LABEL_MARKS).strip()
+    return f"⟦{role} {name}⟧" if name else f"⟦{role}⟧"
+
+
+def labelled(content: str, author: Author, name: str | None) -> str:
+    """A human message as the model sees it: a label it can trust, then the text."""
+    return f"{speaker_label(author, name)} {content.translate(LABEL_MARKS)}"
+
+
 @dataclass(frozen=True)
 class ContextInput:
     message: str
+    message_author: Author = "student"
+    message_author_name: str | None = None
+    # Older messages have no author: they were written by the chat's owner.
+    owner_author: Author = "student"
+    owner_name: str | None = None
     teaching_style: str | None = None
     lesson: str | None = None
     profile: str | None = None
     summary: str | None = None
     history: Sequence[ChatMessage] = ()
     references: Sequence[str] = ()
+
+
+def history_text(message: ChatMessage, context: ContextInput) -> str:
+    if message.role == "assistant":
+        return message.content
+    if message.author is None:
+        return labelled(message.content, context.owner_author, context.owner_name)
+    return labelled(message.content, message.author, message.author_name)
 
 
 @dataclass(frozen=True)
@@ -147,10 +175,11 @@ def assemble(context: ContextInput, caps: Mapping[Layer, int] = LAYER_CAPS) -> A
         profile=context.profile,
         summary=context.summary,
     )
+    message = labelled(context.message, context.message_author, context.message_author_name)
     messages = [
         PromptMessage(role="system", content=system),
-        *(PromptMessage(role=m.role, content=m.content) for m in history),
-        PromptMessage(role="user", content=with_references(context.message, references)),
+        *(PromptMessage(role=m.role, content=history_text(m, context)) for m in history),
+        PromptMessage(role="user", content=with_references(message, references)),
         PromptMessage(role="system", content=REMINDER),
     ]
     return AssembledContext(messages, {layer.value: sizes[layer] for layer in Layer})
