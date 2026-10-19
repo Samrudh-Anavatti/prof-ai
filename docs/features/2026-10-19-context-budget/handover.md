@@ -1,7 +1,7 @@
 # Handover: Context budget, conversation memory and money-based budgets
 
 - **Owner:** sam
-- **PR:** <link>
+- **PR:** https://github.com/Samrudh-Anavatti/prof-ai/pull/12
 - **Merged:** 2026-10-19
 
 ## What was built
