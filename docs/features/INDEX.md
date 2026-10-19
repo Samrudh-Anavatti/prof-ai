@@ -17,7 +17,7 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-19 | Context budget, conversation memory and money-based budgets (ADR 0005, feature a) | Sam | merged | [plan](2026-10-19-context-budget/plan.md) · [handover](2026-10-19-context-budget/handover.md) |
 | — | Lessons and tutor-created chats: lesson setup, uploads within the 64k lesson cap, at most 5 chats per student (ADR 0005, feature b) | Sam | planned | — |
 | — | Shared tutor–student chat with `@AI` (ADR 0005, feature c) | Sam | planned | — |
-| — | Context dilution eval: safety and coaching scenarios with the lesson layer at 16k/32k/64k | Sam | planned | — |
+| 2026-10-19 | Context dilution eval: safety and coaching scenarios with the lesson layer at 2k/16k/32k/64k (sets the lesson cap) | Sam | in-progress | [plan](2026-10-19-context-dilution-eval/plan.md) |
 | — | Knowledge graph (chapter extraction, curricula) filling the 64k reference layer | Sam | planned | — |
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
