@@ -204,7 +204,7 @@ def test_delete_erases_chats_usage_profiles_and_the_account(h):
 
     assert h.users.get("bea") is None
     assert h.store.list_conversations("bea") == []
-    assert h.store.tokens_used("bea", FIXED_NOW.date()) == 0
+    assert h.store.cost_used("bea", FIXED_NOW.date()) == 0
     assert h.profiles.get("bea", ProfileFile.PROFILE) is None
     assert len(h.store.list_conversations("alex")) == 1
     assert (h.users.events[-1].action, h.users.events[-1].reason) == (

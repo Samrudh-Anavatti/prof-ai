@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from prof_ai.chat.models import TurnContext
 from prof_ai.chat.prompts import build_system_prompt
 from prof_ai.chat.store import ChatStore
 from prof_ai.content.manifest import InvalidSlugError, Licence, LicenceType
@@ -230,6 +231,15 @@ def run_profiles(args: argparse.Namespace, tools: TutorTools) -> None:
             print(f"Updated {ProfileFile.TEACHING_STYLE} for {user.email}.")
 
 
+def context_sizes(context: TurnContext) -> str:
+    layers = ", ".join(f"{name} {size}" for name, size in context.layers.items() if size)
+    return (
+        f"estimated {context.estimated_input} ({layers}); "
+        f"reported {context.input_tokens} in ({context.cached_input_tokens} cached), "
+        f"{context.output_tokens} out, ${context.cost_micro_usd / 1_000_000:.4f}"
+    )
+
+
 def run_chats(args: argparse.Namespace, tools: TutorTools) -> None:
     user = tools.user(args.email)
     if args.command == "list":
@@ -243,8 +253,13 @@ def run_chats(args: argparse.Namespace, tools: TutorTools) -> None:
         chat = tools.chats.get_conversation(user.id, args.conversation_id)
         if chat is None:
             raise NotFoundError(f"No chat {args.conversation_id} for {user.email}.")
+        if chat.summary:
+            print(f"--- summary of the first {chat.summarised_count} messages ---")
+            print(f"{chat.summary}\n")
         for message in chat.messages:
             print(f"[{message.at:%Y-%m-%d %H:%M}] {message.role}:\n{message.content}\n")
+            if message.context:
+                print(f"  context: {context_sizes(message.context)}\n")
         for flag in chat.flags:
             print(f"FLAG [{flag.at:%Y-%m-%d %H:%M}] {flag.kind}: {flag.message}")
 

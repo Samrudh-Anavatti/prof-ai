@@ -38,16 +38,17 @@ class CosmosChatStore:
     def save_conversation(self, conversation: Conversation) -> None:
         self._conversations.upsert_item(conversation.model_dump(mode="json"))
 
-    def tokens_used(self, user_id: str, day: date) -> int:
+    def cost_used(self, user_id: str, day: date) -> int:
         try:
             item = self._usage.read_item(usage_id(user_id, day), partition_key=user_id)
         except CosmosResourceNotFoundError:
             return 0
-        return int(item["tokens"])
+        return int(item.get("cost_micro_usd", 0))
 
-    def tokens_used_by_everyone(self, day: date) -> int:
+    def cost_used_by_everyone(self, day: date) -> int:
         items = self._usage.query_items(
-            "SELECT VALUE SUM(c.tokens) FROM c WHERE c.date = @date",
+            "SELECT VALUE SUM(c.cost_micro_usd) FROM c "
+            "WHERE c.date = @date AND IS_NUMBER(c.cost_micro_usd)",
             parameters=[{"name": "@date", "value": day.isoformat()}],
             enable_cross_partition_query=True,
         )
@@ -61,15 +62,24 @@ class CosmosChatStore:
             for item_id in list(ids):
                 container.delete_item(item_id, partition_key=user_id)
 
-    def add_tokens(self, user_id: str, day: date, tokens: int) -> None:
+    def add_usage(self, user_id: str, day: date, tokens: int, cost_micro_usd: int) -> None:
         item_id = usage_id(user_id, day)
         try:
             self._usage.patch_item(
                 item_id,
                 partition_key=user_id,
-                patch_operations=[{"op": "incr", "path": "/tokens", "value": tokens}],
+                patch_operations=[
+                    {"op": "incr", "path": "/tokens", "value": tokens},
+                    {"op": "incr", "path": "/cost_micro_usd", "value": cost_micro_usd},
+                ],
             )
         except CosmosResourceNotFoundError:
             self._usage.upsert_item(
-                {"id": item_id, "user_id": user_id, "date": day.isoformat(), "tokens": tokens}
+                {
+                    "id": item_id,
+                    "user_id": user_id,
+                    "date": day.isoformat(),
+                    "tokens": tokens,
+                    "cost_micro_usd": cost_micro_usd,
+                }
             )

@@ -1,24 +1,45 @@
 import logging
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from prof_ai.chat.context import (
+    AssembledContext,
+    ContextInput,
+    ContextOverflowError,
+    assemble,
+    check_budget,
+)
 from prof_ai.chat.limits import TurnLimiter
+from prof_ai.chat.memory import (
+    SUMMARY_OUTPUT_TOKENS,
+    clip_summary,
+    messages_to_summarise,
+    summary_request,
+)
 from prof_ai.chat.model import ChatModel, ContentFilteredError
-from prof_ai.chat.models import ChatMessage, Conversation, Flag, Usage
-from prof_ai.chat.prompts import build_system_prompt
+from prof_ai.chat.model_profiles import LUNA, ModelProfile
+from prof_ai.chat.models import (
+    ChatMessage,
+    Conversation,
+    Flag,
+    PromptMessage,
+    TurnContext,
+    Usage,
+)
+from prof_ai.chat.prompts import load_profile_layers
 from prof_ai.chat.store import ChatStore
 from prof_ai.profiles.store import ProfileStore
-from prof_ai.users.models import User
+from prof_ai.users.models import Role, User
 
 logger = logging.getLogger(__name__)
 
 MAX_INPUT_CHARS = 2000
-HISTORY_MESSAGES = 20
 MAX_MESSAGES_PER_CONVERSATION = 200
 TITLE_CHARS = 60
+MICRO_USD = 1_000_000
 UNAVAILABLE = "Prof AI is unavailable right now. Try again later."
 FILTERED = "Sorry, I can't help with that. Try asking another way, or talk to your tutor."
 
@@ -37,8 +58,8 @@ class ConversationNotFoundError(Exception):
 @dataclass(frozen=True)
 class ChatLimits:
     enabled: bool = True
-    daily_user_tokens: int = 50_000
-    daily_global_tokens: int = 500_000
+    daily_user_usd: float = 0.50
+    daily_global_usd: float = 1.50
 
 
 @dataclass(frozen=True)
@@ -52,9 +73,12 @@ class Turn:
     user: User
     conversation: Conversation
     message: ChatMessage
+    context: AssembledContext
 
 
 class ChatService:
+    """The only path to the model: every call is capped, budgeted and recorded here."""
+
     def __init__(
         self,
         model: ChatModel,
@@ -63,13 +87,16 @@ class ChatService:
         limits: ChatLimits,
         limiter: TurnLimiter | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        model_profile: ModelProfile = LUNA,
     ):
+        check_budget(model_profile)
         self._model = model
         self._store = store
         self._profiles = profiles
         self._limits = limits
         self._limiter = limiter or TurnLimiter()
         self._clock = clock
+        self._profile = model_profile
 
     def list_conversations(self, user: User) -> list[Conversation]:
         return self._store.list_conversations(user.id)
@@ -106,10 +133,12 @@ class ChatService:
         if len(conversation.messages) >= MAX_MESSAGES_PER_CONVERSATION:
             raise ChatRefusedError(409, "This chat is full. Start a new one.")
         self._check_budgets(user)
+        context = self._assemble(user, conversation, content)
         wait_reason = self._limiter.try_acquire(user.id)
         if wait_reason:
             raise ChatRefusedError(429, wait_reason)
-        return Turn(user, conversation, ChatMessage(role="user", content=content, at=self._clock()))
+        message = ChatMessage(role="user", content=content, at=self._clock())
+        return Turn(user, conversation, message, context)
 
     def run_turn(self, turn: Turn) -> Iterator[ChatEvent]:
         try:
@@ -117,28 +146,45 @@ class ChatService:
         finally:
             self._limiter.release(turn.user.id)
 
+    def _assemble(self, user: User, conversation: Conversation, content: str) -> AssembledContext:
+        try:
+            layers = load_profile_layers(user, self._profiles)
+            return assemble(
+                ContextInput(
+                    message=content,
+                    teaching_style=layers.teaching_style,
+                    profile=layers.profile,
+                    summary=conversation.summary,
+                    history=conversation.messages,
+                )
+            )
+        except ContextOverflowError:
+            logger.exception("Context over its caps for conversation %s", conversation.id)
+            raise ChatRefusedError(503, UNAVAILABLE) from None
+        except Exception as error:
+            logger.exception("Assembling context failed for conversation %s", conversation.id)
+            raise ChatRefusedError(503, UNAVAILABLE) from error
+
     def _check_budgets(self, user: User) -> None:
         today = self._clock().date()
         try:
-            user_tokens = self._store.tokens_used(user.id, today)
-            everyone_tokens = self._store.tokens_used_by_everyone(today)
+            user_spend = 0 if user.role == Role.TUTOR else self._store.cost_used(user.id, today)
+            everyone_spend = self._store.cost_used_by_everyone(today)
         except Exception as error:
             raise ChatRefusedError(503, UNAVAILABLE) from error
-        if user_tokens >= self._limits.daily_user_tokens:
+        if user_spend >= self._limits.daily_user_usd * MICRO_USD:
             raise ChatRefusedError(
                 429, "You've used today's chat allowance. It resets at midnight UTC."
             )
-        if everyone_tokens >= self._limits.daily_global_tokens:
+        if everyone_spend >= self._limits.daily_global_usd * MICRO_USD:
             raise ChatRefusedError(503, "Chat is paused for the rest of today.")
 
     def _run_turn(self, turn: Turn) -> Iterator[ChatEvent]:
         conversation = turn.conversation
-        history = [*conversation.messages, turn.message][-HISTORY_MESSAGES:]
         reply: list[str] = []
         usage: Usage | None = None
         try:
-            system_prompt = build_system_prompt(turn.user, self._profiles)
-            for item in self._model.stream(system_prompt, history):
+            for item in self._model.stream(turn.context.messages, self._profile.max_output_tokens):
                 if isinstance(item, Usage):
                     usage = item
                 else:
@@ -154,22 +200,77 @@ class ChatService:
             return
 
         now = self._clock()
-        answer = ChatMessage(role="assistant", content="".join(reply), at=now)
+        ledger = TurnContext(
+            layers=turn.context.layers, estimated_input=turn.context.estimated_input
+        )
+        if usage:
+            ledger = ledger.model_copy(
+                update={
+                    "input_tokens": usage.input_tokens,
+                    "cached_input_tokens": usage.cached_input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "cost_micro_usd": self._profile.cost_micro_usd(usage),
+                }
+            )
+            logger.info(
+                "Context for %s: estimated %d tokens, reported %d (%d cached)",
+                conversation.id,
+                ledger.estimated_input,
+                usage.input_tokens,
+                usage.cached_input_tokens,
+            )
+        answer = ChatMessage(role="assistant", content="".join(reply), at=now, context=ledger)
         conversation.messages.extend([turn.message, answer])
         conversation.title = conversation.title or turn.message.content[:TITLE_CHARS]
         conversation.updated_at = now
-        if usage:
-            conversation.input_tokens += usage.input_tokens
-            conversation.output_tokens += usage.output_tokens
         try:
-            self._store.save_conversation(conversation)
-            if usage:
-                self._store.add_tokens(turn.user.id, now.date(), usage.total)
+            self._save_with_usage(turn.user, conversation, usage)
         except Exception:
             logger.exception("Saving chat turn failed for conversation %s", conversation.id)
             yield ChatEvent("error", {"message": UNAVAILABLE})
             return
+        self._summarise_if_due(turn.user, conversation)
         yield ChatEvent("done", {"title": conversation.title})
+
+    def _save_with_usage(self, user: User, conversation: Conversation, usage: Usage | None) -> None:
+        if usage:
+            conversation.input_tokens += usage.input_tokens
+            conversation.output_tokens += usage.output_tokens
+        self._store.save_conversation(conversation)
+        if usage:
+            day = self._clock().date()
+            self._store.add_usage(user.id, day, usage.total, self._profile.cost_micro_usd(usage))
+
+    def _summarise_if_due(self, user: User, conversation: Conversation) -> None:
+        """Fold old messages into the summary. A failure is retried on the next turn."""
+        batch = messages_to_summarise(conversation)
+        if not batch:
+            return
+        try:
+            if self._store.cost_used_by_everyone(self._clock().date()) >= (
+                self._limits.daily_global_usd * MICRO_USD
+            ):
+                return
+            text, usage = self._complete(summary_request(conversation.summary, batch))
+            summary = clip_summary(text)
+            if summary:
+                conversation.summary = summary
+                conversation.summarised_count += len(batch)
+            else:
+                logger.warning("Empty summary for conversation %s", conversation.id)
+            self._save_with_usage(user, conversation, usage)
+        except Exception:
+            logger.exception("Summarising failed for conversation %s", conversation.id)
+
+    def _complete(self, messages: Sequence[PromptMessage]) -> tuple[str, Usage | None]:
+        parts: list[str] = []
+        usage: Usage | None = None
+        for item in self._model.stream(messages, SUMMARY_OUTPUT_TOKENS):
+            if isinstance(item, Usage):
+                usage = item
+            else:
+                parts.append(item)
+        return "".join(parts), usage
 
     def _record_filter_hit(self, turn: Turn) -> None:
         conversation = turn.conversation
