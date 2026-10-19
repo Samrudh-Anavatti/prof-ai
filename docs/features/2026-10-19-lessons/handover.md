@@ -1,7 +1,7 @@
 # Handover: Lessons and tutor-created chats
 
 - **Owner:** sam
-- **PR:** <link>
+- **PR:** https://github.com/Samrudh-Anavatti/prof-ai/pull/14
 - **Merged:** 2026-10-20
 
 ## What was built
