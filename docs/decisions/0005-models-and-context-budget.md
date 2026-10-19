@@ -26,10 +26,10 @@ Ordered from most to least stable, because prompt caching matches an identical p
 | 5 | Conversation summary | every few turns | 4k | when summarising |
 | 6 | Recent messages | every turn (append) | 32k | when assembling |
 | 7 | **Reference material** from the knowledge graph | every turn | **64k** | in the retriever and when assembling |
-| 8 | The new message | every turn | 1k | input cap (2,000 chars) |
+| 8 | The new message | every turn | 3k | input cap (2,000 chars; multi-byte characters estimate higher) |
 | 9 | Trailing safety reminder | never | 0.5k | in code |
 
-- **Input total:** 173.5k at most. **Output reserve:** 8k (reasoning plus reply). **Design ceiling: 256k**, about a quarter of the window, leaving ~75k headroom for token-estimate error. Staying well under the window also keeps us clear of long-context price tiers, and keeps the safety instructions from being diluted.
+- **Input total:** 175.5k at most. **Output reserve:** 8k (reasoning plus reply). **Design ceiling: 256k**, about a quarter of the window, leaving ~72k headroom for token-estimate error. Staying well under the window also keeps us clear of long-context price tiers, and keeps the safety instructions from being diluted.
 - **Reference material sits after the recent messages**, attached to the current turn and not kept in history. The history then only ever grows by appending, so the cached prefix survives from turn to turn.
 - **Lesson and reference text are labelled as reference material, not instructions** (indirect prompt injection, R23).
 - **The safety rules sit at both ends**: the base prompt first and a short reminder last.
@@ -50,7 +50,7 @@ Ordered from most to least stable, because prompt caching matches an identical p
 
 ### Budgets in money
 - Every turn's cost is computed from the model profile's prices and the reported input, cached input and output tokens.
-- A **per-student daily budget** and a **global daily cap**, both in USD. **Tutors are exempt from the per-user budget** but count towards the global cap, and the kill switch and rate limits still apply to them.
+- A **per-student daily budget** ($0.50) and a **global daily cap** ($1.50), both in USD. Luna's price was checked against our October bill: $0.20 input and $1.20 output per million tokens (Global Standard, short context). **Tutors are exempt from the per-user budget** but count towards the global cap, and the kill switch and rate limits still apply to them.
 - Cached input is cheap, so a large, stable lesson costs far less per turn than its size suggests.
 
 ### Chats (features b and c)

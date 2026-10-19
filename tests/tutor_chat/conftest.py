@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from prof_ai.auth import PRINCIPAL_HEADER
 from prof_ai.chat.limits import TurnLimiter
-from prof_ai.chat.models import ChatMessage, Conversation, Usage
+from prof_ai.chat.models import Conversation, PromptMessage, Usage
 from prof_ai.chat.service import ChatLimits, ChatService
 from prof_ai.config import Settings
 from prof_ai.main import create_app
@@ -43,6 +43,7 @@ class InMemoryChatStore:
     def __init__(self) -> None:
         self.conversations: dict[tuple[str, str], dict] = {}
         self.usage: dict[tuple[str, date], int] = {}
+        self.tokens: dict[tuple[str, date], int] = {}
         self.fail_saves = False
 
     def list_conversations(self, user_id: str) -> list[Conversation]:
@@ -63,29 +64,39 @@ class InMemoryChatStore:
         key = (conversation.user_id, conversation.id)
         self.conversations[key] = conversation.model_dump(mode="json")
 
-    def tokens_used(self, user_id: str, day: date) -> int:
+    def cost_used(self, user_id: str, day: date) -> int:
         return self.usage.get((user_id, day), 0)
 
-    def tokens_used_by_everyone(self, day: date) -> int:
-        return sum(tokens for (_, d), tokens in self.usage.items() if d == day)
+    def cost_used_by_everyone(self, day: date) -> int:
+        return sum(cost for (_, d), cost in self.usage.items() if d == day)
 
-    def add_tokens(self, user_id: str, day: date, tokens: int) -> None:
-        self.usage[(user_id, day)] = self.usage.get((user_id, day), 0) + tokens
+    def add_usage(self, user_id: str, day: date, tokens: int, cost_micro_usd: int) -> None:
+        self.usage[(user_id, day)] = self.usage.get((user_id, day), 0) + cost_micro_usd
+        self.tokens[(user_id, day)] = self.tokens.get((user_id, day), 0) + tokens
 
     def delete_user_data(self, user_id: str) -> None:
         self.conversations = {k: v for k, v in self.conversations.items() if k[0] != user_id}
         self.usage = {k: v for k, v in self.usage.items() if k[0] != user_id}
+        self.tokens = {k: v for k, v in self.tokens.items() if k[0] != user_id}
 
 
 class FakeModel:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, list[ChatMessage]]] = []
+        self.calls: list[list[PromptMessage]] = []
+        self.output_caps: list[int] = []
         self.reply = ["Good ", "question! ", "What do you know already?"]
         self.usage = Usage(input_tokens=120, output_tokens=30)
         self.error: Exception | None = None
 
-    def stream(self, system_prompt: str, messages: Sequence[ChatMessage]) -> Iterator[str | Usage]:
-        self.calls.append((system_prompt, list(messages)))
+    @property
+    def system_prompts(self) -> list[str]:
+        return [call[0].content for call in self.calls]
+
+    def stream(
+        self, messages: Sequence[PromptMessage], max_output_tokens: int
+    ) -> Iterator[str | Usage]:
+        self.calls.append(list(messages))
+        self.output_caps.append(max_output_tokens)
         yield from self.reply
         if self.error:
             raise self.error
@@ -93,12 +104,12 @@ class FakeModel:
 
 
 class Harness:
-    def __init__(self, limits: ChatLimits | None = None) -> None:
+    def __init__(self, limits: ChatLimits | None = None, model: FakeModel | None = None) -> None:
         self.users = InMemoryUserRepository()
         self.blobs = InMemoryBlobBackend()
         self.profiles = ProfileStore(self.blobs)
         self.store = InMemoryChatStore()
-        self.model = FakeModel()
+        self.model = model or FakeModel()
         self.limits = limits or ChatLimits()
         self.users.save(make_user("sam", role=Role.TUTOR, email="sam@example.com"))
         self.users.save(make_user("punjy", role=Role.TUTOR, email="punjy@example.com"))

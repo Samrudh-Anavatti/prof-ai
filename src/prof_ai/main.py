@@ -37,8 +37,8 @@ def create_api_router() -> APIRouter:
 def chat_limits(settings: Settings) -> ChatLimits:
     return ChatLimits(
         enabled=settings.chat_enabled,
-        daily_user_tokens=settings.chat_daily_user_tokens,
-        daily_global_tokens=settings.chat_daily_global_tokens,
+        daily_user_usd=settings.chat_daily_user_usd,
+        daily_global_usd=settings.chat_daily_global_usd,
     )
 
 
@@ -55,12 +55,14 @@ def azure_chat_service(settings: Settings, profiles: ProfileStore | None) -> Cha
         return None
     from prof_ai.chat.cosmos_store import CosmosChatStore
     from prof_ai.chat.model import FoundryChatModel
+    from prof_ai.chat.model_profiles import model_profile
 
     return ChatService(
         FoundryChatModel(settings.foundry_endpoint, settings.chat_deployment),
         CosmosChatStore(settings.cosmos_endpoint),
         profiles,
         chat_limits(settings),
+        model_profile=model_profile(settings.chat_deployment),
     )
 
 

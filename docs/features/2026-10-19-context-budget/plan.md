@@ -27,7 +27,7 @@ Lessons (b) and shared chats (c) are separate features. This one leaves the less
 - **Money budgets:**
   - `Usage` gains `cached_input_tokens` (from the model's `prompt_tokens_details.cached_tokens`) and a `cost_usd(profile)`.
   - The `usage` document gains `cost_micro_usd`, an integer to avoid float drift, alongside `tokens`.
-  - New settings `CHAT_DAILY_USER_USD` (0.20) and `CHAT_DAILY_GLOBAL_USD` (1.25) replace the token settings. Tutors skip the per-user check but still add to the global total.
+  - New settings `CHAT_DAILY_USER_USD` (0.50) and `CHAT_DAILY_GLOBAL_USD` (1.50) replace the token settings. Tutors skip the per-user check but still add to the global total.
   - Summary calls are charged to whoever sent the message that triggered them.
 - **Ledger:** each assistant message stores a `context` record with the per-layer estimates, the estimated total, and the reported input, cached and output tokens and cost. This lets us check the estimator, and later lets tutors see what the AI saw.
 - **Model client:** `ChatModel.stream(messages)` takes the assembled list of `PromptMessage(role: system|user|assistant, content)`. The output cap comes from the profile (4,000 tokens, which includes reasoning; replies are still asked to be short).
@@ -36,10 +36,10 @@ Lessons (b) and shared chats (c) are separate features. This one leaves the less
 ## Risks
 | Risk | Control in this feature |
 |------|------|
-| **R3 cost** | Budgets in dollars, from real prices and the reported cached tokens. Per-student daily budget (tutors exempt) and a global daily cap that includes tutors and summaries. Every layer is capped, the output cap comes from the profile, and the kill switch and rate limits are unchanged. **Worst case** at full caps on Luna: 173.5k input and 4k output is about $0.04 a turn uncached. The global cap of $1.25 a day (≈£30 a month) keeps the model well inside the £50 budget alongside App Service. |
+| **R3 cost** | Budgets in dollars, from real prices and the reported cached tokens. Per-student daily budget (tutors exempt) and a global daily cap that includes tutors and summaries. Every layer is capped, the output cap comes from the profile, and the kill switch and rate limits are unchanged. **Worst case** at full caps on Luna: 175.5k input and 4k output is about $0.04 a turn uncached. The global cap of $1.50 a day (≈£34 a month) keeps the model inside the £50 budget alongside App Service (~£10). |
 | **R22 long context dilutes safety rules** (new) | Caps under a 256k ceiling; base prompt first and a reminder last; lesson and reference text labelled as material, not instructions. The dilution eval (a separate INDEX row) comes before we rely on the 64k lesson cap. |
 | **R23 indirect prompt injection** (new) | Lesson and reference text go into a labelled block, and the base prompt says documents are information, not instructions. Only tutors write lessons. Prompt Shields' document mode comes with the guard pipeline. |
-| **Estimator undercounts** | Bytes ÷ 3 overestimates English text. The ~75k headroom absorbs error. The ledger records estimated against reported tokens. If the model still rejects the prompt as too long, the turn fails with "unavailable" and nothing is saved. |
+| **Estimator undercounts** | Bytes ÷ 3 overestimates English text. The ~72k headroom absorbs error. The ledger records estimated against reported tokens. If the model still rejects the prompt as too long, the turn fails with "unavailable" and nothing is saved. |
 | **R6 / R10 summary is wrong or keeps personal details** | The summary prompt keeps it to learning progress and says not to record personal details. It's stored on the conversation (so deleting the user erases it, with no new container) and visible to the tutor. The full transcript is kept, so the summary never replaces the record. |
 | **Summary as a cost or abuse lever** | One summary call at most per turn, only past the 8k threshold, with a capped output. It goes through the same budgets, kill switch and content filter. |
 | **Tutor exemption** | A compromised tutor account is still bound by the global cap, the rate limit, one reply in flight and the kill switch. |
@@ -58,7 +58,7 @@ Lessons (b) and shared chats (c) are separate features. This one leaves the less
 
 ## Contracts added or changed
 - **Every model call goes through `ChatService`, using `chat.context.assemble`.** Feature (b) passes the lesson text and the knowledge graph passes reference snippets. Neither builds prompts itself.
-- **`LAYER_CAPS`** (estimated tokens): base 2k, style 3k, lesson 64k, profile 3k, summary 4k, history 32k, reference 64k, message 1k, reminder 0.5k. `OUTPUT_RESERVE` 8k, `CONTEXT_CEILING` 256k. Feature (b) enforces the lesson cap at save time using `estimate_tokens`. The knowledge graph's retriever takes `max_tokens` and returns whole snippets, best first.
+- **`LAYER_CAPS`** (estimated tokens): base 2k, style 3k, lesson 64k, profile 3k, summary 4k, history 32k, reference 64k, message 3k, reminder 0.5k. `OUTPUT_RESERVE` 8k, `CONTEXT_CEILING` 256k. Feature (b) enforces the lesson cap at save time using `estimate_tokens`. The knowledge graph's retriever takes `max_tokens` and returns whole snippets, best first.
 - **`ChatModel.stream(messages: Sequence[PromptMessage]) -> Iterator[str | Usage]`.** `Usage` gains `cached_input_tokens`.
 - **Cosmos:**
   - `conversations` gains `summary: str`, `summarised_count: int`, and on assistant messages `context: {layers: {name: tokens}, estimated_input, input_tokens, cached_input_tokens, output_tokens, cost_micro_usd}`.
@@ -81,7 +81,7 @@ Lessons (b) and shared chats (c) are separate features. This one leaves the less
 - CLI `chats show` prints the summary and context sizes
 
 ## Open questions
-- **Luna's real prices**, especially cached input. Trackers disagree ($0.20/$1.20 against $1/$6). Before merge, check Cost Management against our `usage` records and set the profile from that.
-- **Budget numbers:** $0.20 per student a day (~5 full-load turns, or dozens of typical ones) and $1.25 a day globally are starting points.
-- **Output cap:** 4,000 tokens including reasoning. Is that enough for Luna at low effort without truncation?
+- ~~Luna's real prices~~: checked against the October bill ("5.6 luna ShortCo Inp/Opt Std Gl" meters): £0.151 and £0.906 per million, about $0.20 and $1.20. Cached input hasn't appeared on the bill yet, so it's assumed to be 10% ($0.02) until it does.
+- ~~Budget numbers~~: Sam chose $0.50 per student a day and $1.50 a day globally.
+- ~~Output cap~~: Sam chose 4,000 tokens including reasoning.
 - **Summary threshold** (8k) and summary size (4k): tune them from the ledger.

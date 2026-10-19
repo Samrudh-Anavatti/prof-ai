@@ -56,7 +56,7 @@ def test_save_writes_the_tutors_blob_and_changes_only_their_students_chats(edito
     assert editor.profiles.get("sam", ProfileFile.TEACHING_STYLE) is None
     editor.send("bea", editor.start("bea"), "hi")
     editor.send("alex", editor.start("alex"), "hi")
-    bea_prompt, alex_prompt = (call[0] for call in editor.model.calls)
+    bea_prompt, alex_prompt = editor.model.system_prompts
     assert "Use cooking analogies." in bea_prompt
     assert "Use cooking analogies." not in alex_prompt
 

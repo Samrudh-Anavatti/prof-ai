@@ -4,9 +4,10 @@ import pytest
 
 from prof_ai.chat.limits import TurnLimiter
 from prof_ai.chat.model import ContentFilteredError
+from prof_ai.chat.model_profiles import LUNA
+from prof_ai.chat.prompts import REMINDER
 from prof_ai.chat.service import (
     FILTERED,
-    HISTORY_MESSAGES,
     MAX_INPUT_CHARS,
     UNAVAILABLE,
     ChatLimits,
@@ -16,6 +17,10 @@ from prof_ai.profiles.store import ProfileFile
 from .conftest import FIXED_NOW, Harness, parse_events
 
 TODAY = FIXED_NOW.date()
+
+
+def micro_usd(dollars: float) -> int:
+    return round(dollars * 1_000_000)
 
 
 def test_reply_streams_as_server_sent_events(harness):
@@ -40,7 +45,8 @@ def test_turn_is_saved_with_usage(harness):
     assert [m["role"] for m in detail["messages"]] == ["user", "assistant"]
     assert detail["messages"][0]["content"] == "Help with fractions"
     assert detail["title"] == "Help with fractions"
-    assert harness.store.tokens_used("alex", TODAY) == 150
+    assert harness.store.tokens[("alex", TODAY)] == 150
+    assert harness.store.cost_used("alex", TODAY) == LUNA.cost_micro_usd(harness.model.usage)
 
 
 def test_model_gets_the_users_own_system_prompt(harness):
@@ -48,7 +54,7 @@ def test_model_gets_the_users_own_system_prompt(harness):
     harness.profiles.put("punjy", ProfileFile.TEACHING_STYLE, "Punjy style.")
     harness.send("alex", harness.start("alex"), "hi")
     harness.send("bea", harness.start("bea"), "hi")
-    (alex_prompt, _), (bea_prompt, _) = harness.model.calls
+    alex_prompt, bea_prompt = harness.model.system_prompts
     assert "Sam style." in alex_prompt and "Punjy style." not in alex_prompt
     assert "Punjy style." in bea_prompt and "Sam style." not in bea_prompt
 
@@ -75,13 +81,15 @@ def test_conversation_list_shows_only_summaries(harness):
     ]
 
 
-def test_history_sent_to_the_model_is_truncated(harness):
+def test_short_history_is_sent_in_full_before_the_new_message(harness):
     conversation_id = harness.start("alex")
     for turn in range(15):
         harness.send("alex", conversation_id, f"question {turn}")
-    _, messages = harness.model.calls[-1]
-    assert len(messages) == HISTORY_MESSAGES
-    assert messages[-1].content == "question 14"
+    messages = harness.model.calls[-1]
+    assert [m.role for m in messages[1:-2]] == ["user", "assistant"] * 14
+    assert messages[1].content == "question 0"
+    assert (messages[-2].role, messages[-2].content) == ("user", "question 14")
+    assert (messages[-1].role, messages[-1].content) == ("system", REMINDER)
 
 
 @pytest.mark.parametrize("content", ["", "   ", "x" * (MAX_INPUT_CHARS + 1)])
@@ -93,7 +101,7 @@ def test_empty_or_long_messages_are_refused_before_the_model(harness, content):
 
 def test_daily_user_budget_stops_chat(harness):
     conversation_id = harness.start("alex")
-    harness.store.add_tokens("alex", TODAY, harness.limits.daily_user_tokens)
+    harness.store.add_usage("alex", TODAY, 0, micro_usd(harness.limits.daily_user_usd))
     response = harness.send("alex", conversation_id, "one more?")
     assert response.status_code == 429
     assert "allowance" in response.json()["detail"]
@@ -102,13 +110,13 @@ def test_daily_user_budget_stops_chat(harness):
 
 
 def test_yesterdays_usage_doesnt_count(harness):
-    harness.store.add_tokens("alex", date(2026, 10, 17), harness.limits.daily_user_tokens)
+    harness.store.add_usage("alex", date(2026, 10, 17), 0, micro_usd(harness.limits.daily_user_usd))
     assert harness.send("alex", harness.start("alex"), "hi").status_code == 200
 
 
 def test_global_daily_cap_stops_everyone():
-    harness = Harness(ChatLimits(daily_user_tokens=1000, daily_global_tokens=1000))
-    harness.store.add_tokens("bea", TODAY, 1000)
+    harness = Harness(ChatLimits(daily_user_usd=1.0, daily_global_usd=0.01))
+    harness.store.add_usage("bea", TODAY, 0, micro_usd(0.01))
     response = harness.send("alex", harness.start("alex"), "hi")
     assert response.status_code == 503
     assert harness.model.calls == []
@@ -156,7 +164,7 @@ def test_model_failure_saves_nothing(harness):
     events = parse_events(harness.send("alex", conversation_id, "hello").text)
     assert events[-1] == ("error", {"message": UNAVAILABLE})
     assert harness.store.get_conversation("alex", conversation_id).messages == []
-    assert harness.store.tokens_used("alex", TODAY) == 0
+    assert harness.store.cost_used("alex", TODAY) == 0
 
 
 def test_store_failure_after_reply_reports_an_error(harness):

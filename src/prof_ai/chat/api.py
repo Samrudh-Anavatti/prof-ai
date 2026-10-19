@@ -1,13 +1,14 @@
 import json
 from collections.abc import Iterator
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from prof_ai.auth import CurrentUser
-from prof_ai.chat.models import ChatMessage, Conversation
+from prof_ai.chat.models import Conversation
 from prof_ai.chat.service import (
     ChatEvent,
     ChatRefusedError,
@@ -22,8 +23,14 @@ class ConversationSummary(BaseModel):
     updated_at: datetime
 
 
+class MessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    at: datetime
+
+
 class ConversationDetail(ConversationSummary):
-    messages: list[ChatMessage]
+    messages: list[MessageOut]
 
 
 class NewMessage(BaseModel):
@@ -68,7 +75,10 @@ def create_chat_router() -> APIRouter:
         except ConversationNotFoundError as error:
             raise HTTPException(404, "Chat not found.") from error
         return ConversationDetail(
-            **summary(conversation).model_dump(), messages=conversation.messages
+            **summary(conversation).model_dump(),
+            messages=[
+                MessageOut(role=m.role, content=m.content, at=m.at) for m in conversation.messages
+            ],
         )
 
     @router.post("/conversations/{conversation_id}/messages")

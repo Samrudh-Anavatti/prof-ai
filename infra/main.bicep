@@ -222,8 +222,8 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'FOUNDRY_ENDPOINT', value: foundry.properties.endpoint }
         { name: 'CHAT_DEPLOYMENT', value: chatDeployment.name }
         { name: 'CHAT_ENABLED', value: 'true' }
-        { name: 'CHAT_DAILY_USER_TOKENS', value: '50000' }
-        { name: 'CHAT_DAILY_GLOBAL_TOKENS', value: '500000' }
+        { name: 'CHAT_DAILY_USER_USD', value: '0.50' }
+        { name: 'CHAT_DAILY_GLOBAL_USD', value: '1.50' }
         { name: 'STORAGE_ACCOUNT_URL', value: storage.properties.primaryEndpoints.blob }
         { name: 'COSMOS_ENDPOINT', value: cosmos.properties.documentEndpoint }
         { name: 'EXTERNAL_TENANT_ID', value: externalTenantId }

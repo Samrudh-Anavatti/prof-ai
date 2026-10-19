@@ -17,8 +17,8 @@ class Settings:
     chat_deployment: str = ""
     storage_account_url: str = ""
     chat_enabled: bool = True
-    chat_daily_user_tokens: int = 50_000
-    chat_daily_global_tokens: int = 500_000
+    chat_daily_user_usd: float = 0.50
+    chat_daily_global_usd: float = 1.50
 
     @property
     def is_production(self) -> bool:
@@ -40,6 +40,6 @@ def load_settings() -> Settings:
         chat_deployment=os.getenv("CHAT_DEPLOYMENT", ""),
         storage_account_url=os.getenv("STORAGE_ACCOUNT_URL", ""),
         chat_enabled=os.getenv("CHAT_ENABLED", "true").lower() == "true",
-        chat_daily_user_tokens=int(os.getenv("CHAT_DAILY_USER_TOKENS", "50000")),
-        chat_daily_global_tokens=int(os.getenv("CHAT_DAILY_GLOBAL_TOKENS", "500000")),
+        chat_daily_user_usd=float(os.getenv("CHAT_DAILY_USER_USD", "0.50")),
+        chat_daily_global_usd=float(os.getenv("CHAT_DAILY_GLOBAL_USD", "1.50")),
     )
