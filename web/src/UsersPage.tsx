@@ -14,8 +14,7 @@ import {
 } from "./api";
 
 const STATUS_LABELS = { invited: "Invited", active: "Active", account_locked: "Locked" };
-const SIGN_UP_HINT =
-  "Ask them to open prof-ai.azurewebsites.net, choose to create an account with this email, and enter the code that's emailed to them.";
+const SIGN_UP_URL = `${window.location.origin}/.auth/login/aad?prompt=create&post_login_redirect_uri=/`;
 
 function messageOf(error: unknown): string {
   return error instanceof ApiError ? error.message : UNAVAILABLE;
@@ -34,6 +33,8 @@ export function UsersPage({ me }: { me: Me }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invited, setInvited] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     listUsers()
@@ -45,6 +46,7 @@ export function UsersPage({ me }: { me: Me }) {
     setBusy(true);
     setError(null);
     setStatus(null);
+    setInvited(null);
     try {
       setStatus(await work());
     } catch (e) {
@@ -70,7 +72,9 @@ export function UsersPage({ me }: { me: Me }) {
       setUsers((current) => [...(current ?? []), user]);
       setEmail("");
       setName("");
-      return `Invited ${user.email}. ${SIGN_UP_HINT}`;
+      setInvited(user.email);
+      setCopied(false);
+      return `Invited ${user.email}.`;
     });
   }
 
@@ -174,6 +178,28 @@ export function UsersPage({ me }: { me: Me }) {
         </button>
       </form>
 
+      {invited && (
+        <div className="signup-link">
+          <p>
+            Send <strong>{invited}</strong> this link to create their account. They'll be emailed a
+            code, which can take a few minutes and may land in spam.
+          </p>
+          <div className="signup-link-row">
+            <a href={SIGN_UP_URL} target="_blank" rel="noreferrer">
+              {SIGN_UP_URL}
+            </a>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                void navigator.clipboard.writeText(SIGN_UP_URL).then(() => setCopied(true))
+              }
+            >
+              {copied ? "Copied" : "Copy link"}
+            </button>
+          </div>
+        </div>
+      )}
       {status && (
         <p className="admin-status" role="status">
           {status}

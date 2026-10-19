@@ -472,6 +472,37 @@ textarea {
   font-weight: 600;
 }
 
+.signup-link {
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--notice-line);
+  border-radius: 10px;
+  background: var(--notice-bg);
+}
+
+.signup-link p {
+  margin: 0 0 0.5rem;
+}
+
+.signup-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.signup-link-row a {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
+.signup-link-row button {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
 .user-list {
   margin: 1rem 0 0;
   padding: 0;
