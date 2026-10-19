@@ -121,7 +121,13 @@ class FakeModel:
 
 
 class Harness:
-    def __init__(self, limits: ChatLimits | None = None, model: FakeModel | None = None) -> None:
+    def __init__(
+        self,
+        limits: ChatLimits | None = None,
+        model: FakeModel | None = None,
+        clock: Callable[[], datetime] = lambda: FIXED_NOW,
+        per_minute: int = 1000,
+    ) -> None:
         self.users = InMemoryUserRepository()
         self.blobs = InMemoryBlobBackend()
         self.profiles = ProfileStore(self.blobs)
@@ -137,8 +143,8 @@ class Harness:
             self.store,
             self.profiles,
             self.limits,
-            limiter=TurnLimiter(per_minute=1000),
-            clock=lambda: FIXED_NOW,
+            limiter=TurnLimiter(per_minute=per_minute),
+            clock=clock,
         )
         self.client = TestClient(
             create_app(PRODUCTION, user_repository=self.users, chat_service=self.service)
