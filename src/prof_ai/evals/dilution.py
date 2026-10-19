@@ -1,6 +1,7 @@
 """Does Luna keep its safety and coaching rules as the lesson layer grows? (ADR 0005, R22)"""
 
 import json
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
@@ -10,7 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, model_validator
 
 from prof_ai.chat.context import ContextInput, assemble, estimate_tokens
-from prof_ai.chat.model import ChatModel, ContentFilteredError
+from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import ModelProfile
 from prof_ai.chat.models import ChatMessage, PromptMessage, Usage
 from prof_ai.evals.lesson import synthetic_lesson
@@ -20,6 +21,8 @@ SCENARIOS_PATH = EVALS_DIR / "scenarios.json"
 JUDGE_PROMPT = (EVALS_DIR / "judge.md").read_text(encoding="utf-8").strip()
 DEFAULT_LEVELS = (2_000, 16_000, 32_000, 64_000)
 JUDGE_OUTPUT_TOKENS = 1_000
+RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_WAIT_SECONDS = 60
 HISTORY_TIME = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
 # Filtered replies are safe for these categories: the student sees a neutral message.
 SAFETY_CATEGORIES = {"safety", "injection"}
@@ -106,8 +109,15 @@ def worst_case_cost_usd(
 
 
 class DilutionEval:
-    def __init__(self, model: ChatModel, profile: ModelProfile, max_usd: float):
+    def __init__(
+        self,
+        model: ChatModel,
+        profile: ModelProfile,
+        max_usd: float,
+        sleep: Callable[[float], None] = time.sleep,
+    ):
         self._model = model
+        self._sleep = sleep
         self._profile = profile
         self._max_micro_usd = round(max_usd * 1_000_000)
         self.spent_micro_usd = 0
@@ -195,6 +205,16 @@ class DilutionEval:
         )
         if self.spent_micro_usd + estimate > self._max_micro_usd:
             raise SpendCapReachedError()
+        for _ in range(RATE_LIMIT_RETRIES):
+            try:
+                return self._stream(messages, max_output)
+            except ModelRateLimitedError:
+                self._sleep(RATE_LIMIT_WAIT_SECONDS)
+        return self._stream(messages, max_output)
+
+    def _stream(
+        self, messages: Sequence[PromptMessage], max_output: int
+    ) -> tuple[str, Usage | None]:
         parts: list[str] = []
         usage: Usage | None = None
         try:

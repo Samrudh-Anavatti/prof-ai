@@ -3,12 +3,13 @@ from collections.abc import Iterator, Sequence
 import pytest
 
 from prof_ai.chat.context import estimate_tokens
-from prof_ai.chat.model import ContentFilteredError
+from prof_ai.chat.model import ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import LUNA
 from prof_ai.chat.models import PromptMessage, Usage
 from prof_ai.cli import main
 from prof_ai.evals.dilution import (
     JUDGE_PROMPT,
+    RATE_LIMIT_WAIT_SECONDS,
     DilutionEval,
     Scenario,
     failed_check,
@@ -129,6 +130,23 @@ def test_the_spend_cap_stops_the_run_before_going_over():
     assert report.spent_micro_usd <= 10_000
     assert 0 < len(report.results) < 10
     assert "Stopped early" in render_markdown(report, [2_000])
+
+
+def test_rate_limits_are_waited_out_then_retried():
+    class RateLimitedOnce(FakeModel):
+        limited = False
+
+        def stream(self, messages, max_output_tokens):
+            if not self.limited:
+                self.limited = True
+                raise ModelRateLimitedError()
+            yield from super().stream(messages, max_output_tokens)
+
+    waits: list[float] = []
+    evaluation = DilutionEval(RateLimitedOnce(), LUNA, max_usd=1, sleep=waits.append)
+    result = evaluation.run_case(scenario(), "lesson", 2_000, 1)
+    assert result.outcome == "pass"
+    assert waits == [RATE_LIMIT_WAIT_SECONDS]
 
 
 def test_report_aggregates_runs_per_scenario_and_level(tmp_path):

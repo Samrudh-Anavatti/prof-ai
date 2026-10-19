@@ -12,6 +12,10 @@ class ModelUnavailableError(Exception):
     pass
 
 
+class ModelRateLimitedError(ModelUnavailableError):
+    """The deployment's tokens- or requests-per-minute quota is used up."""
+
+
 class ChatModel(Protocol):
     def stream(
         self, messages: Sequence[PromptMessage], max_output_tokens: int
@@ -67,5 +71,7 @@ class FoundryChatModel:
             if error.code == "content_filter":
                 raise ContentFilteredError() from error
             raise ModelUnavailableError() from error
+        except openai.RateLimitError as error:
+            raise ModelRateLimitedError() from error
         except openai.OpenAIError as error:
             raise ModelUnavailableError() from error
