@@ -739,3 +739,38 @@ textarea {
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
+
+.composer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.composer .ask-ai {
+  background: var(--brand);
+  color: #fff;
+}
+
+.bubble-author {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.bubble.assistant.by-tutor,
+.bubble.assistant.by-student {
+  border-color: var(--accent);
+}
+
+.chat-layout.single {
+  grid-template-columns: 1fr;
+}
+
+.back-link {
+  align-self: flex-start;
+  margin-top: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}

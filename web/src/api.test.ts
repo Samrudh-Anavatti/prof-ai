@@ -110,18 +110,18 @@ function sseResponse(...events: [string, unknown][]): Response {
 describe("sendMessage", () => {
   const noop = { onDelta: () => {} };
 
-  it("streams deltas and resolves with the title", async () => {
+  it("streams deltas and resolves with the title and whether Prof AI replied", async () => {
     const fetchFn = fakeFetch(
       sseResponse(
         ["delta", { text: "Hel" }],
         ["delta", { text: "lo" }],
-        ["done", { title: "Fractions" }],
+        ["done", { title: "Fractions", ai: true }],
       ),
     );
     const deltas: string[] = [];
-    const title = await sendMessage("c1", "hi", { onDelta: (t) => deltas.push(t) }, { fetchFn });
+    const result = await sendMessage("c1", "hi", { onDelta: (t) => deltas.push(t) }, { fetchFn });
     expect(deltas).toEqual(["Hel", "lo"]);
-    expect(title).toBe("Fractions");
+    expect(result).toEqual({ title: "Fractions", ai: true });
     const [path, init] = fetchFn.mock.calls[0];
     expect(path).toBe("/api/chat/conversations/c1/messages");
     expect(init).toMatchObject({ method: "POST", body: JSON.stringify({ content: "hi" }) });

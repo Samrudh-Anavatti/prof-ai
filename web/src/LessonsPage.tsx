@@ -34,7 +34,13 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-export function LessonsPage({ me }: { me: Me }) {
+export function LessonsPage({
+  me,
+  onOpenChat,
+}: {
+  me: Me;
+  onOpenChat: (studentId: string, chatId: string) => void;
+}) {
   const [students, setStudents] = useState<UserView[] | null>(null);
   const [studentId, setStudentId] = useState("");
   const [chats, setChats] = useState<StudentChats | null>(null);
@@ -256,6 +262,13 @@ export function LessonsPage({ me }: { me: Me }) {
                     {chat.has_material && <span className="pill active">Material</span>}
                   </div>
                   <div className="user-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => onOpenChat(studentId, chat.id)}
+                    >
+                      Open
+                    </button>
                     <button
                       type="button"
                       className="danger"

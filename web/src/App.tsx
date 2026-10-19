@@ -5,6 +5,7 @@ import { ChatPage } from "./ChatPage";
 import { LessonsPage } from "./LessonsPage";
 import { Logo } from "./Logo";
 import { TeachingStylePage } from "./TeachingStylePage";
+import { TutorChatPage } from "./TutorChatPage";
 import { UsersPage } from "./UsersPage";
 
 type State = { kind: "loading" } | { kind: "ready"; me: Me } | { kind: "error"; message: string };
@@ -20,6 +21,7 @@ const TUTOR_PAGES = [
   { path: TEACHING_STYLE_PATH, label: "Teaching style" },
   { path: USERS_PATH, label: "Users" },
 ];
+const STUDENT_CHAT_PATH = /^\/lessons\/([^/]+)\/([^/]+)$/;
 const UNSAVED_WARNING = "You have unsaved changes to your teaching style. Leave anyway?";
 
 export function App() {
@@ -57,7 +59,12 @@ export function App() {
   }
 
   const isTutor = state.kind === "ready" && state.me.role === "tutor";
-  const page = isTutor && TUTOR_PAGES.some((p) => p.path === path) ? path : CHAT_PATH;
+  const studentChat = isTutor ? STUDENT_CHAT_PATH.exec(path) : null;
+  const page = studentChat
+    ? LESSONS_PATH
+    : isTutor && TUTOR_PAGES.some((p) => p.path === path)
+      ? path
+      : CHAT_PATH;
 
   return (
     <div className="app">
@@ -97,7 +104,24 @@ export function App() {
       {state.kind === "ready" && page === TEACHING_STYLE_PATH && (
         <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
       )}
-      {state.kind === "ready" && page === LESSONS_PATH && <LessonsPage me={state.me} />}
+      {state.kind === "ready" && studentChat && (
+        <TutorChatPage
+          me={state.me}
+          studentId={decodeURIComponent(studentChat[1])}
+          chatId={decodeURIComponent(studentChat[2])}
+          onBack={() => navigate(LESSONS_PATH)}
+        />
+      )}
+      {state.kind === "ready" && page === LESSONS_PATH && !studentChat && (
+        <LessonsPage
+          me={state.me}
+          onOpenChat={(studentId, chatId) =>
+            navigate(
+              `${LESSONS_PATH}/${encodeURIComponent(studentId)}/${encodeURIComponent(chatId)}`,
+            )
+          }
+        />
+      )}
       {state.kind === "ready" && page === USERS_PATH && <UsersPage me={state.me} />}
       {state.kind === "ready" && page === CHAT_PATH && <ChatPage me={state.me} />}
     </div>

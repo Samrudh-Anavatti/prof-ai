@@ -37,10 +37,24 @@ export interface ConversationSummary {
   updated_at: string;
 }
 
+export type Author = "student" | "tutor" | "ai";
+
 export interface ChatMessage {
   role: "user" | "assistant";
+  author: Author;
+  author_name: string;
   content: string;
   at: string;
+}
+
+export interface ConversationVersion {
+  updated_at: string;
+}
+
+export interface SendResult {
+  title: string;
+  /** Whether Prof AI replied: in a shared lesson chat only messages with @AI ask it. */
+  ai: boolean;
 }
 
 export interface LessonOverview {
@@ -281,14 +295,15 @@ export interface ReplyHandlers {
 }
 
 /** Streams the tutor's reply; resolves with the conversation title once it's saved. */
-export async function sendMessage(
-  conversationId: string,
+/** Streams Prof AI's reply, if the message asked for one; resolves once the turn is saved. */
+async function postMessage(
+  path: string,
   content: string,
   handlers: ReplyHandlers,
-  options: ApiOptions = {},
-): Promise<string> {
+  options: ApiOptions,
+): Promise<SendResult> {
   const response = await request(
-    `/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
+    path,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
@@ -296,12 +311,16 @@ export async function sendMessage(
     },
     options,
   );
-  let title: string | undefined;
+  let result: SendResult | undefined;
   let failure: string | undefined;
   const parser = createSseParser((event, data) => {
     if (event === "delta" && typeof data.text === "string") handlers.onDelta(data.text);
-    else if (event === "done") title = typeof data.title === "string" ? data.title : "";
-    else if (event === "error") failure = typeof data.message === "string" ? data.message : "";
+    else if (event === "done") {
+      result = {
+        title: typeof data.title === "string" ? data.title : "",
+        ai: data.ai !== false,
+      };
+    } else if (event === "error") failure = typeof data.message === "string" ? data.message : "";
   });
   if (!response.body) throw new ApiError(0, UNAVAILABLE);
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -311,6 +330,52 @@ export async function sendMessage(
     parser.push(value);
   }
   if (failure !== undefined) throw new ApiError(502, failure || UNAVAILABLE);
-  if (title === undefined) throw new ApiError(0, UNAVAILABLE);
-  return title;
+  if (result === undefined) throw new ApiError(0, UNAVAILABLE);
+  return result;
+}
+
+function conversationPath(id: string, action = ""): string {
+  return `/api/chat/conversations/${encodeURIComponent(id)}${action}`;
+}
+
+export function sendMessage(
+  conversationId: string,
+  content: string,
+  handlers: ReplyHandlers,
+  options: ApiOptions = {},
+): Promise<SendResult> {
+  return postMessage(conversationPath(conversationId, "/messages"), content, handlers, options);
+}
+
+export function getConversationVersion(
+  id: string,
+  options?: ApiOptions,
+): Promise<ConversationVersion> {
+  return getJson<ConversationVersion>(conversationPath(id, "/version"), options);
+}
+
+export function getStudentChat(
+  studentId: string,
+  chatId: string,
+  options?: ApiOptions,
+): Promise<ConversationDetail> {
+  return getJson<ConversationDetail>(studentChatsPath(studentId, chatId), options);
+}
+
+export function getStudentChatVersion(
+  studentId: string,
+  chatId: string,
+  options?: ApiOptions,
+): Promise<ConversationVersion> {
+  return getJson<ConversationVersion>(`${studentChatsPath(studentId, chatId)}/version`, options);
+}
+
+export function sendStudentChatMessage(
+  studentId: string,
+  chatId: string,
+  content: string,
+  handlers: ReplyHandlers,
+  options: ApiOptions = {},
+): Promise<SendResult> {
+  return postMessage(`${studentChatsPath(studentId, chatId)}/messages`, content, handlers, options);
 }
