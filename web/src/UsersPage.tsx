@@ -12,6 +12,8 @@ import {
   type Role,
   type UserView,
 } from "./api";
+import { Avatar } from "./Avatar";
+import { PageSkeleton } from "./Skeleton";
 
 const STATUS_LABELS = { invited: "Invited", active: "Active", account_locked: "Locked" };
 const SIGN_UP_URL = `${window.location.origin}/.auth/login/aad?prompt=create&post_login_redirect_uri=/`;
@@ -114,7 +116,7 @@ export function UsersPage({ me }: { me: Me }) {
             {error}
           </div>
         ) : (
-          <p className="muted">Loading…</p>
+          <PageSkeleton />
         )}
       </div>
     );
@@ -126,7 +128,7 @@ export function UsersPage({ me }: { me: Me }) {
   );
 
   return (
-    <main className="admin-page">
+    <section className="admin-page">
       <h1>{me.is_admin ? "Users" : "Your students"}</h1>
       <p className="muted">
         {me.is_admin
@@ -214,6 +216,7 @@ export function UsersPage({ me }: { me: Me }) {
       <ul className="user-list">
         {sorted.map((user) => (
           <li key={user.id} className="user-row">
+            <Avatar name={user.display_name} tone={user.role} />
             <div className="user-main">
               <span className="user-name">
                 {user.display_name}
@@ -227,7 +230,7 @@ export function UsersPage({ me }: { me: Me }) {
                 {user.role === "tutor" ? "Tutor" : "Student"}
                 {me.is_admin && user.tutor_email && ` · tutor ${user.tutor_email}`}
               </span>
-              <span className={`pill ${user.status}`}>{STATUS_LABELS[user.status]}</span>
+              <span className={`status-badge ${user.status}`}>{STATUS_LABELS[user.status]}</span>
             </div>
             {user.id !== me.id && (
               <div className="user-actions">
@@ -264,6 +267,6 @@ export function UsersPage({ me }: { me: Me }) {
           </li>
         ))}
       </ul>
-    </main>
+    </section>
   );
 }

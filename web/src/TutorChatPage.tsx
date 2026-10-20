@@ -33,7 +33,7 @@ export function TutorChatPage({
     <div className="chat-layout single">
       <section className="chat">
         <a className="back-link" href="/lessons" onClick={back}>
-          ← Lessons
+          <span aria-hidden="true">←</span> Back to lessons
         </a>
         <ChatThread me={me} endpoints={endpoints} />
       </section>

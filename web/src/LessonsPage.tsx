@@ -15,6 +15,7 @@ import {
   type StudentChats,
   type UserView,
 } from "./api";
+import { PageSkeleton } from "./Skeleton";
 import { lessonTokens, MAX_PDF_BYTES, pagesText, toBase64 } from "./lessons";
 
 interface UploadedPdf {
@@ -188,14 +189,14 @@ export function LessonsPage({
             {error}
           </div>
         ) : (
-          <p className="muted">Loading…</p>
+          <PageSkeleton />
         )}
       </div>
     );
   }
 
   return (
-    <main className="admin-page">
+    <section className="admin-page">
       <h1>Lessons</h1>
       <p className="muted">
         Set up a chat for each lesson. Prof AI teaches from the lesson material you add, and your
@@ -234,7 +235,7 @@ export function LessonsPage({
       )}
 
       {chats === null ? (
-        <p className="muted">Loading chats…</p>
+        <PageSkeleton label="Loading chats…" />
       ) : (
         <>
           <h2 className="lesson-heading">
@@ -244,7 +245,7 @@ export function LessonsPage({
             </span>
           </h2>
           {chats.chats.length === 0 ? (
-            <p className="muted">No chats yet.</p>
+            <p className="muted list-empty">No chats yet. Set up the first lesson below.</p>
           ) : (
             <ul className="user-list">
               {chats.chats.map((chat) => (
@@ -259,7 +260,9 @@ export function LessonsPage({
                     <span className="muted">
                       {chat.message_count} messages · updated {shortDate(chat.updated_at)}
                     </span>
-                    {chat.has_material && <span className="pill active">Material</span>}
+                    {chat.has_material && (
+                      <span className="status-badge material">Material added</span>
+                    )}
                   </div>
                   <div className="user-actions">
                     <button
@@ -402,6 +405,6 @@ export function LessonsPage({
           )}
         </>
       )}
-    </main>
+    </section>
   );
 }

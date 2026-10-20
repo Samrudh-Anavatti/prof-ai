@@ -7,6 +7,7 @@ import {
   UNAVAILABLE,
   type TeachingStyle,
 } from "./api";
+import { PageSkeleton } from "./Skeleton";
 
 const encoder = new TextEncoder();
 
@@ -77,7 +78,7 @@ export function TeachingStylePage({ onUnsavedChange, onTryIt }: Props) {
             {error}
           </div>
         ) : (
-          <p className="muted">Loading…</p>
+          <PageSkeleton />
         )}
       </div>
     );
@@ -87,7 +88,7 @@ export function TeachingStylePage({ onUnsavedChange, onTryIt }: Props) {
   const tooLong = bytes > saved.max_bytes;
 
   return (
-    <main className="style-page">
+    <section className="style-page">
       <h1>Your teaching style</h1>
       <p className="muted">
         Tell Luna how you like to teach: tone, analogies, how to structure steps, what to praise.
@@ -151,6 +152,6 @@ export function TeachingStylePage({ onUnsavedChange, onTryIt }: Props) {
         </p>
         <pre>{saved.system_prompt}</pre>
       </details>
-    </main>
+    </section>
   );
 }

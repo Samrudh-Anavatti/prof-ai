@@ -1,9 +1,11 @@
 import { useEffect, useState, type MouseEvent } from "react";
 
 import { ApiError, getMe, type Me } from "./api";
+import { Avatar } from "./Avatar";
 import { ChatPage } from "./ChatPage";
 import { LessonsPage } from "./LessonsPage";
 import { Logo } from "./Logo";
+import { PageSkeleton } from "./Skeleton";
 import { TeachingStylePage } from "./TeachingStylePage";
 import { TutorChatPage } from "./TutorChatPage";
 import { UsersPage } from "./UsersPage";
@@ -68,62 +70,77 @@ export function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
       <header className="top-bar">
         <Logo />
-        {state.kind === "ready" && (
-          <nav className="account">
-            {isTutor &&
-              TUTOR_PAGES.map((p) => (
-                <a
-                  key={p.path}
-                  className={p.path === page ? "nav-link current" : "nav-link"}
-                  href={p.path}
-                  aria-current={p.path === page ? "page" : undefined}
-                  onClick={(e) => onNavClick(e, p.path)}
-                >
-                  {p.label}
-                </a>
-              ))}
-            <span className="account-name">
-              {state.me.display_name}
-              {isTutor && <span className="role-tag">Tutor</span>}
-            </span>
-            <a href={SIGN_OUT_URL}>Sign out</a>
+        {state.kind === "ready" && isTutor && (
+          <nav className="main-nav" aria-label="Main">
+            {TUTOR_PAGES.map((p) => (
+              <a
+                key={p.path}
+                className={p.path === page ? "nav-link current" : "nav-link"}
+                href={p.path}
+                aria-current={p.path === page ? "page" : undefined}
+                onClick={(e) => onNavClick(e, p.path)}
+              >
+                {p.label}
+              </a>
+            ))}
           </nav>
         )}
-        {state.kind === "error" && <a href={SIGN_OUT_URL}>Sign out</a>}
-      </header>
-      {state.kind === "loading" && <p className="centred muted">Loading…</p>}
-      {state.kind === "error" && (
-        <div className="centred">
-          <div className="notice" role="alert">
-            {state.message}
+        {state.kind === "ready" && (
+          <div className="account">
+            <span className="account-chip">
+              <Avatar name={state.me.display_name} tone={isTutor ? "tutor" : "student"} />
+              <span className="account-name">{state.me.display_name}</span>
+              {isTutor && <span className="role-tag">Tutor</span>}
+            </span>
+            <a className="sign-out" href={SIGN_OUT_URL}>
+              Sign out
+            </a>
           </div>
-        </div>
-      )}
-      {state.kind === "ready" && page === TEACHING_STYLE_PATH && (
-        <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
-      )}
-      {state.kind === "ready" && studentChat && (
-        <TutorChatPage
-          me={state.me}
-          studentId={decodeURIComponent(studentChat[1])}
-          chatId={decodeURIComponent(studentChat[2])}
-          onBack={() => navigate(LESSONS_PATH)}
-        />
-      )}
-      {state.kind === "ready" && page === LESSONS_PATH && !studentChat && (
-        <LessonsPage
-          me={state.me}
-          onOpenChat={(studentId, chatId) =>
-            navigate(
-              `${LESSONS_PATH}/${encodeURIComponent(studentId)}/${encodeURIComponent(chatId)}`,
-            )
-          }
-        />
-      )}
-      {state.kind === "ready" && page === USERS_PATH && <UsersPage me={state.me} />}
-      {state.kind === "ready" && page === CHAT_PATH && <ChatPage me={state.me} />}
+        )}
+        {state.kind === "error" && (
+          <a className="sign-out" href={SIGN_OUT_URL}>
+            Sign out
+          </a>
+        )}
+      </header>
+      <main id="content" className="page" tabIndex={-1}>
+        {state.kind === "loading" && <PageSkeleton />}
+        {state.kind === "error" && (
+          <div className="centred">
+            <div className="notice" role="alert">
+              {state.message}
+            </div>
+          </div>
+        )}
+        {state.kind === "ready" && page === TEACHING_STYLE_PATH && (
+          <TeachingStylePage onUnsavedChange={setUnsaved} onTryIt={() => navigate(CHAT_PATH)} />
+        )}
+        {state.kind === "ready" && studentChat && (
+          <TutorChatPage
+            me={state.me}
+            studentId={decodeURIComponent(studentChat[1])}
+            chatId={decodeURIComponent(studentChat[2])}
+            onBack={() => navigate(LESSONS_PATH)}
+          />
+        )}
+        {state.kind === "ready" && page === LESSONS_PATH && !studentChat && (
+          <LessonsPage
+            me={state.me}
+            onOpenChat={(studentId, chatId) =>
+              navigate(
+                `${LESSONS_PATH}/${encodeURIComponent(studentId)}/${encodeURIComponent(chatId)}`,
+              )
+            }
+          />
+        )}
+        {state.kind === "ready" && page === USERS_PATH && <UsersPage me={state.me} />}
+        {state.kind === "ready" && page === CHAT_PATH && <ChatPage me={state.me} />}
+      </main>
     </div>
   );
 }
