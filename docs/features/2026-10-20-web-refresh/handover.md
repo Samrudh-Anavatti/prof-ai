@@ -1,8 +1,8 @@
 # Handover: Web app visual refresh
 
 - **Owner:** sam
-- **PR:** not opened yet (first pass awaiting Sam's review)
-- **Merged:** —
+- **PR:** https://github.com/Samrudh-Anavatti/prof-ai/pull/16
+- **Merged:** 2026-10-20
 
 ## What was built
 A visual refresh of the whole web app for students aged 11–18 and their tutors. Behaviour, endpoints and data are unchanged.
