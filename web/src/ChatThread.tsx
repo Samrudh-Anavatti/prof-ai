@@ -7,15 +7,28 @@ import {
   type ChatMessage,
   type ConversationDetail,
   type ConversationVersion,
+  type LessonOverview,
   type Me,
   type ReplyHandlers,
   type SendResult,
 } from "./api";
+import { Avatar } from "./Avatar";
 
 const MAX_INPUT_CHARS = 2000;
 const POLL_MS = 5000;
 // Mirrors the server: a whole-word @AI, so an address like me@ai.example doesn't count.
 const AI_MENTION = /(?<![\w@.])@ai\b/i;
+const MAX_STARTERS = 3;
+const TOPIC_STARTERS = [
+  (topic: string) => `Can you explain ${topic} step by step?`,
+  (topic: string) => `Give me a practice question on ${topic}.`,
+  (topic: string) => `Check my working on ${topic}.`,
+];
+const GENERAL_STARTERS = [
+  "Explain a topic I'm stuck on.",
+  "Give me a practice question.",
+  "Check my working on a question.",
+];
 
 export interface ChatEndpoints {
   load: () => Promise<ConversationDetail>;
@@ -29,6 +42,16 @@ export function asksAi(shared: boolean, content: string): boolean {
 
 export function withMention(content: string): string {
   return AI_MENTION.test(content) ? content : `@AI ${content}`;
+}
+
+/** Suggestions that fill the composer; in a lesson chat they start with @AI so Prof AI replies. */
+export function starterPrompts(lesson: LessonOverview | null): string[] {
+  if (!lesson) return GENERAL_STARTERS;
+  const topics = lesson.topics.map((t) => t.trim()).filter(Boolean);
+  const subjects = topics.length > 0 ? topics : [lesson.title.trim()].filter(Boolean);
+  return subjects
+    .slice(0, MAX_STARTERS)
+    .map((subject, index) => withMention(TOPIC_STARTERS[index](subject)));
 }
 
 function messageOf(error: unknown): string {
@@ -54,6 +77,7 @@ export function ChatThread({
   const [reply, setReply] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const threadEnd = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const sending = reply !== null;
   const shared = detail?.lesson != null;
 
@@ -130,38 +154,91 @@ export function ChatThread({
 
   const messages = detail?.messages ?? [];
   const lesson = detail?.lesson ?? null;
+  const starters = viewer === "student" || !shared ? starterPrompts(lesson) : [];
+
+  function pickStarter(text: string) {
+    setDraft(text);
+    composer.current?.focus();
+  }
+
   return (
     <>
       {lesson && (
         <header className="lesson-banner">
-          <strong>{lesson.title}</strong>
-          {lesson.topics.length > 0 && <span className="muted">{lesson.topics.join(" · ")}</span>}
+          <span className="lesson-kicker">Lesson</span>
+          <strong className="lesson-title">{lesson.title}</strong>
+          {lesson.topics.length > 0 && (
+            <ul className="topic-chips" aria-label="Topics">
+              {lesson.topics.map((topic) => (
+                <li key={topic}>{topic}</li>
+              ))}
+            </ul>
+          )}
         </header>
       )}
       <div className="thread" aria-live="polite">
+        {!detail && !error && (
+          <div className="thread-skeleton" role="status">
+            <span className="visually-hidden">Loading the chat…</span>
+            <span className="skeleton skeleton-bubble" />
+            <span className="skeleton skeleton-bubble mine" />
+            <span className="skeleton skeleton-bubble" />
+          </div>
+        )}
         {detail && messages.length === 0 && reply === null && (
           <div className="empty">
-            <h1>Hi {firstName(me)}!</h1>
+            <p className="empty-wave" aria-hidden="true">
+              👋
+            </p>
+            <h1>Hi {firstName(me)}</h1>
             <p className="muted">
               {shared
                 ? `This chat is about ${lesson?.title}. Write a message here, or start it with @AI to ask Prof AI.`
                 : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
             </p>
+            {starters.length > 0 && (
+              <div className="starters">
+                <p className="starters-label">Not sure where to start? Try one:</p>
+                {starters.map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    className="starter"
+                    onClick={() => pickStarter(text)}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {messages.map((m, index) => {
           const own = m.author === viewer;
           return (
-            <div key={index} className={`bubble ${own ? "user" : "assistant"} by-${m.author}`}>
-              {!own && <span className="bubble-author">{m.author_name}</span>}
-              {m.content}
+            <div key={index} className={`message ${own ? "mine" : "theirs"} by-${m.author}`}>
+              {!own && <Avatar name={m.author_name} tone={m.author} />}
+              <div className={`bubble ${own ? "user" : "assistant"} by-${m.author}`}>
+                {!own && <span className="bubble-author">{m.author_name}</span>}
+                {m.content}
+              </div>
             </div>
           );
         })}
         {reply !== null && (
-          <div className="bubble assistant by-ai">
-            <span className="bubble-author">Prof AI</span>
-            {reply || <span className="typing">Thinking…</span>}
+          <div className="message theirs by-ai">
+            <Avatar name="Prof AI" tone="ai" />
+            <div className="bubble assistant by-ai">
+              <span className="bubble-author">Prof AI</span>
+              {reply || (
+                <span className="typing">
+                  <span className="visually-hidden">Prof AI is thinking…</span>
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </span>
+              )}
+            </div>
           </div>
         )}
         <div ref={threadEnd} />
@@ -175,6 +252,7 @@ export function ChatThread({
 
       <form className="composer" onSubmit={submit}>
         <textarea
+          ref={composer}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}

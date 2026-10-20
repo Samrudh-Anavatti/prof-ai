@@ -70,12 +70,14 @@ export function ChatPage({ me }: { me: Me }) {
 
   return (
     <div className="chat-layout">
-      <aside className={showList ? "sidebar open" : "sidebar"}>
+      <aside className={showList ? "sidebar open" : "sidebar"} aria-label="Your chats">
+        <h2 className="sidebar-title">{isTutor ? "Test chats" : "Your chats"}</h2>
         {isTutor && (
           <button type="button" className="new-chat" onClick={() => void newTestChat()}>
-            + New test chat
+            <span aria-hidden="true">+</span> New test chat
           </button>
         )}
+        {conversations?.length === 0 && <p className="muted sidebar-empty">No chats yet.</p>}
         <ul className="conversation-list">
           {(conversations ?? []).map((c) => (
             <li key={c.id}>
@@ -92,7 +94,12 @@ export function ChatPage({ me }: { me: Me }) {
       </aside>
 
       <section className="chat">
-        <button type="button" className="toggle-list" onClick={() => setShowList(!showList)}>
+        <button
+          type="button"
+          className="toggle-list"
+          aria-expanded={showList}
+          onClick={() => setShowList(!showList)}
+        >
           {showList ? "Close" : "Your chats"}
         </button>
         {endpoints ? (
@@ -100,7 +107,10 @@ export function ChatPage({ me }: { me: Me }) {
         ) : (
           <div className="thread">
             <div className="empty">
-              <h1>Hi {me.display_name.split(" ")[0]}!</h1>
+              <p className="empty-wave" aria-hidden="true">
+                👋
+              </p>
+              <h1>Hi {me.display_name.split(" ")[0]}</h1>
               <p className="muted">
                 {conversations === null
                   ? "Loading your chats…"

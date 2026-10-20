@@ -52,7 +52,7 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Infra**: App Service, Foundry, Cosmos, Blob, Key Vault, budget alerts, all in Bicep | Live |
 | ✅ | **Sign-in**: Entra External ID with email-code sign-up; only invited emails get in; per-request account locks | Live |
 | ✅ | **Content store**: upload textbooks with `prof content add-book` | Live (CLI) |
-| ✅ | **Web app**: React SPA served by FastAPI on one origin, strict CSP | Live |
+| ✅ | **Web app**: React SPA served by FastAPI on one origin, strict CSP; friendly, readable design for ages 11–18 | Live |
 | ✅ | **Tutor chat with Luna**: streamed replies, transcripts, per-user budgets and kill switch | Live |
 | ✅ | **Per-user AI configuration**: tutor teaching style + per-user profile in the system prompt | Live |
 | ✅ | **Teaching style editor** in the web UI for tutors | Live |
@@ -71,27 +71,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Shared tutor–student chats with @AI · 2026-10-20 · Sam
+### Web app refresh · 2026-10-20 · Sam
 
-The chat redesign from [ADR 0005](docs/decisions/0005-models-and-context-budget.md) is complete:
+A friendlier, easier-to-read look for students aged 11–18 and their tutors. Nothing changes in what the pages do.
 
-- **Tutor and student share each lesson chat.** Tutors open a student's chat from **Lessons → Open**; students see their tutor's messages, labelled with their name.
-- **Prof AI only replies to messages that mention `@AI`** (or the **Ask Prof AI** button), from either of you. Messages between you cost nothing.
-  - A tutor's `@AI` uses the student's profile and is charged to the tutor (unlimited per tutor, but within the global cap).
-  - Chats without a lesson (your test chats) still answer every message.
-- **Prof AI knows who's talking.** The server adds labels like `⟦Tutor Sam⟧` that a student can't forge. A tutor can steer it ("show a full worked example") and its safety rules still apply. The re-run eval passed, including a forged tutor label and a real tutor's worked-example request.
-- **Live updates:** an open chat checks for new messages every 5 s. Messages written at the same moment are never lost (ETag-checked saves).
+- **Easier reading:** Lexend, a typeface designed for reading ease, at a larger size; calmer colours on the same navy-and-amber brand; a proper dark mode.
+- **Chats feel like chats:** avatars, clear bubbles for you, your tutor or student, and Prof AI, a typing indicator, and a lesson card with topic chips.
+- **Help getting started:** an empty lesson chat offers up to three `@AI` starter questions built from the lesson's topics. They fill the box and never send on their own.
+- **Tidier tutor pages:** aligned rows with avatars and status badges on Lessons and Users, skeleton loading, and visible focus rings and hover states throughout. Works on phones.
 
-> [!NOTE]
-> **Try it with two accounts:** you on Lessons → Open, and a test student in a private window. Post from each, try `@AI` from each, and watch the other side update.
-
-📄 [plan](docs/features/2026-10-20-shared-chat/plan.md) · [handover](docs/features/2026-10-20-shared-chat/handover.md)
+📄 [plan](docs/features/2026-10-20-web-refresh/plan.md) · [handover](docs/features/2026-10-20-web-refresh/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-20 | **Shared chats with @AI**: tutor and student share each lesson chat; Prof AI replies only to `@AI` | Sam | [handover](docs/features/2026-10-20-shared-chat/handover.md) |
 | 2026-10-20 | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Sam | [handover](docs/features/2026-10-19-lessons/handover.md) |
 | 2026-10-19 | **Dilution eval** (`prof eval dilution`): rules hold 3/3 at lessons up to 40k; hardened prompt; safer filtered message; caps fit 50k tokens a minute | Sam | [handover](docs/features/2026-10-19-context-dilution-eval/handover.md) |
 | 2026-10-19 | **Context budget**: capped prompt layers, rolling summaries, dollar budgets ($0.50/student, $1.50 global a day), a context ledger per reply | Sam | [ADR 0005](docs/decisions/0005-models-and-context-budget.md) · [handover](docs/features/2026-10-19-context-budget/handover.md) |
