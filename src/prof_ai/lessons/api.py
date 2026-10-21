@@ -41,6 +41,8 @@ class StudentChat(BaseModel):
     topics: list[str]
     has_material: bool
     support: SupportLevel | None
+    # None: the default model.
+    model: str | None
     message_count: int
     created_at: datetime
     updated_at: datetime
@@ -55,10 +57,12 @@ class StudentChats(BaseModel):
 class NewLessonChat(BaseModel):
     lesson: Lesson
     licence_confirmed: bool = False
+    model: str | None = None
 
 
 class ChatChange(BaseModel):
-    support: SupportLevel
+    support: SupportLevel | None = None
+    model: str | None = None
 
 
 class PdfUpload(BaseModel):
@@ -85,6 +89,7 @@ def student_chat(conversation: Conversation) -> StudentChat:
         topics=lesson.topics if lesson else [],
         has_material=bool(lesson and lesson.material),
         support=lesson.support if lesson else None,
+        model=conversation.model,
         message_count=len(conversation.messages),
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
@@ -139,7 +144,7 @@ def create_lessons_router() -> APIRouter:
         student = managed_student(request, tutor, student_id)
         try:
             conversation = chat_service(request).create_chat(
-                tutor, student, body.lesson, body.licence_confirmed
+                tutor, student, body.lesson, body.licence_confirmed, body.model
             )
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error
@@ -174,20 +179,36 @@ def create_lessons_router() -> APIRouter:
     def change_student_chat(
         student_id: str, conversation_id: str, body: ChatChange, tutor: Tutor, request: Request
     ) -> StudentChat:
+        """Change a chat's support level, its model, or both."""
         student = managed_student(request, tutor, student_id)
+        if body.support is None and body.model is None:
+            raise HTTPException(400, "Nothing to change.")
+        service = chat_service(request)
         try:
-            conversation = chat_service(request).set_support(
-                student.id, conversation_id, body.support
-            )
+            if body.model is not None:
+                conversation = service.set_model(student, conversation_id, body.model)
+                audit(
+                    request,
+                    tutor,
+                    student,
+                    "chat_model_changed",
+                    f"{conversation.title}: {body.model}",
+                )
+            if body.support is not None:
+                conversation = service.set_support(student.id, conversation_id, body.support)
+                audit(
+                    request,
+                    tutor,
+                    student,
+                    "chat_support_changed",
+                    f"{conversation.title}: {body.support}",
+                )
         except ConversationNotFoundError as error:
             raise HTTPException(404, "Chat not found.") from error
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error
         except Exception as error:
             raise HTTPException(503, "Couldn't change the chat. Try again later.") from error
-        audit(
-            request, tutor, student, "chat_support_changed", f"{conversation.title}: {body.support}"
-        )
         return student_chat(conversation)
 
     @router.delete("/students/{student_id}/chats/{conversation_id}", status_code=204)

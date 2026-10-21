@@ -25,6 +25,8 @@ class User(BaseModel):
     status: AccountStatus = AccountStatus.ACTIVE
     tutor_id: str | None = None
     is_admin: bool = False
+    # Tutors only: the model for their own test chats, pre-selected for new lessons.
+    preferred_model: str | None = None
     created_at: datetime
     updated_at: datetime
 

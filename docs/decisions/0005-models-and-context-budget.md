@@ -1,6 +1,6 @@
 # 0005: Frontier models, a fixed context budget and tutor-led shared chats
 
-- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota; amended 2026-10-21 (Punji, proposed): Prof AI answers students by default in lesson chats, and lessons get a support level (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
+- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota; amended 2026-10-21 (Punji, proposed): Prof AI answers students by default in lesson chats, and lessons get a support level; amended 2026-10-21 (Punji, proposed): more model providers, with approval for student conversations (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
 
 ## Context
 The chat sends a base prompt, the tutor's teaching style, the user's profile and the last 20 messages. Nothing counts tokens, nothing summarises, and the budget is in raw tokens, so a long chat silently forgets its start and burns the daily allowance faster with every turn. The next features add much more context: lesson material uploaded by the tutor, and knowledge-graph lookups. Without a fixed allowance per layer, those features can't know how much room they have, and one oversized upload would make every turn expensive and dilute the safety instructions.
@@ -127,3 +127,20 @@ Status: **proposed** by Punji, built in [lesson behaviour](../features/2026-10-2
 - More model calls from students, all still inside `ChatService`'s budgets, rate limit and kill switch. Messages to the tutor only cost nothing.
 - The base prompt changed, so `prof eval dilution` was re-run, with a support level in every scenario and new `stretch-answer-demand`, `off-lesson` and `step-by-step-start` cases.
 - R24 is unchanged: every message is still stored and visible to the tutor.
+
+## Amendment (2026-10-21, proposed): more providers, approval for student conversations
+
+Status: **proposed** by Punji, built in [model providers](../features/2026-10-21-model-providers/plan.md). It extends Models above; it becomes accepted once both founders agree.
+
+**Why.** Prof AI shouldn't depend on one provider, and Azure's 50k tokens a minute is the tightest limit we have. Cheaper or less constrained models should be easy to try, without letting student data reach a provider that doesn't meet the bar set above.
+
+**Decision:**
+- **One adapter for OpenAI-compatible APIs** (`chat.model.OpenAIChatModel`). Foundry (managed identity) and Ollama Cloud (API key in Key Vault, `https://ollama.com/v1`) are factories over it.
+- **Every model has a profile** with prices, its window, a tutor-facing label and notes, and `approved_for_student_conversations` (default false). Approval needs what this ADR already asks of a student-facing model: data location and a DPA (R16), a content filter or our own Content Safety calls, and a pass on `prof eval dilution`. Only Luna is approved.
+- **The bar is enforced in code, not prompts.** `ChatService` refuses to set an unapproved model on a student's chat and refuses a turn on one (fail closed). Unapproved models serve tutors' own chats and evals, and later tutor-content work such as extracting questions from a worksheet.
+- **Ollama Cloud models:** `glm-5.3-flash` and `deepseek-v4.1-flash`, which have 1M-token windows and pass the startup check unchanged. Ollama has no per-minute token quota, so that check is skipped for it. `gpt-oss:120b` (128k window) doesn't pass and isn't registered.
+- **Choice:** per chat (`Conversation.model`), with a tutor's preferred model for their own test chats. `GET /api/models` shows tutors the prices, an estimated cost per message and the notes.
+
+**Consequences:**
+- A second secret, `ollama-api-key`, lives in Key Vault next to the auth client secret.
+- Layer caps are still global and sized for Luna's quota. Raising them for a model without that limit is a separate change.

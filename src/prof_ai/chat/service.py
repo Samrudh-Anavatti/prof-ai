@@ -100,6 +100,14 @@ def asks_ai(
 
 
 @dataclass(frozen=True)
+class AvailableModel:
+    profile: ModelProfile
+    model: ChatModel
+    # None for providers without a per-minute token quota.
+    tokens_per_minute: int | None = None
+
+
+@dataclass(frozen=True)
 class Turn:
     sender: User
     owner: User
@@ -107,6 +115,7 @@ class Turn:
     message: ChatMessage
     # None when nobody asked Prof AI: the message is just saved.
     context: AssembledContext | None
+    engine: AvailableModel | None = None
 
 
 class ChatService:
@@ -121,16 +130,35 @@ class ChatService:
         limiter: TurnLimiter | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         model_profile: ModelProfile = LUNA,
-        tokens_per_minute: int = 50_000,
+        tokens_per_minute: int | None = 50_000,
+        extra_models: Sequence[AvailableModel] = (),
     ):
-        check_budget(model_profile, tokens_per_minute)
-        self._model = model
+        self._default = AvailableModel(model_profile, model, tokens_per_minute)
+        self._models = {m.profile.deployment: m for m in (self._default, *extra_models)}
+        for available in self._models.values():
+            check_budget(available.profile, available.tokens_per_minute)
         self._store = store
         self._profiles = profiles
         self._limits = limits
         self._limiter = limiter or TurnLimiter()
         self._clock = clock
-        self._profile = model_profile
+
+    @property
+    def default_model(self) -> ModelProfile:
+        return self._default.profile
+
+    def models(self) -> list[ModelProfile]:
+        return [available.profile for available in self._models.values()]
+
+    def check_model(self, owner: User, model_id: str) -> None:
+        """Refuse a model that isn't registered, or isn't approved for a student's chat."""
+        available = self._models.get(model_id)
+        if available is None:
+            raise ChatRefusedError(400, "That model isn't available.")
+        if owner.role == Role.STUDENT and not available.profile.approved_for_student_conversations:
+            raise ChatRefusedError(
+                400, f"{available.profile.label} isn't approved for student conversations."
+            )
 
     def list_conversations(self, user: User) -> list[Conversation]:
         return self._store.list_conversations(user.id)
@@ -144,8 +172,11 @@ class ChatService:
         student: User,
         lesson: Lesson | None = None,
         licence_confirmed: bool = False,
+        model: str | None = None,
     ) -> Conversation:
         """A chat for one student. Callers check that the actor may manage the student."""
+        if model is not None:
+            self.check_model(student, model)
         if lesson is not None:
             try:
                 lesson = validate_lesson(lesson, licence_confirmed)
@@ -163,6 +194,7 @@ class ChatService:
             user_id=student.id,
             title=lesson.title if lesson else "",
             lesson=lesson,
+            model=model,
             created_by=actor.id,
             created_at=now,
             updated_at=now,
@@ -191,6 +223,16 @@ class ChatService:
                 current.lesson.support = support
 
         return self._store.update_conversation(student_id, conversation_id, apply)
+
+    def set_model(self, owner: User, conversation_id: str, model: str) -> Conversation:
+        self.check_model(owner, model)
+        if self._store.get_conversation(owner.id, conversation_id) is None:
+            raise ConversationNotFoundError()
+
+        def apply(current: Conversation) -> None:
+            current.model = model
+
+        return self._store.update_conversation(owner.id, conversation_id, apply)
 
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
         conversation = self._store.get_conversation(user.id, conversation_id)
@@ -228,22 +270,24 @@ class ChatService:
             author_name=sender.display_name,
         )
         context = None
+        engine = None
         if asks_ai(conversation, content, message.author or "student", to_tutor):
             if not self._limits.enabled:
                 raise ChatRefusedError(503, "Chat is switched off at the moment.")
+            engine = self._engine_for(owner, conversation)
             self._check_budgets(sender)
             context = self._assemble(owner, conversation, message)
         wait_reason = self._limiter.try_acquire(sender.id)
         if wait_reason:
             raise ChatRefusedError(429, wait_reason)
-        return Turn(sender, owner, conversation, message, context)
+        return Turn(sender, owner, conversation, message, context, engine)
 
     def run_turn(self, turn: Turn) -> Iterator[ChatEvent]:
         try:
-            if turn.context is None:
+            if turn.context is None or turn.engine is None:
                 yield from self._save_message(turn)
             else:
-                yield from self._run_turn(turn, turn.context)
+                yield from self._run_turn(turn, turn.context, turn.engine)
         finally:
             self._limiter.release(turn.sender.id)
 
@@ -252,6 +296,20 @@ class ChatService:
         if version is None:
             raise ConversationNotFoundError()
         return version
+
+    def _engine_for(self, owner: User, conversation: Conversation) -> AvailableModel:
+        """The chat's model, a tutor's preferred one for their own chats, or the default.
+
+        A student's chat only ever runs on an approved model: fail closed otherwise.
+        """
+        model_id = conversation.model or (
+            owner.preferred_model if owner.role == Role.TUTOR else None
+        )
+        engine = self._models.get(model_id or "", self._default)
+        if owner.role == Role.STUDENT and not engine.profile.approved_for_student_conversations:
+            logger.error("Unapproved model %s on student chat %s", model_id, conversation.id)
+            raise ChatRefusedError(503, UNAVAILABLE)
+        return engine
 
     def _assemble(
         self, owner: User, conversation: Conversation, message: ChatMessage
@@ -312,12 +370,15 @@ class ChatService:
             return
         yield ChatEvent("done", {"title": saved.title, "ai": False})
 
-    def _run_turn(self, turn: Turn, context: AssembledContext) -> Iterator[ChatEvent]:
+    def _run_turn(
+        self, turn: Turn, context: AssembledContext, engine: AvailableModel
+    ) -> Iterator[ChatEvent]:
         conversation_id = turn.conversation.id
+        profile = engine.profile
         reply: list[str] = []
         usage: Usage | None = None
         try:
-            for item in self._model.stream(context.messages, self._profile.max_output_tokens):
+            for item in engine.model.stream(context.messages, profile.max_output_tokens):
                 if isinstance(item, Usage):
                     usage = item
                 else:
@@ -344,7 +405,7 @@ class ChatService:
                     "input_tokens": usage.input_tokens,
                     "cached_input_tokens": usage.cached_input_tokens,
                     "output_tokens": usage.output_tokens,
-                    "cost_micro_usd": self._profile.cost_micro_usd(usage),
+                    "cost_micro_usd": profile.cost_micro_usd(usage),
                 }
             )
             logger.info(
@@ -364,20 +425,22 @@ class ChatService:
 
         try:
             saved = self._store.update_conversation(turn.owner.id, conversation_id, append)
-            self._charge(turn.sender, usage)
+            self._charge(turn.sender, usage, profile)
         except Exception:
             logger.exception("Saving chat turn failed for conversation %s", conversation_id)
             yield ChatEvent("error", {"message": UNAVAILABLE})
             return
-        self._summarise_if_due(turn.sender, turn.owner, saved)
+        self._summarise_if_due(turn.sender, turn.owner, saved, engine)
         yield ChatEvent("done", {"title": saved.title, "ai": True})
 
-    def _charge(self, user: User, usage: Usage | None) -> None:
+    def _charge(self, user: User, usage: Usage | None, profile: ModelProfile) -> None:
         if usage:
             day = self._clock().date()
-            self._store.add_usage(user.id, day, usage.total, self._profile.cost_micro_usd(usage))
+            self._store.add_usage(user.id, day, usage.total, profile.cost_micro_usd(usage))
 
-    def _summarise_if_due(self, sender: User, owner: User, conversation: Conversation) -> None:
+    def _summarise_if_due(
+        self, sender: User, owner: User, conversation: Conversation, engine: AvailableModel
+    ) -> None:
         """Fold old messages into the summary. A failure is retried on the next turn."""
         batch = messages_to_summarise(conversation)
         if not batch:
@@ -387,7 +450,7 @@ class ChatService:
                 self._limits.daily_global_usd * MICRO_USD
             ):
                 return
-            text, usage = self._complete(summary_request(conversation.summary, batch))
+            text, usage = self._complete(summary_request(conversation.summary, batch), engine)
             summary = clip_summary(text)
             if not summary:
                 logger.warning("Empty summary for conversation %s", conversation.id)
@@ -401,14 +464,16 @@ class ChatService:
                 add_tokens(current, usage)
 
             self._store.update_conversation(owner.id, conversation.id, apply)
-            self._charge(sender, usage)
+            self._charge(sender, usage, engine.profile)
         except Exception:
             logger.exception("Summarising failed for conversation %s", conversation.id)
 
-    def _complete(self, messages: Sequence[PromptMessage]) -> tuple[str, Usage | None]:
+    def _complete(
+        self, messages: Sequence[PromptMessage], engine: AvailableModel
+    ) -> tuple[str, Usage | None]:
         parts: list[str] = []
         usage: Usage | None = None
-        for item in self._model.stream(messages, SUMMARY_OUTPUT_TOKENS):
+        for item in engine.model.stream(messages, SUMMARY_OUTPUT_TOKENS):
             if isinstance(item, Usage):
                 usage = item
             else:

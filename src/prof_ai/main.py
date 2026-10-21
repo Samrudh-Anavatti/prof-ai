@@ -5,7 +5,8 @@ from fastapi import APIRouter, FastAPI
 
 from prof_ai.auth import CurrentUser
 from prof_ai.chat.api import create_chat_router
-from prof_ai.chat.service import ChatLimits, ChatService
+from prof_ai.chat.models_api import create_models_router
+from prof_ai.chat.service import AvailableModel, ChatLimits, ChatService
 from prof_ai.config import Settings, load_settings
 from prof_ai.lessons.api import MAX_EXTRACT_REQUEST_BYTES, create_lessons_router
 from prof_ai.profiles.api import create_profiles_router
@@ -34,6 +35,7 @@ def create_api_router() -> APIRouter:
     api.include_router(create_profiles_router())
     api.include_router(create_users_router())
     api.include_router(create_lessons_router())
+    api.include_router(create_models_router())
     return api
 
 
@@ -53,20 +55,35 @@ def azure_profile_store(settings: Settings) -> ProfileStore | None:
     return ProfileStore(AzureBlobBackend(settings.storage_account_url))
 
 
+def ollama_models(settings: Settings) -> list[AvailableModel]:
+    """Ollama Cloud models, when its key is set. They have no per-minute token quota."""
+    if not settings.ollama_api_key:
+        return []
+    from prof_ai.chat.model import ollama_chat_model
+    from prof_ai.chat.model_profiles import MODEL_PROFILES
+
+    return [
+        AvailableModel(profile, ollama_chat_model(settings.ollama_api_key, profile.deployment))
+        for profile in MODEL_PROFILES.values()
+        if profile.provider == "ollama"
+    ]
+
+
 def azure_chat_service(settings: Settings, profiles: ProfileStore | None) -> ChatService | None:
     if not (settings.foundry_endpoint and settings.cosmos_endpoint and profiles):
         return None
     from prof_ai.chat.cosmos_store import CosmosChatStore
-    from prof_ai.chat.model import FoundryChatModel
+    from prof_ai.chat.model import foundry_chat_model
     from prof_ai.chat.model_profiles import model_profile
 
     return ChatService(
-        FoundryChatModel(settings.foundry_endpoint, settings.chat_deployment),
+        foundry_chat_model(settings.foundry_endpoint, settings.chat_deployment),
         CosmosChatStore(settings.cosmos_endpoint),
         profiles,
         chat_limits(settings),
         model_profile=model_profile(settings.chat_deployment),
         tokens_per_minute=settings.chat_tokens_per_minute,
+        extra_models=ollama_models(settings),
     )
 
 

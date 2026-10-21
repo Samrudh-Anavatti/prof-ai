@@ -91,6 +91,8 @@ export interface StudentChat {
   topics: string[];
   has_material: boolean;
   support: SupportLevel | null;
+  /** null: the default model. */
+  model: string | null;
   message_count: number;
   created_at: string;
   updated_at: string;
@@ -266,13 +268,51 @@ export function createStudentChat(
   lesson: Lesson,
   licenceConfirmed: boolean,
   options?: ApiOptions,
+  model?: string,
 ): Promise<StudentChat> {
   return sendJson<StudentChat>(
     "POST",
     studentChatsPath(studentId),
-    { lesson, licence_confirmed: licenceConfirmed },
+    { lesson, licence_confirmed: licenceConfirmed, ...(model ? { model } : {}) },
     options,
   );
+}
+
+export function changeStudentChatModel(
+  studentId: string,
+  chatId: string,
+  model: string,
+  options?: ApiOptions,
+): Promise<StudentChat> {
+  return sendJson<StudentChat>("PATCH", studentChatsPath(studentId, chatId), { model }, options);
+}
+
+export interface ModelOption {
+  id: string;
+  label: string;
+  provider: "foundry" | "ollama";
+  approved_for_student_conversations: boolean;
+  context_window: number;
+  input_usd_per_m: number;
+  cached_input_usd_per_m: number;
+  output_usd_per_m: number;
+  typical_message_usd: number;
+  notes: string;
+}
+
+export interface ModelList {
+  models: ModelOption[];
+  default: string;
+  /** The tutor's model for their own test chats; null means the default. */
+  preferred: string | null;
+}
+
+export function listModels(options?: ApiOptions): Promise<ModelList> {
+  return getJson<ModelList>("/api/models", options);
+}
+
+export function setPreferredModel(model: string | null, options?: ApiOptions): Promise<ModelList> {
+  return sendJson<ModelList>("PUT", "/api/models/preferred", { model }, options);
 }
 
 export function changeStudentChatSupport(

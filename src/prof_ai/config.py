@@ -20,6 +20,7 @@ class Settings:
     chat_daily_user_usd: float = 0.50
     chat_daily_global_usd: float = 1.50
     chat_tokens_per_minute: int = 50_000
+    ollama_api_key: str = ""
 
     @property
     def is_production(self) -> bool:
@@ -28,6 +29,12 @@ class Settings:
     def validate(self) -> None:
         if self.dev_user_id and (self.app_env != "local" or self.on_app_service):
             raise UnsafeConfigError("DEV_USER_ID is only allowed locally (APP_ENV=local).")
+
+
+def secret_setting(name: str) -> str:
+    """An app setting holding a secret. An unresolved Key Vault reference counts as unset."""
+    value = os.getenv(name, "").strip()
+    return "" if value.startswith("@Microsoft.KeyVault(") else value
 
 
 def load_settings() -> Settings:
@@ -44,4 +51,5 @@ def load_settings() -> Settings:
         chat_daily_user_usd=float(os.getenv("CHAT_DAILY_USER_USD", "0.50")),
         chat_daily_global_usd=float(os.getenv("CHAT_DAILY_GLOBAL_USD", "1.50")),
         chat_tokens_per_minute=int(os.getenv("CHAT_TOKENS_PER_MINUTE", "50000")),
+        ollama_api_key=secret_setting("OLLAMA_API_KEY"),
     )

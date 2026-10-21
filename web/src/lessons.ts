@@ -1,4 +1,4 @@
-import type { ExtractedPage, Lesson, SupportLevel } from "./api";
+import type { ExtractedPage, Lesson, ModelList, ModelOption, SupportLevel } from "./api";
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -19,6 +19,25 @@ export const SUPPORT_LEVELS: { value: SupportLevel; label: string; hint: string 
     hint: "Confident: straight to the questions, short hints and harder 'why' questions.",
   },
 ];
+
+/** Mirrors ChatService.check_model: a student's chat needs an approved model. */
+export function modelAllowed(model: ModelOption, forStudent: boolean): boolean {
+  return !forStudent || model.approved_for_student_conversations;
+}
+
+/** The tutor's preferred model if it's allowed here, otherwise the default. */
+export function initialModel(list: ModelList, forStudent: boolean): string {
+  const preferred = list.models.find((m) => m.id === list.preferred);
+  return preferred && modelAllowed(preferred, forStudent) ? preferred.id : list.default;
+}
+
+export function modelSummary(model: ModelOption): string {
+  const cost =
+    model.typical_message_usd < 0.01
+      ? `about ${(model.typical_message_usd * 100).toFixed(2)}¢ a message`
+      : `about $${model.typical_message_usd.toFixed(3)} a message`;
+  return `${cost} · ${model.notes}`;
+}
 
 export function supportLevel(level: SupportLevel): (typeof SUPPORT_LEVELS)[number] {
   return SUPPORT_LEVELS.find((l) => l.value === level) ?? SUPPORT_LEVELS[1];
