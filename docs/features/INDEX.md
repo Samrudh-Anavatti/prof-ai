@@ -19,6 +19,7 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-20 | Shared tutor–student chat with `@AI` (ADR 0005, feature c) | Sam | merged | [plan](2026-10-20-shared-chat/plan.md) · [handover](2026-10-20-shared-chat/handover.md) |
 | 2026-10-20 | Web app visual refresh: Lexend, friendlier chat, cards, focus and motion | Sam | merged | [plan](2026-10-20-web-refresh/plan.md) · [handover](2026-10-20-web-refresh/handover.md) |
 | 2026-10-21 | Model providers: one adapter for OpenAI-compatible providers, Ollama Cloud models for tutors' own chats, `approved_for_student_conversations` enforced by `ChatService`, a model picker per lesson (ADR 0005 amendment, proposed) | Punji | merged | [plan](2026-10-21-model-providers/plan.md) · [handover](2026-10-21-model-providers/handover.md) |
+| 2026-10-21 | Maths rendering: Markdown and typeset maths (KaTeX to MathML) in Prof AI's replies | Punji | merged | [plan](2026-10-21-maths-rendering/plan.md) · [handover](2026-10-21-maths-rendering/handover.md) |
 | 2026-10-19 | Context dilution eval: safety and coaching hold at lessons up to 40k; caps cut to fit 50k tokens a minute; safer filtered message | Sam | merged | [plan](2026-10-19-context-dilution-eval/plan.md) · [handover](2026-10-19-context-dilution-eval/handover.md) |
 | — | Knowledge graph (chapter extraction, curricula) filling the reference layer (4k now) | Sam | planned | — |
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
