@@ -26,7 +26,7 @@ describe("starterPrompts", () => {
     expect(prompts).toHaveLength(2);
     expect(prompts[0]).toContain("Simplifying ratios");
     expect(prompts[1]).toContain("Sharing in a ratio");
-    expect(prompts.every((p) => asksAi(true, p))).toBe(true);
+    expect(prompts.every((p) => asksAi(true, "student", p))).toBe(true);
   });
 
   it("offers at most three", () => {
@@ -37,7 +37,7 @@ describe("starterPrompts", () => {
   it("uses the lesson title when there are no topics", () => {
     const prompts = starterPrompts({ title: "Photosynthesis", topics: [] });
     expect(prompts).toHaveLength(1);
-    expect(prompts[0]).toMatch(/^@AI .*Photosynthesis/);
+    expect(prompts[0]).toContain("Photosynthesis");
   });
 
   it("gives general prompts without a mention outside lesson chats", () => {

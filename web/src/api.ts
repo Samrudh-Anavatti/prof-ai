@@ -53,7 +53,8 @@ export interface ConversationVersion {
 
 export interface SendResult {
   title: string;
-  /** Whether Prof AI replied: in a shared lesson chat only messages with @AI ask it. */
+  /** Whether Prof AI replied: in a lesson chat, not for a tutor's message without @AI or a
+   * student's message to their tutor only. */
   ai: boolean;
 }
 
@@ -72,12 +73,16 @@ export interface LessonSource {
   pages: number[];
 }
 
+export type SupportLevel = "step_by_step" | "balanced" | "stretch";
+
 export interface Lesson {
   title: string;
   topics: string[];
   notes: string;
   material: string;
   sources: LessonSource[];
+  /** The server defaults to balanced. */
+  support?: SupportLevel;
 }
 
 export interface StudentChat {
@@ -85,6 +90,7 @@ export interface StudentChat {
   title: string;
   topics: string[];
   has_material: boolean;
+  support: SupportLevel | null;
   message_count: number;
   created_at: string;
   updated_at: string;
@@ -179,7 +185,7 @@ export async function getJson<T>(path: string, options: ApiOptions = {}): Promis
 }
 
 async function sendJson<T>(
-  method: "POST" | "PUT",
+  method: "POST" | "PUT" | "PATCH",
   path: string,
   body: unknown,
   options: ApiOptions = {},
@@ -269,6 +275,15 @@ export function createStudentChat(
   );
 }
 
+export function changeStudentChatSupport(
+  studentId: string,
+  chatId: string,
+  support: SupportLevel,
+  options?: ApiOptions,
+): Promise<StudentChat> {
+  return sendJson<StudentChat>("PATCH", studentChatsPath(studentId, chatId), { support }, options);
+}
+
 export async function deleteStudentChat(
   studentId: string,
   chatId: string,
@@ -294,20 +309,20 @@ export interface ReplyHandlers {
   onDelta: (text: string) => void;
 }
 
-/** Streams the tutor's reply; resolves with the conversation title once it's saved. */
 /** Streams Prof AI's reply, if the message asked for one; resolves once the turn is saved. */
 async function postMessage(
   path: string,
   content: string,
   handlers: ReplyHandlers,
   options: ApiOptions,
+  toTutor = false,
 ): Promise<SendResult> {
   const response = await request(
     path,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(toTutor ? { content, to_tutor: true } : { content }),
     },
     options,
   );
@@ -338,13 +353,16 @@ function conversationPath(id: string, action = ""): string {
   return `/api/chat/conversations/${encodeURIComponent(id)}${action}`;
 }
 
+/** toTutor: in a lesson chat, the student's message is for their tutor only. */
 export function sendMessage(
   conversationId: string,
   content: string,
   handlers: ReplyHandlers,
   options: ApiOptions = {},
+  toTutor = false,
 ): Promise<SendResult> {
-  return postMessage(conversationPath(conversationId, "/messages"), content, handlers, options);
+  const path = conversationPath(conversationId, "/messages");
+  return postMessage(path, content, handlers, options, toTutor);
 }
 
 export function getConversationVersion(

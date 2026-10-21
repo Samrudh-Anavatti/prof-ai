@@ -19,7 +19,7 @@ from prof_ai.chat.api import (
     send_message,
 )
 from prof_ai.chat.context import LAYER_CAPS, Layer
-from prof_ai.chat.models import Conversation, Lesson
+from prof_ai.chat.models import Conversation, Lesson, SupportLevel
 from prof_ai.chat.service import (
     MAX_CHATS_PER_STUDENT,
     ChatRefusedError,
@@ -40,6 +40,7 @@ class StudentChat(BaseModel):
     title: str
     topics: list[str]
     has_material: bool
+    support: SupportLevel | None
     message_count: int
     created_at: datetime
     updated_at: datetime
@@ -54,6 +55,10 @@ class StudentChats(BaseModel):
 class NewLessonChat(BaseModel):
     lesson: Lesson
     licence_confirmed: bool = False
+
+
+class ChatChange(BaseModel):
+    support: SupportLevel
 
 
 class PdfUpload(BaseModel):
@@ -79,6 +84,7 @@ def student_chat(conversation: Conversation) -> StudentChat:
         title=conversation.title or "(untitled)",
         topics=lesson.topics if lesson else [],
         has_material=bool(lesson and lesson.material),
+        support=lesson.support if lesson else None,
         message_count=len(conversation.messages),
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
@@ -162,7 +168,27 @@ def create_lessons_router() -> APIRouter:
     ) -> StreamingResponse:
         """The tutor writes in their student's chat; @AI asks Prof AI, charged to the tutor."""
         student = managed_student(request, tutor, student_id)
-        return send_message(request, tutor, student, conversation_id, body.content)
+        return send_message(request, tutor, student, conversation_id, body)
+
+    @router.patch("/students/{student_id}/chats/{conversation_id}")
+    def change_student_chat(
+        student_id: str, conversation_id: str, body: ChatChange, tutor: Tutor, request: Request
+    ) -> StudentChat:
+        student = managed_student(request, tutor, student_id)
+        try:
+            conversation = chat_service(request).set_support(
+                student.id, conversation_id, body.support
+            )
+        except ConversationNotFoundError as error:
+            raise HTTPException(404, "Chat not found.") from error
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+        except Exception as error:
+            raise HTTPException(503, "Couldn't change the chat. Try again later.") from error
+        audit(
+            request, tutor, student, "chat_support_changed", f"{conversation.title}: {body.support}"
+        )
+        return student_chat(conversation)
 
     @router.delete("/students/{student_id}/chats/{conversation_id}", status_code=204)
     def delete_student_chat(

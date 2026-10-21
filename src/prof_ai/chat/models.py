@@ -16,6 +16,7 @@ class TurnContext(BaseModel):
 
 
 Author = Literal["student", "tutor"]
+SupportLevel = Literal["step_by_step", "balanced", "stretch"]
 
 
 class ChatMessage(BaseModel):
@@ -55,6 +56,7 @@ class Lesson(BaseModel):
     notes: str = ""
     material: str = ""
     sources: list[LessonSource] = Field(default=[], max_length=20)
+    support: SupportLevel = "balanced"
 
 
 class Conversation(BaseModel):

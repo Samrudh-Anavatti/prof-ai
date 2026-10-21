@@ -53,6 +53,8 @@ class ConversationVersion(BaseModel):
 
 class NewMessage(BaseModel):
     content: str
+    # In a lesson chat, a student's message skips Prof AI and is only for their tutor.
+    to_tutor: bool = False
 
 
 def summary(conversation: Conversation) -> ConversationSummary:
@@ -117,12 +119,12 @@ def conversation_version(
 
 
 def send_message(
-    request: Request, sender: User, owner: User, conversation_id: str, content: str
+    request: Request, sender: User, owner: User, conversation_id: str, message: NewMessage
 ) -> StreamingResponse:
     """Server-sent events: deltas if Prof AI replies, then done {title, ai} or error."""
     service = chat_service(request)
     try:
-        turn = service.begin_turn(sender, owner, conversation_id, content)
+        turn = service.begin_turn(sender, owner, conversation_id, message.content, message.to_tutor)
     except ConversationNotFoundError as error:
         raise HTTPException(404, "Chat not found.") from error
     except ChatRefusedError as error:
@@ -166,6 +168,6 @@ def create_chat_router() -> APIRouter:
     def post_message(
         conversation_id: str, body: NewMessage, user: CurrentUser, request: Request
     ) -> StreamingResponse:
-        return send_message(request, user, user, conversation_id, body.content)
+        return send_message(request, user, user, conversation_id, body)
 
     return router

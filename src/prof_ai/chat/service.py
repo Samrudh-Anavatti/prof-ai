@@ -29,10 +29,11 @@ from prof_ai.chat.models import (
     Flag,
     Lesson,
     PromptMessage,
+    SupportLevel,
     TurnContext,
     Usage,
 )
-from prof_ai.chat.prompts import load_profile_layers
+from prof_ai.chat.prompts import SUPPORT_PROMPTS, load_profile_layers
 from prof_ai.chat.store import ChatStore
 from prof_ai.lessons.rules import InvalidLessonError, render_lesson, validate_lesson
 from prof_ai.profiles.store import ProfileStore
@@ -88,9 +89,14 @@ def author_of(user: User) -> Author:
     return "tutor" if user.role == Role.TUTOR else "student"
 
 
-def asks_ai(conversation: Conversation, content: str) -> bool:
-    """Lesson chats are shared, so Prof AI waits for @AI. Other chats answer every message."""
-    return conversation.lesson is None or bool(AI_MENTION.search(content))
+def asks_ai(
+    conversation: Conversation, content: str, author: Author = "student", to_tutor: bool = False
+) -> bool:
+    """In a shared lesson chat, a student gets Prof AI unless they write to their tutor only,
+    and a tutor asks with @AI. Other chats answer every message."""
+    if conversation.lesson is None or AI_MENTION.search(content):
+        return True
+    return author == "student" and not to_tutor
 
 
 @dataclass(frozen=True)
@@ -171,13 +177,35 @@ class ChatService:
         self._store.delete_conversation(student_id, conversation_id)
         return conversation
 
+    def set_support(
+        self, student_id: str, conversation_id: str, support: SupportLevel
+    ) -> Conversation:
+        conversation = self._store.get_conversation(student_id, conversation_id)
+        if conversation is None:
+            raise ConversationNotFoundError()
+        if conversation.lesson is None:
+            raise ChatRefusedError(400, "Only lesson chats have a support level.")
+
+        def apply(current: Conversation) -> None:
+            if current.lesson:
+                current.lesson.support = support
+
+        return self._store.update_conversation(student_id, conversation_id, apply)
+
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
         conversation = self._store.get_conversation(user.id, conversation_id)
         if conversation is None:
             raise ConversationNotFoundError()
         return conversation
 
-    def begin_turn(self, sender: User, owner: User, conversation_id: str, content: str) -> Turn:
+    def begin_turn(
+        self,
+        sender: User,
+        owner: User,
+        conversation_id: str,
+        content: str,
+        to_tutor: bool = False,
+    ) -> Turn:
         """Run every check that can refuse a message, before any model call.
 
         The caller has checked that the sender may write in the owner's chat.
@@ -200,7 +228,7 @@ class ChatService:
             author_name=sender.display_name,
         )
         context = None
-        if asks_ai(conversation, content):
+        if asks_ai(conversation, content, message.author or "student", to_tutor):
             if not self._limits.enabled:
                 raise ChatRefusedError(503, "Chat is switched off at the moment.")
             self._check_budgets(sender)
@@ -231,6 +259,7 @@ class ChatService:
         try:
             # The owner's profile and their tutor's style, whoever is asking.
             layers = load_profile_layers(owner, self._profiles)
+            lesson = conversation.lesson
             return assemble(
                 ContextInput(
                     message=message.content,
@@ -240,7 +269,8 @@ class ChatService:
                     owner_name=owner.display_name,
                     teaching_style=layers.teaching_style,
                     profile=layers.profile,
-                    lesson=render_lesson(conversation.lesson) if conversation.lesson else None,
+                    support=SUPPORT_PROMPTS[lesson.support] if lesson else None,
+                    lesson=render_lesson(lesson) if lesson else None,
                     summary=conversation.summary,
                     history=conversation.messages,
                 )

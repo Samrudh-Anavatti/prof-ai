@@ -20,15 +20,15 @@ function jsonResponse(body: unknown): Response {
 
 describe("@AI", () => {
   it("matches the server: a whole-word mention, case-insensitive", () => {
-    expect(asksAi(true, "@AI help")).toBe(true);
-    expect(asksAi(true, "can you help @ai?")).toBe(true);
-    expect(asksAi(true, "my email is me@ai.example")).toBe(false);
-    expect(asksAi(true, "@aid is not a mention")).toBe(false);
-    expect(asksAi(true, "see you Thursday")).toBe(false);
+    expect(asksAi(true, "tutor", "@AI help")).toBe(true);
+    expect(asksAi(true, "tutor", "can you help @ai?")).toBe(true);
+    expect(asksAi(true, "tutor", "my email is me@ai.example")).toBe(false);
+    expect(asksAi(true, "tutor", "@aid is not a mention")).toBe(false);
+    expect(asksAi(true, "tutor", "see you Thursday")).toBe(false);
   });
 
   it("always asks Prof AI in a chat that isn't shared", () => {
-    expect(asksAi(false, "see you Thursday")).toBe(true);
+    expect(asksAi(false, "tutor", "see you Thursday")).toBe(true);
   });
 
   it("adds @AI only when it's missing", () => {

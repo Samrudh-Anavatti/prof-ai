@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   ApiError,
+  changeStudentChatSupport,
   createStudentChat,
   deleteStudentChat,
   extractPdf,
@@ -13,10 +14,18 @@ import {
   type Me,
   type StudentChat,
   type StudentChats,
+  type SupportLevel,
   type UserView,
 } from "./api";
 import { PageSkeleton } from "./Skeleton";
-import { lessonTokens, MAX_PDF_BYTES, pagesText, toBase64 } from "./lessons";
+import {
+  lessonTokens,
+  MAX_PDF_BYTES,
+  pagesText,
+  SUPPORT_LEVELS,
+  supportLevel,
+  toBase64,
+} from "./lessons";
 
 interface UploadedPdf {
   filename: string;
@@ -50,6 +59,7 @@ export function LessonsPage({
   const [notes, setNotes] = useState("");
   const [material, setMaterial] = useState("");
   const [sources, setSources] = useState<LessonSource[]>([]);
+  const [support, setSupport] = useState<SupportLevel>("balanced");
   const [licensed, setLicensed] = useState(false);
   const [pdf, setPdf] = useState<UploadedPdf | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -74,7 +84,7 @@ export function LessonsPage({
       .catch((e: unknown) => setError(messageOf(e)));
   }, [studentId]);
 
-  const lesson = { title, topics: topics.split("\n"), notes, material, sources };
+  const lesson = { title, topics: topics.split("\n"), notes, material, sources, support };
   const tokens = lessonTokens(lesson);
   const maxTokens = chats?.max_lesson_tokens ?? 0;
   const overCap = chats !== null && tokens > maxTokens;
@@ -110,6 +120,7 @@ export function LessonsPage({
     setNotes("");
     setMaterial("");
     setSources([]);
+    setSupport("balanced");
     setLicensed(false);
     setPdf(null);
     setPicked(new Set());
@@ -160,6 +171,20 @@ export function LessonsPage({
       setChats((current) => current && { ...current, chats: [chat, ...current.chats] });
       resetForm();
       return `Set up "${chat.title}" for ${studentName}.`;
+    });
+  }
+
+  function changeSupport(chat: StudentChat, level: SupportLevel) {
+    void act(async () => {
+      const changed = await changeStudentChatSupport(studentId, chat.id, level);
+      setChats(
+        (current) =>
+          current && {
+            ...current,
+            chats: current.chats.map((c) => (c.id === changed.id ? changed : c)),
+          },
+      );
+      return `"${chat.title}" is now ${supportLevel(level).label}.`;
     });
   }
 
@@ -265,6 +290,20 @@ export function LessonsPage({
                     )}
                   </div>
                   <div className="user-actions">
+                    {chat.support && (
+                      <select
+                        aria-label={`Support level for ${chat.title}`}
+                        value={chat.support}
+                        disabled={busy}
+                        onChange={(e) => changeSupport(chat, e.target.value as SupportLevel)}
+                      >
+                        {SUPPORT_LEVELS.map((level) => (
+                          <option key={level.value} value={level.value}>
+                            {level.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <button
                       type="button"
                       className="secondary"
@@ -314,6 +353,23 @@ export function LessonsPage({
                   onChange={(e) => setTopics(e.target.value)}
                   placeholder={"Simplifying ratios\nSharing in a ratio"}
                 />
+              </label>
+              <label className="lesson-field">
+                How much help should Prof AI give?
+                <select
+                  value={support}
+                  onChange={(e) => setSupport(e.target.value as SupportLevel)}
+                >
+                  {SUPPORT_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {level.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="muted lesson-hint">
+                  {supportLevel(support).hint} It never gives final answers. You can change this
+                  later.
+                </span>
               </label>
               <label className="lesson-field">
                 Notes for Prof AI (what to focus on, what they found hard)

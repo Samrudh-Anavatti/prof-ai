@@ -1,6 +1,28 @@
-import type { ExtractedPage, Lesson } from "./api";
+import type { ExtractedPage, Lesson, SupportLevel } from "./api";
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+export const SUPPORT_LEVELS: { value: SupportLevel; label: string; hint: string }[] = [
+  {
+    value: "step_by_step",
+    label: "Step by step",
+    hint: "New to the topic: a worked example first, then one small step at a time.",
+  },
+  {
+    value: "balanced",
+    label: "Balanced",
+    hint: "Knows some of it: tries first, gets a hint when stuck.",
+  },
+  {
+    value: "stretch",
+    label: "Stretch",
+    hint: "Confident: straight to the questions, short hints and harder 'why' questions.",
+  },
+];
+
+export function supportLevel(level: SupportLevel): (typeof SUPPORT_LEVELS)[number] {
+  return SUPPORT_LEVELS.find((l) => l.value === level) ?? SUPPORT_LEVELS[1];
+}
 
 /** Mirrors prof_ai.chat.context.estimate_tokens: UTF-8 bytes ÷ 3, rounded up. */
 export function estimateTokens(text: string): number {
