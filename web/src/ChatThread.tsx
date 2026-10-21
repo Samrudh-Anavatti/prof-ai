@@ -5,6 +5,7 @@ import {
   UNAVAILABLE,
   type Author,
   type ChatMessage,
+  type CheckOutcome,
   type ConversationDetail,
   type ConversationVersion,
   type LessonOverview,
@@ -13,7 +14,9 @@ import {
   type SendResult,
 } from "./api";
 import { Avatar } from "./Avatar";
+import { LessonPanel } from "./LessonPanel";
 import { Markdown } from "./Markdown";
+import { nextQuestion } from "./progress";
 
 const MAX_INPUT_CHARS = 2000;
 const POLL_MS = 5000;
@@ -34,7 +37,14 @@ const GENERAL_STARTERS = [
 export interface ChatEndpoints {
   load: () => Promise<ConversationDetail>;
   version: () => Promise<ConversationVersion>;
-  send: (content: string, handlers: ReplyHandlers, toTutor?: boolean) => Promise<SendResult>;
+  send: (
+    content: string,
+    handlers: ReplyHandlers,
+    toTutor?: boolean,
+    question?: string,
+  ) => Promise<SendResult>;
+  /** Only in the student's own chat. */
+  check?: (question: string, answer: string) => Promise<CheckOutcome>;
 }
 
 /** Mirrors chat.service.asks_ai. */
@@ -79,8 +89,14 @@ export function ChatThread({
   const [error, setError] = useState<string | null>(null);
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const [pickedQuestion, setPickedQuestion] = useState<string | null>(null);
   const sending = reply !== null;
   const shared = detail?.lesson != null;
+  const questions = detail?.lesson?.questions ?? [];
+  const hasWorksheet = questions.length > 0 || (detail?.lesson?.worked_examples ?? []).length > 0;
+  const currentQuestion = questions.some((q) => q.number === pickedQuestion)
+    ? pickedQuestion
+    : nextQuestion(questions, detail?.progress ?? []);
 
   useEffect(() => {
     endpoints
@@ -110,6 +126,7 @@ export function ChatThread({
 
   async function send(content: string, toTutor = false) {
     if (!detail || !content || sending) return;
+    const question = currentQuestion ?? undefined;
     setError(null);
     setDraft("");
     const before = detail;
@@ -119,6 +136,7 @@ export function ChatThread({
       author_name: me.display_name,
       content,
       at: new Date().toISOString(),
+      question,
     };
     setDetail({ ...before, messages: [...before.messages, mine] });
     setReply(asksAi(shared, viewer, content, toTutor) ? "" : null);
@@ -133,6 +151,7 @@ export function ChatThread({
           },
         },
         toTutor,
+        question,
       );
       onTitle?.(result.title);
       setDetail(await endpoints.load());
@@ -159,8 +178,15 @@ export function ChatThread({
 
   const messages = detail?.messages ?? [];
   const lesson = detail?.lesson ?? null;
-  const starters = viewer === "student" || !shared ? starterPrompts(lesson) : [];
   const studentInLesson = shared && viewer === "student";
+  const starters = (viewer === "student" || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
+
+  async function checkAnswer(question: string, answer: string): Promise<CheckOutcome> {
+    if (!endpoints.check) throw new Error("Checking isn't available here.");
+    const outcome = await endpoints.check(question, answer);
+    setDetail(await endpoints.load());
+    return outcome;
+  }
 
   function pickStarter(text: string) {
     setDraft(text);
@@ -182,6 +208,17 @@ export function ChatThread({
           )}
         </header>
       )}
+      {lesson && hasWorksheet && (
+        <LessonPanel
+          lesson={lesson}
+          progress={detail?.progress ?? []}
+          current={currentQuestion}
+          onSelect={setPickedQuestion}
+          onHelp={viewer === "student" ? (text) => void send(text) : undefined}
+          onCheck={endpoints.check && viewer === "student" ? checkAnswer : undefined}
+          busy={sending}
+        />
+      )}
       <div className="thread" aria-live="polite">
         {!detail && !error && (
           <div className="thread-skeleton" role="status">
@@ -198,11 +235,13 @@ export function ChatThread({
             </p>
             <h1>Hi {firstName(me)}</h1>
             <p className="muted">
-              {studentInLesson
-                ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson, or send a message to your tutor only.`
-                : shared
-                  ? `This chat is about ${lesson?.title}. Write to your student here, or start with @AI to ask Prof AI.`
-                  : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
+              {studentInLesson && hasWorksheet
+                ? "Try the question above. When you're stuck, use a help button or ask Prof AI here."
+                : studentInLesson
+                  ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson, or send a message to your tutor only.`
+                  : shared
+                    ? `This chat is about ${lesson?.title}. Write to your student here, or start with @AI to ask Prof AI.`
+                    : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
             </p>
             {starters.length > 0 && (
               <div className="starters">
@@ -228,6 +267,7 @@ export function ChatThread({
               {!own && <Avatar name={m.author_name} tone={m.author} />}
               <div className={`bubble ${own ? "user" : "assistant"} by-${m.author}`}>
                 {!own && <span className="bubble-author">{m.author_name}</span>}
+                {m.question && <span className="question-tag">Question {m.question}</span>}
                 {m.author === "ai" ? <Markdown text={m.content} /> : m.content}
               </div>
             </div>

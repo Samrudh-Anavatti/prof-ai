@@ -8,7 +8,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from prof_ai.auth import CurrentUser, require_role
-from prof_ai.chat.models import ChatMessage, Conversation
+from prof_ai.chat.checking import QuestionProgress, question_progress
+from prof_ai.chat.models import ChatMessage, Conversation, SupportLevel, WorkedExample
 from prof_ai.chat.service import (
     ChatEvent,
     ChatRefusedError,
@@ -33,18 +34,41 @@ class MessageOut(BaseModel):
     author_name: str
     content: str
     at: datetime
+    question: str | None = None
+
+
+class QuestionOverview(BaseModel):
+    """A question as the student sees it: never its answer."""
+
+    number: str
+    text: str
 
 
 class LessonOverview(BaseModel):
-    """What a student may see of the lesson: never the material or the tutor's notes."""
+    """What a student may see of the lesson: never the material, notes or answers."""
 
     title: str
     topics: list[str]
+    support: SupportLevel = "balanced"
+    worked_examples: list[WorkedExample] = []
+    questions: list[QuestionOverview] = []
 
 
 class ConversationDetail(ConversationSummary):
     lesson: LessonOverview | None
     messages: list[MessageOut]
+    progress: list[QuestionProgress] = []
+
+
+class AnswerCheck(BaseModel):
+    question: str
+    answer: str
+
+
+class CheckOutcome(BaseModel):
+    correct: bool
+    feedback: str
+    progress: list[QuestionProgress]
 
 
 class ConversationVersion(BaseModel):
@@ -55,6 +79,8 @@ class NewMessage(BaseModel):
     content: str
     # In a lesson chat, a student's message skips Prof AI and is only for their tutor.
     to_tutor: bool = False
+    # The lesson question the message is about, by its number.
+    question: str | None = None
 
 
 def summary(conversation: Conversation) -> ConversationSummary:
@@ -71,6 +97,7 @@ def message_out(message: ChatMessage, owner: User) -> MessageOut:
             author_name="Prof AI",
             content=message.content,
             at=message.at,
+            question=message.question,
         )
     # Messages from before shared chats have no author: the owner wrote them.
     return MessageOut(
@@ -79,6 +106,20 @@ def message_out(message: ChatMessage, owner: User) -> MessageOut:
         author_name=message.author_name or owner.display_name,
         content=message.content,
         at=message.at,
+        question=message.question,
+    )
+
+
+def lesson_overview(conversation: Conversation) -> LessonOverview | None:
+    lesson = conversation.lesson
+    if lesson is None:
+        return None
+    return LessonOverview(
+        title=lesson.title,
+        topics=lesson.topics,
+        support=lesson.support,
+        worked_examples=lesson.worked_examples,
+        questions=[QuestionOverview(number=q.number, text=q.text) for q in lesson.questions],
     )
 
 
@@ -101,10 +142,9 @@ def conversation_detail(request: Request, owner: User, conversation_id: str) -> 
         raise HTTPException(404, "Chat not found.") from error
     return ConversationDetail(
         **summary(conversation).model_dump(),
-        lesson=LessonOverview(title=lesson.title, topics=lesson.topics)
-        if (lesson := conversation.lesson)
-        else None,
+        lesson=lesson_overview(conversation),
         messages=[message_out(m, owner) for m in conversation.messages],
+        progress=question_progress(conversation),
     )
 
 
@@ -124,7 +164,9 @@ def send_message(
     """Server-sent events: deltas if Prof AI replies, then done {title, ai} or error."""
     service = chat_service(request)
     try:
-        turn = service.begin_turn(sender, owner, conversation_id, message.content, message.to_tutor)
+        turn = service.begin_turn(
+            sender, owner, conversation_id, message.content, message.to_tutor, message.question
+        )
     except ConversationNotFoundError as error:
         raise HTTPException(404, "Chat not found.") from error
     except ChatRefusedError as error:
@@ -169,5 +211,24 @@ def create_chat_router() -> APIRouter:
         conversation_id: str, body: NewMessage, user: CurrentUser, request: Request
     ) -> StreamingResponse:
         return send_message(request, user, user, conversation_id, body)
+
+    @router.post("/conversations/{conversation_id}/check")
+    def check_answer(
+        conversation_id: str, body: AnswerCheck, user: CurrentUser, request: Request
+    ) -> CheckOutcome:
+        """Check the signed-in student's answer to a question in their own lesson chat."""
+        try:
+            result = chat_service(request).check_answer(
+                user, conversation_id, body.question, body.answer
+            )
+        except ConversationNotFoundError as error:
+            raise HTTPException(404, "Chat not found.") from error
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+        return CheckOutcome(
+            correct=result.correct,
+            feedback=result.feedback,
+            progress=question_progress(result.conversation),
+        )
 
     return router

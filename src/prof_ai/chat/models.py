@@ -28,6 +28,10 @@ class ChatMessage(BaseModel):
     author: Author | None = None
     author_name: str | None = None
     context: TurnContext | None = None
+    # The lesson question this message is about, by its number.
+    question: str | None = None
+    # A "Check my answer" exchange, not a request for help.
+    checks_answer: bool = False
 
 
 class PromptMessage(BaseModel):
@@ -74,6 +78,13 @@ class Lesson(BaseModel):
     questions: list[Question] = Field(default=[], max_length=60)
 
 
+class Attempt(BaseModel):
+    question: str
+    answer: str
+    correct: bool
+    at: datetime
+
+
 class Conversation(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -90,6 +101,7 @@ class Conversation(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     flags: list[Flag] = []
+    attempts: list[Attempt] = []
     created_at: datetime
     updated_at: datetime
 

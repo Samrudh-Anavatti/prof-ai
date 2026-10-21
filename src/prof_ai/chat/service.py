@@ -6,6 +6,20 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from prof_ai.chat.checking import (
+    CHECK_OUTPUT_TOKENS,
+    CORRECT,
+    MAX_ANSWER_CHARS,
+    NO_KEY,
+    NOT_YET,
+    CheckError,
+    check_request,
+    find_question,
+    leaks_key,
+    matches_key,
+    parse_check,
+    question_reference,
+)
 from prof_ai.chat.context import (
     AssembledContext,
     ContextInput,
@@ -23,12 +37,14 @@ from prof_ai.chat.memory import (
 from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import LUNA, ModelProfile
 from prof_ai.chat.models import (
+    Attempt,
     Author,
     ChatMessage,
     Conversation,
     Flag,
     Lesson,
     PromptMessage,
+    Question,
     SupportLevel,
     TurnContext,
     Usage,
@@ -112,6 +128,13 @@ class AvailableModel:
     model: ChatModel
     # None for providers without a per-minute token quota.
     tokens_per_minute: int | None = None
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    correct: bool
+    feedback: str
+    conversation: Conversation
 
 
 @dataclass(frozen=True)
@@ -278,6 +301,101 @@ class ChatService:
         except WorksheetError as error:
             raise ChatRefusedError(502, str(error)) from error
 
+    def check_answer(
+        self, owner: User, conversation_id: str, question_number: str, answer: str
+    ) -> CheckResult:
+        """Right, or "not yet" with a pointer; never the answer. Recorded for the tutor."""
+        answer = answer.strip()
+        if not answer:
+            raise ChatRefusedError(400, "Type your answer first.")
+        if len(answer) > MAX_ANSWER_CHARS:
+            raise ChatRefusedError(400, f"Keep your answer under {MAX_ANSWER_CHARS} characters.")
+        conversation = self.get_conversation(owner, conversation_id)
+        question = find_question(conversation, question_number)
+        if question is None:
+            raise ChatRefusedError(404, "Question not found.")
+        if not question.answer:
+            raise ChatRefusedError(409, NO_KEY)
+        wait_reason = self._limiter.try_acquire(owner.id)
+        if wait_reason:
+            raise ChatRefusedError(429, wait_reason)
+        try:
+            if matches_key(answer, question.answer):
+                correct, feedback = True, CORRECT
+            else:
+                correct, feedback = self._model_check(owner, conversation, question, answer)
+        finally:
+            self._limiter.release(owner.id)
+        now = self._clock()
+        exchange = [
+            ChatMessage(
+                role="user",
+                content=f"Check my answer to {question.number}: {answer}",
+                at=now,
+                author=author_of(owner),
+                author_name=owner.display_name,
+                question=question.number,
+                checks_answer=True,
+            ),
+            ChatMessage(
+                role="assistant",
+                content=feedback,
+                at=now,
+                question=question.number,
+                checks_answer=True,
+            ),
+        ]
+        attempt = Attempt(question=question.number, answer=answer, correct=correct, at=now)
+
+        def record(current: Conversation) -> None:
+            current.messages.extend(exchange)
+            current.attempts.append(attempt)
+            current.updated_at = now
+
+        try:
+            saved = self._store.update_conversation(owner.id, conversation_id, record)
+        except Exception as error:
+            logger.exception("Saving an answer check failed for conversation %s", conversation_id)
+            raise ChatRefusedError(503, UNAVAILABLE) from error
+        return CheckResult(correct, feedback, saved)
+
+    def _model_check(
+        self, owner: User, conversation: Conversation, question: Question, answer: str
+    ) -> tuple[bool, str]:
+        if not self._limits.enabled:
+            raise ChatRefusedError(503, "Chat is switched off at the moment.")
+        engine = self._engine_for(owner, conversation)
+        self._check_budgets(owner)
+        try:
+            reply, usage = self._complete(
+                check_request(question, answer), engine, CHECK_OUTPUT_TOKENS
+            )
+        except ContentFilteredError as error:
+            flag = Flag(kind="content_filter", message=answer, at=self._clock())
+            try:
+                self._store.update_conversation(
+                    owner.id, conversation.id, lambda c: c.flags.append(flag)
+                )
+            except Exception:
+                logger.exception("Recording a content filter flag failed for %s", conversation.id)
+            raise ChatRefusedError(400, FILTERED) from error
+        except ModelRateLimitedError as error:
+            raise ChatRefusedError(429, BUSY) from error
+        except Exception as error:
+            logger.exception("Checking an answer failed for conversation %s", conversation.id)
+            raise ChatRefusedError(503, UNAVAILABLE) from error
+        try:
+            self._charge(owner, usage, engine.profile)
+        except Exception:
+            logger.exception("Charging an answer check failed for %s", conversation.id)
+        try:
+            correct, feedback = parse_check(reply)
+        except CheckError as error:
+            raise ChatRefusedError(502, str(error)) from error
+        if not correct and question.answer and leaks_key(feedback, question.answer):
+            feedback = NOT_YET
+        return correct, feedback
+
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
         conversation = self._store.get_conversation(user.id, conversation_id)
         if conversation is None:
@@ -291,6 +409,7 @@ class ChatService:
         conversation_id: str,
         content: str,
         to_tutor: bool = False,
+        question: str | None = None,
     ) -> Turn:
         """Run every check that can refuse a message, before any model call.
 
@@ -306,12 +425,14 @@ class ChatService:
         conversation = self.get_conversation(owner, conversation_id)
         if len(conversation.messages) >= MAX_MESSAGES_PER_CONVERSATION:
             raise ChatRefusedError(409, "This chat is full. Start a new one.")
+        current = find_question(conversation, question)
         message = ChatMessage(
             role="user",
             content=content,
             at=self._clock(),
             author=author_of(sender),
             author_name=sender.display_name,
+            question=current.number if current else None,
         )
         context = None
         engine = None
@@ -375,6 +496,9 @@ class ChatService:
                     lesson=render_lesson(lesson) if lesson else None,
                     summary=conversation.summary,
                     history=conversation.messages,
+                    references=[question_reference(q)]
+                    if (q := find_question(conversation, message.question))
+                    else [],
                 )
             )
         except ContextOverflowError:

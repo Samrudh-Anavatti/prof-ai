@@ -19,7 +19,8 @@ export function TutorChatPage({
     () => ({
       load: () => getStudentChat(studentId, chatId),
       version: () => getStudentChatVersion(studentId, chatId),
-      send: (content, handlers) => sendStudentChatMessage(studentId, chatId, content, handlers),
+      send: (content, handlers, _toTutor, question) =>
+        sendStudentChatMessage(studentId, chatId, content, handlers, {}, question),
     }),
     [studentId, chatId],
   );

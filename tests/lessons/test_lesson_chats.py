@@ -78,6 +78,9 @@ def test_students_see_the_lesson_title_and_topics_but_never_material_or_notes(h)
     assert detail["lesson"] == {
         "title": "Ratios",
         "topics": ["Simplifying ratios", "Sharing in a ratio"],
+        "support": "balanced",
+        "worked_examples": [],
+        "questions": [],
     }
     assert "HCF" not in str(detail) and "order of the parts" not in str(detail)
 

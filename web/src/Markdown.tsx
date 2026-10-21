@@ -19,12 +19,18 @@ export function normaliseMaths(text: string): string {
     .replace(/^[ \t]*\$\$([^\n$]+)\$\$[ \t]*$/gm, (_, maths: string) => `$$\n${maths.trim()}\n$$`);
 }
 
+/** Worksheets put each equation on its own line; Markdown would join single lines up. */
+export function keepLineBreaks(text: string): string {
+  return text.replace(/([^\n])\n(?!\n)/g, "$1  \n");
+}
+
 /**
- * A Prof AI reply. Model output is untrusted: react-markdown never renders raw HTML, images
+ * A Prof AI reply, or tutor content shown to a student. Model output is untrusted: react-markdown never renders raw HTML, images
  * are dropped, and only http(s) and mailto links survive. KaTeX writes MathML, which browsers
  * draw natively, so the strict CSP needs no stylesheet, fonts or inline styles for it.
  */
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, lineBreaks = false }: { text: string; lineBreaks?: boolean }) {
+  const source = normaliseMaths(text);
   return (
     <div className="markdown">
       <ReactMarkdown
@@ -43,7 +49,7 @@ export function Markdown({ text }: { text: string }) {
             ),
         }}
       >
-        {normaliseMaths(text)}
+        {lineBreaks ? keepLineBreaks(source) : source}
       </ReactMarkdown>
     </div>
   );
