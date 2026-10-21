@@ -690,19 +690,111 @@ input[type="checkbox"] {
 }
 
 .answer-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.working-editor {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.working-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.working-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.working-steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step-number {
+  flex: 0 0 1.4rem;
+  padding-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.working-steps li {
+  display: flex;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.step-input {
+  display: grid;
+  flex: 1;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.step-input input {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92rem;
+}
+
+.step-preview {
+  padding: 0 0.2rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.step-preview .markdown p {
+  margin: 0;
+}
+
+.step-remove {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.step-add {
+  justify-self: start;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.88rem;
+}
+
+.final-answer {
+  display: grid;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.answer-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.answer-form input {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
 .check-result {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: start;
   padding: 0.5rem 0.8rem;
   border-radius: var(--r-md);
+}
+
+.check-result.hint {
+  border: 1px solid var(--line);
+  background: var(--brand-soft);
+  color: var(--ink);
 }
 
 .check-result.correct {
@@ -1382,11 +1474,6 @@ input[type="file"]::file-selector-button:hover {
   color: var(--success);
 }
 
-.status-badge.invited {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
 .status-badge.account_locked {
   background: var(--danger-soft);
   color: var(--danger);
@@ -1397,10 +1484,30 @@ input[type="file"]::file-selector-button:hover {
   color: var(--brand-strong);
 }
 
+.status-badge.invited,
+.status-badge.ai-answer {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
 @media (prefers-color-scheme: dark) {
-  .status-badge.invited {
+  .status-badge.invited,
+  .status-badge.ai-answer {
     color: var(--accent);
   }
+}
+
+.answer-review {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  align-items: center;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.answer-review button {
+  padding: 0.3rem 0.7rem;
 }
 
 .list-empty {

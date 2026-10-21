@@ -17,6 +17,7 @@ class TurnContext(BaseModel):
 
 Author = Literal["student", "tutor"]
 SupportLevel = Literal["step_by_step", "balanced", "stretch"]
+Verdict = Literal["correct", "show_working", "slip", "not_yet"]
 
 
 class ChatMessage(BaseModel):
@@ -61,6 +62,8 @@ class Question(BaseModel):
     # The final answer, for checking a student's working. Never in the lesson layer and never
     # sent to a student's browser (R4).
     answer: str | None = Field(default=None, max_length=1_000)
+    # Worked out by Prof AI and not yet confirmed by the tutor; a lesson can't be saved with it.
+    answer_needs_review: bool = False
 
 
 class Lesson(BaseModel):
@@ -80,8 +83,13 @@ class Lesson(BaseModel):
 
 class Attempt(BaseModel):
     question: str
+    working: list[str] = []
     answer: str
     correct: bool
+    # None for attempts from before working was marked.
+    verdict: Verdict | None = None
+    # False when there was no answer key to mark against.
+    verified: bool = True
     at: datetime
 
 

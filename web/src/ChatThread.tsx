@@ -12,6 +12,7 @@ import {
   type Me,
   type ReplyHandlers,
   type SendResult,
+  type WorkingOutcome,
 } from "./api";
 import { Avatar } from "./Avatar";
 import { LessonPanel } from "./LessonPanel";
@@ -44,7 +45,8 @@ export interface ChatEndpoints {
     question?: string,
   ) => Promise<SendResult>;
   /** Only in the student's own chat. */
-  check?: (question: string, answer: string) => Promise<CheckOutcome>;
+  check?: (question: string, working: string[], answer: string) => Promise<CheckOutcome>;
+  checkWorking?: (question: string, working: string[]) => Promise<WorkingOutcome>;
 }
 
 /** Mirrors chat.service.asks_ai. */
@@ -181,9 +183,20 @@ export function ChatThread({
   const studentInLesson = shared && viewer === "student";
   const starters = (viewer === "student" || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
 
-  async function checkAnswer(question: string, answer: string): Promise<CheckOutcome> {
+  async function checkAnswer(
+    question: string,
+    working: string[],
+    answer: string,
+  ): Promise<CheckOutcome> {
     if (!endpoints.check) throw new Error("Checking isn't available here.");
-    const outcome = await endpoints.check(question, answer);
+    const outcome = await endpoints.check(question, working, answer);
+    setDetail(await endpoints.load());
+    return outcome;
+  }
+
+  async function checkWorking(question: string, working: string[]): Promise<WorkingOutcome> {
+    if (!endpoints.checkWorking) throw new Error("Checking isn't available here.");
+    const outcome = await endpoints.checkWorking(question, working);
     setDetail(await endpoints.load());
     return outcome;
   }
@@ -216,6 +229,7 @@ export function ChatThread({
           onSelect={setPickedQuestion}
           onHelp={viewer === "student" ? (text) => void send(text) : undefined}
           onCheck={endpoints.check && viewer === "student" ? checkAnswer : undefined}
+          onCheckWorking={endpoints.checkWorking && viewer === "student" ? checkWorking : undefined}
           busy={sending}
         />
       )}

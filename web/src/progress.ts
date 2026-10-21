@@ -3,7 +3,7 @@ import type { QuestionOverview, QuestionProgress } from "./api";
 export const HELP_PROMPTS = [
   "What is this question asking?",
   "Give me a hint for the next step.",
-  "Can you check my working so far?",
+  "Can you explain the method?",
 ];
 
 export function progressOf(
@@ -26,8 +26,9 @@ export function progressLabel(progress: QuestionProgress | undefined): string {
   if (!progress || progress.status === "not_started") return "Not started";
   const tries = `${progress.attempts} ${progress.attempts === 1 ? "try" : "tries"}`;
   const help = `${progress.help_messages} help ${progress.help_messages === 1 ? "message" : "messages"}`;
-  if (progress.status === "correct") return `Correct ✓ · ${tries} · ${help}`;
-  return `${tries} · ${help}`;
+  const unverified = progress.unverified ? " · marked without an answer key" : "";
+  if (progress.status === "correct") return `Correct ✓ · ${tries} · ${help}${unverified}`;
+  return `${tries} · ${help}${unverified}`;
 }
 
 export function doneCount(progress: QuestionProgress[]): number {

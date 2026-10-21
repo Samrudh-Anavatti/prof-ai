@@ -29,7 +29,9 @@ function panel(lesson: LessonOverview, student: boolean): string {
       current: "A1.2",
       onSelect: () => {},
       onHelp: student ? () => {} : undefined,
-      onCheck: student ? async () => ({ correct: true, feedback: "", progress: [] }) : undefined,
+      onCheck: student
+        ? async () => ({ verdict: "correct" as const, correct: true, feedback: "", progress: [] })
+        : undefined,
       busy: false,
     }),
   );
@@ -68,7 +70,7 @@ describe("the lesson panel", () => {
     expect(html).toContain('<details class="worked-examples" open="">');
     expect(html).toContain("Question A1.2");
     expect(html).toContain("A1.1 ✓");
-    expect(html).toContain("Check my answer");
+    expect(html).toContain("Submit my answer");
     expect(html).toContain("Give me a hint for the next step.");
   });
 
@@ -80,7 +82,7 @@ describe("the lesson panel", () => {
 
   it("shows tutors progress without help buttons or an answer box", () => {
     const html = panel(lesson, false);
-    expect(html).not.toContain("Check my answer");
+    expect(html).not.toContain("Submit my answer");
     expect(html).not.toContain("Give me a hint");
     expect(html).toContain("1 of 2 done");
   });
@@ -110,9 +112,11 @@ describe("lesson page API calls", () => {
     ]);
 
     const json = vi.fn<typeof fetch>(async () => new Response("{}"));
-    await checkAnswer("c1", "A1.2", "x = 5", { fetchFn: json });
+    await checkAnswer("c1", "A1.2", ["2x = 10"], "x = 5", { fetchFn: json });
     const [path, init] = json.mock.calls[0];
     expect(path).toBe("/api/chat/conversations/c1/check");
-    expect(init?.body).toBe(JSON.stringify({ question: "A1.2", answer: "x = 5" }));
+    expect(init?.body).toBe(
+      JSON.stringify({ question: "A1.2", working: ["2x = 10"], answer: "x = 5" }),
+    );
   });
 });

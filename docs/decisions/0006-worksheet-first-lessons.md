@@ -28,3 +28,9 @@ The research we follow points the same way (see [learning science](../product/le
 - The model sees the questions (without answers) and the worked examples in the lesson layer.
 - A worked example that solves the same problem as a question gives that answer away. The tutor sees both on the review screen and decides.
 - Reusing a lesson across students (a tutor's lesson library) is planned for later and would save repeat extractions.
+
+## Amendment 2026-10-22: show your working (proposed, Punji)
+- **A question is done on the working, not the answer.** Students write their working step by step and submit it with a final answer. The model marks both against the key: `correct`, `show_working` (right answer, working missing), `slip` or `not_yet`. Only `correct` completes a question. Typing the right answer alone is no longer enough, and nothing is marked without a model call. An exact match can't be marked wrong, only sent back for working.
+- **Students can check unfinished working** at any point, to get a hint at the step they're on, without being marked.
+- **Missing answer keys:** the tutor can ask Prof AI to work them out. They must confirm each one before the lesson saves. A question still saved without a key is marked by the model alone, labelled unverified for the tutor.
+- **Every attempt keeps its working,** so the tutor reviews how the student got there ([show your working](../features/2026-10-22-show-your-working/plan.md)).

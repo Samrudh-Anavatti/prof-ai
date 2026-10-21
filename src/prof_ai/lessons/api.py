@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from prof_ai.auth import require_role
 from prof_ai.chat.api import (
@@ -25,6 +25,7 @@ from prof_ai.chat.service import (
     ChatRefusedError,
     ConversationNotFoundError,
 )
+from prof_ai.lessons.answers import QuestionToSolve, SolvedAnswer
 from prof_ai.lessons.describe import LessonDraft
 from prof_ai.lessons.pdf_text import MAX_LESSON_PDF_BYTES, LessonPdfError, extract_pages
 from prof_ai.lessons.worksheet import Worksheet
@@ -74,6 +75,14 @@ class PdfUpload(BaseModel):
 
 class WorksheetText(BaseModel):
     text: str
+
+
+class QuestionsToSolve(BaseModel):
+    questions: list[QuestionToSolve] = Field(max_length=60)
+
+
+class SolvedAnswers(BaseModel):
+    answers: list[SolvedAnswer]
 
 
 class LessonDescription(BaseModel):
@@ -251,6 +260,16 @@ def create_lessons_router() -> APIRouter:
         """Draft questions and worked examples for the tutor to review before saving."""
         try:
             return chat_service(request).extract_worksheet(tutor, body.text)
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+
+    @router.post("/lessons/answers")
+    def solve_questions(body: QuestionsToSolve, tutor: Tutor, request: Request) -> SolvedAnswers:
+        """Work out answers the worksheet didn't give, for the tutor to confirm before saving."""
+        try:
+            return SolvedAnswers(
+                answers=chat_service(request).solve_questions(tutor, body.questions)
+            )
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error
 
