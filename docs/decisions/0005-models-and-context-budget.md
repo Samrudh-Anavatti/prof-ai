@@ -1,6 +1,6 @@
 # 0005: Frontier models, a fixed context budget and tutor-led shared chats
 
-- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
+- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota; amended 2026-10-21 (Punji, proposed): Prof AI answers students by default in lesson chats, and lessons get a support level (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
 
 ## Context
 The chat sends a base prompt, the tutor's teaching style, the user's profile and the last 20 messages. Nothing counts tokens, nothing summarises, and the budget is in raw tokens, so a long chat silently forgets its start and burns the daily allowance faster with every turn. The next features add much more context: lesson material uploaded by the tutor, and knowledge-graph lookups. Without a fixed allowance per layer, those features can't know how much room they have, and one oversized upload would make every turn expensive and dilute the safety instructions.
@@ -106,3 +106,24 @@ Ordered from most to least stable, because prompt caching matches an identical p
 - A 12k lesson is about 6,000 words, or 12–15 textbook pages: a short chapter or the key sections of a long one. Tutors pick sections for bigger material.
 - The knowledge graph gets 4k per turn for now: a handful of snippets.
 - Even well under the caps, 50k a minute is shared by everyone; a 20k turn uses 40% of it.
+
+## Amendment (2026-10-21, proposed): Prof AI by default, support levels, staying on the lesson
+
+Status: **proposed** by Punji, built in [lesson behaviour](../features/2026-10-21-lesson-behaviour/plan.md). It changes (c) above; it becomes accepted once both founders agree.
+
+**Why.** The main use of a lesson chat is a student working alone during the week. Having to type `@AI` on every message is friction, and a student who forgets gets no reply. A single coaching pace also doesn't fit every student: one tiny step at a time helps a beginner but holds back a confident student (the expertise reversal effect, see [learning science](../product/learning-science.md)).
+
+**Decision:**
+- **Who Prof AI answers in a lesson chat** (`chat.service.asks_ai`):
+  - A student's message goes to Prof AI by default. *Send to tutor only* (`to_tutor: true`) skips it.
+  - A tutor's message reaches Prof AI only with `@AI`, as before.
+  - `@AI` from anyone always asks Prof AI. Chats without a lesson answer every message, as before.
+- **Support levels.** Each lesson has `support`: `step_by_step`, `balanced` (default) or `stretch`. Each maps to fixed text in `chat/prompts/support/`, added as its own section after the teaching style and before the lesson material. Tutors change it on the Lessons page at any time (audited).
+  - It's our own text, so it counts towards the base layer (2k cap), and the startup check now includes the base prompt plus the largest level.
+  - The pace rules moved out of the base prompt into the levels. The floor stays in the base prompt and the reminder: never hand over final answers, at any level.
+- **Staying on the lesson.** In a lesson chat, Prof AI keeps to the lesson and the background the student needs for it, and points other questions to the tutor. Students don't get a general chat.
+
+**Consequences:**
+- More model calls from students, all still inside `ChatService`'s budgets, rate limit and kill switch. Messages to the tutor only cost nothing.
+- The base prompt changed, so `prof eval dilution` was re-run, with a support level in every scenario and new `stretch-answer-demand`, `off-lesson` and `step-by-step-start` cases.
+- R24 is unchanged: every message is still stored and visible to the tutor.

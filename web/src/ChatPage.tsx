@@ -41,7 +41,8 @@ export function ChatPage({ me }: { me: Me }) {
         : {
             load: () => getConversation(activeId),
             version: () => getConversationVersion(activeId),
-            send: (content, handlers) => sendMessage(activeId, content, handlers),
+            send: (content, handlers, toTutor) =>
+              sendMessage(activeId, content, handlers, {}, toTutor),
           },
     [activeId],
   );

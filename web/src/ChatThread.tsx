@@ -33,25 +33,25 @@ const GENERAL_STARTERS = [
 export interface ChatEndpoints {
   load: () => Promise<ConversationDetail>;
   version: () => Promise<ConversationVersion>;
-  send: (content: string, handlers: ReplyHandlers) => Promise<SendResult>;
+  send: (content: string, handlers: ReplyHandlers, toTutor?: boolean) => Promise<SendResult>;
 }
 
-export function asksAi(shared: boolean, content: string): boolean {
-  return !shared || AI_MENTION.test(content);
+/** Mirrors chat.service.asks_ai. */
+export function asksAi(shared: boolean, author: Author, content: string, toTutor = false): boolean {
+  if (!shared || AI_MENTION.test(content)) return true;
+  return author === "student" && !toTutor;
 }
 
 export function withMention(content: string): string {
   return AI_MENTION.test(content) ? content : `@AI ${content}`;
 }
 
-/** Suggestions that fill the composer; in a lesson chat they start with @AI so Prof AI replies. */
+/** Suggestions that fill a student's composer; Prof AI answers them without @AI. */
 export function starterPrompts(lesson: LessonOverview | null): string[] {
   if (!lesson) return GENERAL_STARTERS;
   const topics = lesson.topics.map((t) => t.trim()).filter(Boolean);
   const subjects = topics.length > 0 ? topics : [lesson.title.trim()].filter(Boolean);
-  return subjects
-    .slice(0, MAX_STARTERS)
-    .map((subject, index) => withMention(TOPIC_STARTERS[index](subject)));
+  return subjects.slice(0, MAX_STARTERS).map((subject, index) => TOPIC_STARTERS[index](subject));
 }
 
 function messageOf(error: unknown): string {
@@ -107,7 +107,7 @@ export function ChatThread({
     return () => window.clearInterval(timer);
   }, [endpoints, knownVersion, sending]);
 
-  async function send(content: string) {
+  async function send(content: string, toTutor = false) {
     if (!detail || !content || sending) return;
     setError(null);
     setDraft("");
@@ -120,15 +120,19 @@ export function ChatThread({
       at: new Date().toISOString(),
     };
     setDetail({ ...before, messages: [...before.messages, mine] });
-    setReply(asksAi(shared, content) ? "" : null);
+    setReply(asksAi(shared, viewer, content, toTutor) ? "" : null);
     let streamed = "";
     try {
-      const result = await endpoints.send(content, {
-        onDelta: (text) => {
-          streamed += text;
-          setReply(streamed);
+      const result = await endpoints.send(
+        content,
+        {
+          onDelta: (text) => {
+            streamed += text;
+            setReply(streamed);
+          },
         },
-      });
+        toTutor,
+      );
       onTitle?.(result.title);
       setDetail(await endpoints.load());
     } catch (e) {
@@ -155,6 +159,7 @@ export function ChatThread({
   const messages = detail?.messages ?? [];
   const lesson = detail?.lesson ?? null;
   const starters = viewer === "student" || !shared ? starterPrompts(lesson) : [];
+  const studentInLesson = shared && viewer === "student";
 
   function pickStarter(text: string) {
     setDraft(text);
@@ -192,9 +197,11 @@ export function ChatThread({
             </p>
             <h1>Hi {firstName(me)}</h1>
             <p className="muted">
-              {shared
-                ? `This chat is about ${lesson?.title}. Write a message here, or start it with @AI to ask Prof AI.`
-                : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
+              {studentInLesson
+                ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson, or send a message to your tutor only.`
+                : shared
+                  ? `This chat is about ${lesson?.title}. Write to your student here, or start with @AI to ask Prof AI.`
+                  : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
             </p>
             {starters.length > 0 && (
               <div className="starters">
@@ -259,16 +266,28 @@ export function ChatThread({
           maxLength={MAX_INPUT_CHARS}
           rows={2}
           placeholder={
-            shared ? "Write a message, or start with @AI to ask Prof AI…" : "Ask Prof AI…"
+            shared && !studentInLesson
+              ? "Write a message, or start with @AI to ask Prof AI…"
+              : "Ask Prof AI…"
           }
           aria-label="Message"
           disabled={!detail}
         />
         <div className="composer-actions">
           <button type="submit" disabled={sending || !detail || !draft.trim()}>
-            Send
+            {studentInLesson ? "Ask Prof AI" : "Send"}
           </button>
-          {shared && (
+          {studentInLesson && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={sending || !draft.trim()}
+              onClick={() => void send(draft.trim(), true)}
+            >
+              Send to tutor only
+            </button>
+          )}
+          {shared && !studentInLesson && (
             <button
               type="button"
               className="ask-ai"

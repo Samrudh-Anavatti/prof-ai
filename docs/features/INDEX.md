@@ -23,5 +23,9 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | — | Knowledge graph (chapter extraction, curricula) filling the reference layer (4k now) | Sam | planned | — |
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
+| 2026-10-21 | Lesson behaviour: support levels per lesson, staying on the lesson, Prof AI answers students by default (ADR 0005 amendment, proposed), learning-science register | Punji | in-progress | [plan](2026-10-21-lesson-behaviour/plan.md) |
+| — | Worksheet-first lessons: extract worked example, questions and answers from the material; question list, per-question help and "Check my answer"; maths rendering; tutor progress view | Punji | planned | — |
+| — | Later: reuse lessons across students: a tutor's lesson library, so similar lessons aren't rebuilt (and re-extracted) per student | — | planned | — |
+| — | Later: help-seeking signals: show the tutor when a student guesses rapidly or keeps asking for answers (learning science L11); a signal, never a lock | — | planned | — |
 
 Status values: `planned`, `in-progress`, `merged`, `abandoned`.

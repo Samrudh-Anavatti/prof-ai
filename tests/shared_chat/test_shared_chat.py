@@ -10,8 +10,8 @@ from tests.tutor_chat.conftest import FIXED_NOW, FakeModel
 from .conftest import SharedHarness
 
 
-def test_a_message_without_at_ai_is_saved_and_costs_nothing(h):
-    assert h.done(h.student_says("Can we go over this in Thursday's lesson?")) == {
+def test_a_message_to_the_tutor_only_is_saved_and_costs_nothing(h):
+    assert h.done(h.student_says("Can we go over this in Thursday's lesson?", to_tutor=True)) == {
         "title": "Ratios",
         "ai": False,
     }
@@ -41,7 +41,7 @@ def test_at_ai_asks_prof_ai(h):
 )
 def test_only_a_whole_word_at_ai_counts(h, content, expected):
     lesson_chat = h.store.get_conversation("alex", h.chat_id)
-    assert asks_ai(lesson_chat, content) is expected
+    assert asks_ai(lesson_chat, content, "tutor") is expected
 
 
 def test_the_tutor_writes_in_the_students_chat_and_both_see_it(h):
@@ -127,16 +127,16 @@ def test_a_message_written_while_prof_ai_is_replying_is_not_lost():
 
 def test_the_kill_switch_stops_prof_ai_but_not_people():
     h = SharedHarness(limits=ChatLimits(enabled=False))
-    assert h.done(h.student_says("See you Thursday"))["ai"] is False
+    assert h.done(h.student_says("See you Thursday", to_tutor=True))["ai"] is False
     assert h.student_says("@AI help").status_code == 503
     assert h.model.calls == []
 
 
 def test_plain_messages_still_count_towards_the_rate_limit():
     h = SharedHarness(per_minute=2)
-    assert h.student_says("one").status_code == 200
-    assert h.student_says("two").status_code == 200
-    assert h.student_says("three").status_code == 429
+    assert h.student_says("one", to_tutor=True).status_code == 200
+    assert h.student_says("two", to_tutor=True).status_code == 200
+    assert h.student_says("three", to_tutor=True).status_code == 429
 
 
 def test_a_rate_limited_model_reply_leaves_the_message_unsaved_but_the_chat_usable(h):

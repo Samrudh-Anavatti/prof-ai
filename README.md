@@ -60,7 +60,8 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Context budget**: capped prompt layers that fit our 50k tokens a minute, rolling summaries, dollar budgets ([ADR 0005](docs/decisions/0005-models-and-context-budget.md)) | Live |
 | ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live |
 | ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live |
-| ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers `@AI` | Live after merge |
+| ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers students by default and tutors on `@AI` | Live |
+| ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -71,22 +72,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Web app refresh · 2026-10-20 · Sam
+### Lesson behaviour · 2026-10-21 · Punji
 
-A friendlier, easier-to-read look for students aged 11–18 and their tutors. Nothing changes in what the pages do.
+Lesson chats now teach the way a tutor sets them up, and students don't need `@AI` any more.
 
-- **Easier reading:** Lexend, a typeface designed for reading ease, at a larger size; calmer colours on the same navy-and-amber brand; a proper dark mode.
-- **Chats feel like chats:** avatars, clear bubbles for you, your tutor or student, and Prof AI, a typing indicator, and a lesson card with topic chips.
-- **Help getting started:** an empty lesson chat offers up to three `@AI` starter questions built from the lesson's topics. They fill the box and never send on their own.
-- **Tidier tutor pages:** aligned rows with avatars and status badges on Lessons and Users, skeleton loading, and visible focus rings and hover states throughout. Works on phones.
+- **Support levels:** each lesson is *Step by step*, *Balanced* or *Stretch*, set on the Lessons page and changeable any time. Beginners get a worked example and small steps; confident students go straight to the questions. No level gives final answers.
+- **Prof AI by default:** in a lesson chat, a student's message goes to Prof AI unless they pick *Send to tutor only*. Tutors still use `@AI`. This is a **proposed** amendment to [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
+- **Stays on the lesson:** off-lesson questions are pointed to the tutor.
+- **Learning science:** [learning-science.md](docs/product/learning-science.md) lists the research-backed principles we follow and where we stand; every plan now has a learning check.
 
-📄 [plan](docs/features/2026-10-20-web-refresh/plan.md) · [handover](docs/features/2026-10-20-web-refresh/handover.md)
+📄 [plan](docs/features/2026-10-21-lesson-behaviour/plan.md) · [handover](docs/features/2026-10-21-lesson-behaviour/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-20 | **Web app refresh**: Lexend, friendlier chat bubbles, starter prompts, tidier tutor pages, dark mode | Sam | [handover](docs/features/2026-10-20-web-refresh/handover.md) |
 | 2026-10-20 | **Shared chats with @AI**: tutor and student share each lesson chat; Prof AI replies only to `@AI` | Sam | [handover](docs/features/2026-10-20-shared-chat/handover.md) |
 | 2026-10-20 | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Sam | [handover](docs/features/2026-10-19-lessons/handover.md) |
 | 2026-10-19 | **Dilution eval** (`prof eval dilution`): rules hold 3/3 at lessons up to 40k; hardened prompt; safer filtered message; caps fit 50k tokens a minute | Sam | [handover](docs/features/2026-10-19-context-dilution-eval/handover.md) |
@@ -135,7 +137,7 @@ A friendlier, easier-to-read look for students aged 11–18 and their tutors. No
 | What | Link |
 |------|------|
 | Feature index (read first) | [docs/features/INDEX.md](docs/features/INDEX.md) |
-| Vision, architecture, risk register | [vision](docs/product/vision.md) · [architecture](docs/product/architecture.md) · [risks](docs/product/risks.md) |
+| Vision, architecture, risk register | [vision](docs/product/vision.md) · [architecture](docs/product/architecture.md) · [risks](docs/product/risks.md) · [learning science](docs/product/learning-science.md) |
 | Decisions (ADRs) | [0001 stack](docs/decisions/0001-stack.md) · [0002 auth](docs/decisions/0002-auth-and-users.md) · [0003 frontend](docs/decisions/0003-frontend.md) · [0004 invites](docs/decisions/0004-invites-and-sign-up.md) |
 | Agent and contributor rules | [CLAUDE.md](CLAUDE.md) |
 
@@ -248,8 +250,9 @@ sequenceDiagram
 
 1. **Base tutor prompt**, in the repo ([`tutor.md`](src/prof_ai/chat/prompts/tutor.md)): coach rather than give answers, stay on school topics, no personal details, distress → trusted adult and Childline.
 2. **The tutor's teaching style**: `profiles/<tutor-id>/teaching-style.md`. A student gets their tutor's style, so Sam's and Punji's students get different behaviour.
-3. **The user's profile**: `profiles/<user-id>/profile.md`.
-4. **Lesson material** (feature b) and the **conversation summary**, then the history, the new message with any **reference material**, and a closing safety reminder. Caps and order: [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
+3. **The lesson's support level** (lesson chats only): fixed text in [`prompts/support/`](src/prof_ai/chat/prompts/support/) for step by step, balanced or stretch.
+4. **The user's profile**: `profiles/<user-id>/profile.md`.
+5. **Lesson material** (feature b) and the **conversation summary**, then the history, the new message with any **reference material**, and a closing safety reminder. Caps and order: [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
 
 ## 🧭 Decisions and direction
 

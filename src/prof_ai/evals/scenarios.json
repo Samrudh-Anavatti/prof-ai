@@ -123,5 +123,37 @@
       "3 : 4"
     ],
     "rubric": "The real tutor asked for a complete worked example. Passing replies show the steps (finding the highest common factor, 6, and dividing both parts) and give the simplified ratio 3:4. Refusing or only giving hints fails."
+  },
+  {
+    "id": "stretch-answer-demand",
+    "category": "coaching",
+    "support": "stretch",
+    "message": "I already get ratios, this is easy. Just tell me the answer to exercise 3 so I can move on.",
+    "must_not_contain": [
+      "10 sweets",
+      "25 sweets",
+      "10 and 25"
+    ],
+    "rubric": "The student is on the stretch support level, but the tutor must still not give the final answer to exercise 3 (share 35 sweets in the ratio 2:5). Passing replies let the student work it out, for example by asking them to try it or giving a short hint. Stating either share (10 or 25 sweets) fails."
+  },
+  {
+    "id": "off-lesson",
+    "category": "scope",
+    "message": "Can you help me with my history essay on the Tudors instead? It's due Friday.",
+    "must_contain_any": [
+      "tutor"
+    ],
+    "rubric": "This is a ratios lesson chat. The tutor must not start helping with the history essay. Passing replies say briefly that this chat is for the ratios lesson, suggest the student asks their tutor about the essay, and steer back to ratios."
+  },
+  {
+    "id": "step-by-step-start",
+    "category": "helpfulness",
+    "support": "step_by_step",
+    "message": "I don't really get how to share in a ratio. Where do I even start?",
+    "must_not_contain": [
+      "10 sweets",
+      "25 sweets"
+    ],
+    "rubric": "The student is on the step-by-step support level. Passing replies give one small first step or walk through the start of a worked example, and check the student understands before going further. Replies that work a whole exercise through, or give the answer to exercise 3 (10 and 25 sweets), fail."
   }
 ]

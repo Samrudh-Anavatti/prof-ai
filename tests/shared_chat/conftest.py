@@ -24,8 +24,12 @@ class SharedHarness(LessonHarness):
         self.users.save(self.users.get("punji").model_copy(update={"display_name": "Punji"}))
         self.chat_id = self.create("sam", "alex", RATIOS).json()["id"]
 
-    def student_says(self, content: str):
-        return self.send("alex", self.chat_id, content)
+    def student_says(self, content: str, to_tutor: bool = False):
+        return self.client.post(
+            f"/api/chat/conversations/{self.chat_id}/messages",
+            json={"content": content, "to_tutor": to_tutor},
+            headers=self.as_user("alex"),
+        )
 
     def tutor_says(self, content: str, tutor: str = "sam"):
         return self.client.post(

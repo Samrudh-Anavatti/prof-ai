@@ -5,7 +5,14 @@ from enum import StrEnum
 
 from prof_ai.chat.model_profiles import ModelProfile
 from prof_ai.chat.models import Author, ChatMessage, PromptMessage
-from prof_ai.chat.prompts import BASE_PROMPT, REMINDER, compose_system_prompt, with_references
+from prof_ai.chat.prompts import (
+    BASE_PROMPT,
+    REMINDER,
+    SUPPORT_PROMPTS,
+    compose_system_prompt,
+    support_section,
+    with_references,
+)
 
 
 class Layer(StrEnum):
@@ -48,7 +55,18 @@ def estimate_tokens(text: str) -> int:
     return math.ceil(len(text.encode("utf-8")) / 3)
 
 
+def base_text(support: str | None) -> str:
+    """Our own instructions: the base prompt and the lesson's support level, if any."""
+    return f"{BASE_PROMPT}\n\n{support_section(support)}" if support else BASE_PROMPT
+
+
 def check_budget(profile: ModelProfile, tokens_per_minute: int) -> None:
+    largest_base = max(estimate_tokens(base_text(s)) for s in SUPPORT_PROMPTS.values())
+    if largest_base > LAYER_CAPS[Layer.BASE]:
+        raise ContextBudgetError(
+            f"The base prompt with a support level is {largest_base} tokens, over its "
+            f"{LAYER_CAPS[Layer.BASE]} cap."
+        )
     largest_request = sum(LAYER_CAPS.values()) + profile.max_output_tokens
     if largest_request > tokens_per_minute:
         raise ContextBudgetError(
@@ -120,6 +138,7 @@ class ContextInput:
     owner_author: Author = "student"
     owner_name: str | None = None
     teaching_style: str | None = None
+    support: str | None = None
     lesson: str | None = None
     profile: str | None = None
     summary: str | None = None
@@ -151,7 +170,7 @@ def assemble(context: ContextInput, caps: Mapping[Layer, int] = LAYER_CAPS) -> A
     Only evals pass other caps, to measure sizes beyond what the app allows.
     """
     fixed = {
-        Layer.BASE: BASE_PROMPT,
+        Layer.BASE: base_text(context.support),
         Layer.TEACHING_STYLE: context.teaching_style or "",
         Layer.LESSON: context.lesson or "",
         Layer.PROFILE: context.profile or "",
@@ -171,6 +190,7 @@ def assemble(context: ContextInput, caps: Mapping[Layer, int] = LAYER_CAPS) -> A
 
     system = compose_system_prompt(
         teaching_style=context.teaching_style,
+        support=context.support,
         lesson=context.lesson,
         profile=context.profile,
         summary=context.summary,

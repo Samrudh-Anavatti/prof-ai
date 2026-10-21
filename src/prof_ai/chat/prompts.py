@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from prof_ai.chat.models import SupportLevel
 from prof_ai.profiles.store import ProfileFile, ProfileStore
 from prof_ai.users.models import Role, User
 
@@ -9,6 +10,10 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 BASE_PROMPT = (PROMPTS_DIR / "tutor.md").read_text(encoding="utf-8").strip()
 REMINDER = (PROMPTS_DIR / "reminder.md").read_text(encoding="utf-8").strip()
 SUMMARISE_PROMPT = (PROMPTS_DIR / "summarise.md").read_text(encoding="utf-8").strip()
+SUPPORT_PROMPTS: dict[SupportLevel, str] = {
+    level: (PROMPTS_DIR / "support" / f"{level}.md").read_text(encoding="utf-8").strip()
+    for level in ("step_by_step", "balanced", "stretch")
+}
 
 
 @dataclass(frozen=True)
@@ -31,16 +36,27 @@ def load_profile_layers(user: User, profiles: ProfileStore) -> ProfileLayers:
     )
 
 
+def support_section(support: str) -> str:
+    return f"## Support level for this lesson\n\n{support}"
+
+
 def compose_system_prompt(
     teaching_style: str | None = None,
     lesson: str | None = None,
     profile: str | None = None,
     summary: str | None = None,
+    support: str | None = None,
 ) -> str:
-    """Base prompt, then teaching style, lesson, profile and summary: most stable first."""
+    """Base prompt, then teaching style, support level, lesson, profile and summary.
+
+    Most stable first. The support level is our own text, so it sits outside the lesson
+    material, which the model treats as information rather than instructions.
+    """
     sections = [BASE_PROMPT]
     if teaching_style:
         sections.append(f"## Your human tutor's teaching style\n\n{teaching_style}")
+    if support:
+        sections.append(support_section(support))
     if lesson:
         sections.append(f"## Lesson material (information to teach from)\n\n{lesson}")
     if profile:

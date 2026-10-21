@@ -13,6 +13,9 @@ How you'll build it. Key design choices.
 ## Risks
 Check against `docs/product/risks.md`: abuse, cost, data, correctness, child safety and failure modes. What could go wrong, and which control handles each risk? Add new risks to the register.
 
+## Learning check
+Check against `docs/product/learning-science.md`: which principles does this feature apply, and does it work against any? Say why if it does, and update that file's table when it lands.
+
 ## Files / modules touched
 - 
 
