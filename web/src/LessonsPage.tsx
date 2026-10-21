@@ -2,16 +2,20 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import {
   ApiError,
+  changeStudentChatModel,
   changeStudentChatSupport,
   createStudentChat,
   deleteStudentChat,
   extractPdf,
+  listModels,
   listStudentChats,
   listUsers,
+  setPreferredModel,
   UNAVAILABLE,
   type ExtractedPage,
   type LessonSource,
   type Me,
+  type ModelList,
   type StudentChat,
   type StudentChats,
   type SupportLevel,
@@ -19,8 +23,11 @@ import {
 } from "./api";
 import { PageSkeleton } from "./Skeleton";
 import {
+  initialModel,
   lessonTokens,
   MAX_PDF_BYTES,
+  modelAllowed,
+  modelSummary,
   pagesText,
   SUPPORT_LEVELS,
   supportLevel,
@@ -60,6 +67,8 @@ export function LessonsPage({
   const [material, setMaterial] = useState("");
   const [sources, setSources] = useState<LessonSource[]>([]);
   const [support, setSupport] = useState<SupportLevel>("balanced");
+  const [models, setModels] = useState<ModelList | null>(null);
+  const [pickedModel, setPickedModel] = useState<string | null>(null);
   const [licensed, setLicensed] = useState(false);
   const [pdf, setPdf] = useState<UploadedPdf | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -76,6 +85,20 @@ export function LessonsPage({
       })
       .catch((e: unknown) => setError(messageOf(e)));
   }, [me.id]);
+
+  useEffect(() => {
+    listModels()
+      .then(setModels)
+      .catch((e: unknown) => setError(messageOf(e)));
+  }, []);
+
+  const forStudent = studentId !== me.id;
+  const pickedOption = models?.models.find((m) => m.id === pickedModel);
+  const model = !models
+    ? ""
+    : pickedOption && modelAllowed(pickedOption, forStudent)
+      ? pickedOption.id
+      : initialModel(models, forStudent);
 
   useEffect(() => {
     if (!studentId) return;
@@ -121,6 +144,7 @@ export function LessonsPage({
     setMaterial("");
     setSources([]);
     setSupport("balanced");
+    setPickedModel(null);
     setLicensed(false);
     setPdf(null);
     setPicked(new Set());
@@ -167,7 +191,7 @@ export function LessonsPage({
   function create(event: FormEvent) {
     event.preventDefault();
     void act(async () => {
-      const chat = await createStudentChat(studentId, lesson, licensed);
+      const chat = await createStudentChat(studentId, lesson, licensed, {}, model || undefined);
       setChats((current) => current && { ...current, chats: [chat, ...current.chats] });
       resetForm();
       return `Set up "${chat.title}" for ${studentName}.`;
@@ -187,6 +211,39 @@ export function LessonsPage({
       return `"${chat.title}" is now ${supportLevel(level).label}.`;
     });
   }
+
+  function changeModel(chat: StudentChat, id: string) {
+    void act(async () => {
+      const changed = await changeStudentChatModel(studentId, chat.id, id);
+      setChats(
+        (current) =>
+          current && {
+            ...current,
+            chats: current.chats.map((c) => (c.id === changed.id ? changed : c)),
+          },
+      );
+      return `"${chat.title}" now uses ${models?.models.find((m) => m.id === id)?.label ?? id}.`;
+    });
+  }
+
+  function changePreferred(id: string) {
+    void act(async () => {
+      const updated = await setPreferredModel(id === models?.default ? null : id);
+      setModels(updated);
+      return "Saved your default model.";
+    });
+  }
+
+  function modelOptions(forThisStudent: boolean) {
+    return models?.models.map((m) => (
+      <option key={m.id} value={m.id} disabled={!modelAllowed(m, forThisStudent)}>
+        {m.label}
+        {!modelAllowed(m, forThisStudent) && " (not approved for students)"}
+      </option>
+    ));
+  }
+
+  const chosenModel = models?.models.find((m) => m.id === model);
 
   function remove(chat: StudentChat) {
     const confirmed = window.confirm(
@@ -246,6 +303,21 @@ export function LessonsPage({
             <option value={me.id}>Yourself, to try a lesson out</option>
           </select>
         </label>
+        {models && (
+          <label>
+            Your default model
+            <select
+              value={models.preferred ?? models.default}
+              disabled={busy}
+              onChange={(e) => changePreferred(e.target.value)}
+            >
+              {modelOptions(false)}
+            </select>
+            <span className="muted lesson-hint">
+              For your own test chats, and picked first for new lessons when it's allowed.
+            </span>
+          </label>
+        )}
       </div>
 
       {status && (
@@ -290,6 +362,16 @@ export function LessonsPage({
                     )}
                   </div>
                   <div className="user-actions">
+                    {models && (
+                      <select
+                        aria-label={`Model for ${chat.title}`}
+                        value={chat.model ?? models.default}
+                        disabled={busy}
+                        onChange={(e) => changeModel(chat, e.target.value)}
+                      >
+                        {modelOptions(forStudent)}
+                      </select>
+                    )}
                     {chat.support && (
                       <select
                         aria-label={`Support level for ${chat.title}`}
@@ -371,6 +453,17 @@ export function LessonsPage({
                   later.
                 </span>
               </label>
+              {models && (
+                <label className="lesson-field">
+                  Model
+                  <select value={model} onChange={(e) => setPickedModel(e.target.value)}>
+                    {modelOptions(forStudent)}
+                  </select>
+                  {chosenModel && (
+                    <span className="muted lesson-hint">{modelSummary(chosenModel)}</span>
+                  )}
+                </label>
+              )}
               <label className="lesson-field">
                 Notes for Prof AI (what to focus on, what they found hard)
                 <textarea

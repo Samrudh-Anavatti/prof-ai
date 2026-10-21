@@ -24,21 +24,17 @@ class ChatModel(Protocol):
         ...
 
 
-class FoundryChatModel:
-    def __init__(self, endpoint: str, deployment: str):
-        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-        from openai import OpenAI
+OLLAMA_BASE_URL = "https://ollama.com/v1"
 
-        token_provider = get_bearer_token_provider(
-            DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
-        )
-        self._client = OpenAI(
-            base_url=f"{endpoint.rstrip('/')}/openai/v1/",
-            api_key=token_provider,
-            timeout=60,
-            max_retries=1,
-        )
-        self._deployment = deployment
+
+class OpenAIChatModel:
+    """Any provider with an OpenAI-compatible chat completions API."""
+
+    def __init__(self, client, model: str, output_cap_param: str):
+        self._client = client
+        self._model = model
+        # Foundry's v1 API takes max_completion_tokens; Ollama's takes max_tokens.
+        self._output_cap_param = output_cap_param
 
     def stream(
         self, messages: Sequence[PromptMessage], max_output_tokens: int
@@ -47,12 +43,12 @@ class FoundryChatModel:
 
         try:
             chunks = self._client.chat.completions.create(
-                model=self._deployment,
+                model=self._model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],
                 stream=True,
                 stream_options={"include_usage": True},
-                max_completion_tokens=max_output_tokens,
                 reasoning_effort="low",
+                **{self._output_cap_param: max_output_tokens},
             )
             for chunk in chunks:
                 for choice in chunk.choices:
@@ -75,3 +71,26 @@ class FoundryChatModel:
             raise ModelRateLimitedError() from error
         except openai.OpenAIError as error:
             raise ModelUnavailableError() from error
+
+
+def foundry_chat_model(endpoint: str, deployment: str) -> OpenAIChatModel:
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    from openai import OpenAI
+
+    token_provider = get_bearer_token_provider(
+        DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default"
+    )
+    client = OpenAI(
+        base_url=f"{endpoint.rstrip('/')}/openai/v1/",
+        api_key=token_provider,
+        timeout=60,
+        max_retries=1,
+    )
+    return OpenAIChatModel(client, deployment, "max_completion_tokens")
+
+
+def ollama_chat_model(api_key: str, model: str, base_url: str = OLLAMA_BASE_URL) -> OpenAIChatModel:
+    from openai import OpenAI
+
+    client = OpenAI(base_url=base_url, api_key=api_key, timeout=60, max_retries=1)
+    return OpenAIChatModel(client, model, "max_tokens")

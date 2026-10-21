@@ -232,6 +232,12 @@ resource webApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'AUTH_CLIENT_SECRET'
           value: '@Microsoft.KeyVault(SecretUri=${keyVault.properties.vaultUri}secrets/auth-client-secret/)'
         }
+        {
+          // Set by a tutor with `az keyvault secret set`; until it exists the reference stays
+          // unresolved, which the app treats as no key (Ollama models not offered).
+          name: 'OLLAMA_API_KEY'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVault.properties.vaultUri}secrets/ollama-api-key/)'
+        }
       ]
     }
   }

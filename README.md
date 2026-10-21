@@ -62,6 +62,7 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live |
 | ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers students by default and tutors on `@AI` | Live |
 | ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live after merge |
+| ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live after merge and setup |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -72,22 +73,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lesson behaviour · 2026-10-21 · Punji
+### Model providers · 2026-10-21 · Punji
 
-Lesson chats now teach the way a tutor sets them up, and students don't need `@AI` any more.
+Prof AI can now use models from other providers, starting with Ollama Cloud, and tutors choose the model per lesson.
 
-- **Support levels:** each lesson is *Step by step*, *Balanced* or *Stretch*, set on the Lessons page and changeable any time. Beginners get a worked example and small steps; confident students go straight to the questions. No level gives final answers.
-- **Prof AI by default:** in a lesson chat, a student's message goes to Prof AI unless they pick *Send to tutor only*. Tutors still use `@AI`. This is a **proposed** amendment to [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
-- **Stays on the lesson:** off-lesson questions are pointed to the tutor.
-- **Learning science:** [learning-science.md](docs/product/learning-science.md) lists the research-backed principles we follow and where we stand; every plan now has a learning check.
+- **One adapter** for any OpenAI-compatible API. Luna on Foundry stays the default; GLM-5.3 Flash and DeepSeek V4.1 Flash on Ollama Cloud are added when its key is set.
+- **Student data stays put:** only models marked `approved_for_student_conversations` (just Luna) can run in a student's chat. `ChatService` enforces it. Ollama models are for your own test chats and evals.
+- **Model picker** on the Lessons page: per lesson, plus your default model, with an estimated cost per message and notes on how each model has been tested.
+- **Setup:** store the Ollama key in Key Vault and run `bash scripts/deploy-infra.sh` once (see [handover](docs/features/2026-10-21-model-providers/handover.md)). This is a **proposed** amendment to [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
 
-📄 [plan](docs/features/2026-10-21-lesson-behaviour/plan.md) · [handover](docs/features/2026-10-21-lesson-behaviour/handover.md)
+📄 [plan](docs/features/2026-10-21-model-providers/plan.md) · [handover](docs/features/2026-10-21-model-providers/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-21 | **Lesson behaviour**: support levels per lesson, lesson chats stay on the lesson, Prof AI answers students without `@AI`, learning-science register | Punji | [handover](docs/features/2026-10-21-lesson-behaviour/handover.md) |
 | 2026-10-20 | **Web app refresh**: Lexend, friendlier chat bubbles, starter prompts, tidier tutor pages, dark mode | Sam | [handover](docs/features/2026-10-20-web-refresh/handover.md) |
 | 2026-10-20 | **Shared chats with @AI**: tutor and student share each lesson chat; Prof AI replies only to `@AI` | Sam | [handover](docs/features/2026-10-20-shared-chat/handover.md) |
 | 2026-10-20 | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Sam | [handover](docs/features/2026-10-19-lessons/handover.md) |
@@ -157,6 +159,10 @@ flowchart LR
         EXT["Entra External ID<br/>profai.onmicrosoft.com<br/>invite-only, sign-up off"]
     end
 
+    subgraph OLL["🦙 Ollama Cloud (US)"]
+        OLM["GLM-5.3 Flash · DeepSeek V4.1 Flash<br/>tutors' own chats only"]
+    end
+
     subgraph GH["🐙 GitHub"]
         GHA["Actions<br/>CI + deploy on master"]
     end
@@ -181,6 +187,7 @@ flowchart LR
     EA -. "OIDC sign-in" .-> EXT
     EA -- "signed-in requests<br/>X-MS-CLIENT-PRINCIPAL" --> APP
     APP -- "chat, streamed<br/>(managed identity)" --> FDY
+    APP -. "tutors' own chats<br/>(API key from Key Vault)" .-> OLM
     APP -- "users, chats, usage<br/>(managed identity)" --> COS
     APP -- "reads content & profiles,<br/>writes teaching styles" --> BLOB
     EA -. reads secret .-> KV
@@ -202,7 +209,7 @@ flowchart LR
 | **Microsoft Foundry** | `foundry-prof-ai`, deployment `gpt-5.6-luna` (GlobalStandard, 10k TPM) | The tutor model ("Luna"). Content filters (DefaultV2) run on input and output. Key auth is disabled. | App and tutors (Entra role) | pay per token |
 | **Cosmos DB** (serverless) | `cosmos-prof-ai`, database `prof-ai` | App data: `users` (role, status, tutor), `audit` (locks, unlocks, style edits), `conversations` (messages, tokens, flags), `usage` (tokens per user per UTC day). Entra-only, with continuous 7-day backup. | App and tutors (data role) | ~£0 at our scale |
 | **Blob storage** | `stprofaicjzzqh` | The content store: `sources/` (original PDFs, tutors only), `content/` (manifests and extracted chapters, app reads), `answer-keys/` (marking only), `profiles/` (per-user markdown injected into the prompt). No public access, no shared keys, 14-day soft delete. | See the access table below | pennies |
-| **Key Vault** | `kv-prof-ai-cjzzqh` | Holds the Easy Auth client secret (expires **2027-04-16**; rotate with `scripts/rotate_auth_secret.py`). RBAC, with purge protection. | App reads; tutors manage | pennies |
+| **Key Vault** | `kv-prof-ai-cjzzqh` | Holds the Ollama Cloud API key (`ollama-api-key`) and the Easy Auth client secret (expires **2027-04-16**; rotate with `scripts/rotate_auth_secret.py`). RBAC, with purge protection. | App reads; tutors manage | pennies |
 | **App Insights + Log Analytics** | `appi-prof-ai`, `log-prof-ai` | Request telemetry and logs. 30-day retention with a 0.5 GB/day cap. | Tutors | capped |
 | **Deploy identity** | `id-prof-ai-deploy` | GitHub Actions logs in through OIDC (trusted for `master` only) and deploys the app. No publish profile; FTP and basic auth are off. | GitHub `master` | free |
 | **Budget** | `prof-ai-monthly` | Emails at 50% and 90% actual, and 100% forecast, of £50/month. | n/a | free |
@@ -297,7 +304,8 @@ sequenceDiagram
 **Decisions for Sam**
 
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
-- [ ] **Important: a better serverless LLM provider** (proposed for Punji): something like Ollama Cloud at a similar price without Azure's 50k-tokens-a-minute squeeze. ADR 0005 set Ollama aside for student data (US hosting, no DPA, no content filter, API key), so the pick must clear that bar and pass `prof eval dilution`. See the INDEX row.
+- [ ] **Turn on Ollama Cloud** (after merging model providers): store the key in Key Vault as `ollama-api-key`, then run `bash scripts/deploy-infra.sh`. Steps in the [handover](docs/features/2026-10-21-model-providers/handover.md).
+- [ ] **A student-approved alternative to Luna**: Ollama models are wired in but not approved for students (US hosting, no DPA, no content filter). Approving any model needs those, plus a `prof eval dilution` pass (ADR 0005).
 - [ ] **Request more Luna quota** (https://aka.ms/oai/stuquotarequest): Prof AI is capped at 50k tokens a minute because the football project holds 200 of 250. Then raise `chatModel.capacity` and the context caps (ADR 0005 amendment).
 
 **Setup and housekeeping**

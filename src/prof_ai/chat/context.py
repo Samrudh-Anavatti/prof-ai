@@ -60,7 +60,8 @@ def base_text(support: str | None) -> str:
     return f"{BASE_PROMPT}\n\n{support_section(support)}" if support else BASE_PROMPT
 
 
-def check_budget(profile: ModelProfile, tokens_per_minute: int) -> None:
+def check_budget(profile: ModelProfile, tokens_per_minute: int | None) -> None:
+    """tokens_per_minute is None for providers without a per-minute token quota."""
     largest_base = max(estimate_tokens(base_text(s)) for s in SUPPORT_PROMPTS.values())
     if largest_base > LAYER_CAPS[Layer.BASE]:
         raise ContextBudgetError(
@@ -68,7 +69,7 @@ def check_budget(profile: ModelProfile, tokens_per_minute: int) -> None:
             f"{LAYER_CAPS[Layer.BASE]} cap."
         )
     largest_request = sum(LAYER_CAPS.values()) + profile.max_output_tokens
-    if largest_request > tokens_per_minute:
+    if tokens_per_minute is not None and largest_request > tokens_per_minute:
         raise ContextBudgetError(
             f"A full turn can reach {largest_request} tokens, over the deployment's "
             f"{tokens_per_minute} tokens a minute, so it would never be accepted."

@@ -53,7 +53,8 @@ class TutorTools:
 StoreFactory = Callable[[], ContentStore]
 AdminFactory = Callable[[], UserAdmin]
 ToolsFactory = Callable[[], TutorTools]
-EvalModelFactory = Callable[[], tuple[ChatModel, ModelProfile]]
+# Called with a model ID when --model is given, without one otherwise.
+EvalModelFactory = Callable[..., tuple[ChatModel, ModelProfile]]
 
 
 def azure_store() -> ContentStore:
@@ -110,11 +111,17 @@ def azure_tutor_tools() -> TutorTools:
     )
 
 
-def azure_eval_model() -> tuple[ChatModel, ModelProfile]:
-    from prof_ai.chat.model import FoundryChatModel
+def eval_profile(model_id: str | None) -> ModelProfile:
+    return model_profile(model_id or os.environ.get("CHAT_DEPLOYMENT") or LUNA.deployment)
 
-    profile = model_profile(os.environ.get("CHAT_DEPLOYMENT") or LUNA.deployment)
-    return FoundryChatModel(require_env("FOUNDRY_ENDPOINT"), profile.deployment), profile
+
+def azure_eval_model(model_id: str | None = None) -> tuple[ChatModel, ModelProfile]:
+    from prof_ai.chat.model import foundry_chat_model, ollama_chat_model
+
+    profile = eval_profile(model_id)
+    if profile.provider == "ollama":
+        return ollama_chat_model(require_env("OLLAMA_API_KEY"), profile.deployment), profile
+    return foundry_chat_model(require_env("FOUNDRY_ENDPOINT"), profile.deployment), profile
 
 
 def parse_levels(value: str) -> list[int]:
@@ -226,6 +233,9 @@ def build_parser() -> argparse.ArgumentParser:
     dilution.add_argument("--seed", type=int, default=0)
     dilution.add_argument("--max-usd", type=float, default=2.0, help="Hard spend cap.")
     dilution.add_argument("--out", type=Path, default=Path("data/generated/evals/dilution"))
+    dilution.add_argument(
+        "--model", help="A model profile's deployment (default: CHAT_DEPLOYMENT, else Luna)."
+    )
     dilution.add_argument("--yes", action="store_true", help="Call the model (costs money).")
     return parser
 
@@ -309,7 +319,7 @@ def run_chats(args: argparse.Namespace, tools: TutorTools) -> None:
 def run_eval(args: argparse.Namespace, model_factory: EvalModelFactory) -> None:
     scenarios = load_scenarios()
     cases = len(scenarios) * len(args.levels) * args.runs
-    profile = model_profile(os.environ.get("CHAT_DEPLOYMENT") or LUNA.deployment)
+    profile = eval_profile(args.model)
     worst = worst_case_cost_usd(profile, len(scenarios), args.levels, args.runs)
     print(
         f"{cases} cases on {profile.deployment}: worst case ${worst:.2f} with no caching, "
@@ -318,7 +328,7 @@ def run_eval(args: argparse.Namespace, model_factory: EvalModelFactory) -> None:
     if not args.yes:
         print("Dry run. Add --yes to call the model.")
         return
-    model, profile = model_factory()
+    model, profile = model_factory(args.model) if args.model else model_factory()
     report = DilutionEval(model, profile, args.max_usd).run(
         scenarios,
         args.levels,

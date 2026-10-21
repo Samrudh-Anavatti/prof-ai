@@ -66,6 +66,8 @@ class Conversation(BaseModel):
     user_id: str
     title: str = ""
     lesson: Lesson | None = None
+    # A model profile's deployment; None means the default (or a tutor's preferred model).
+    model: str | None = None
     created_by: str | None = None
     messages: list[ChatMessage] = []
     summary: str = ""
