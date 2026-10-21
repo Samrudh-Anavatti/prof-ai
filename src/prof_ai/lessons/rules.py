@@ -54,6 +54,7 @@ def validate_lesson(lesson: Lesson, licence_confirmed: bool) -> Lesson:
                     number=q.number.strip(),
                     text=q.text.strip(),
                     answer=(q.answer or "").strip() or None,
+                    answer_needs_review=q.answer_needs_review and bool((q.answer or "").strip()),
                 )
                 for q in lesson.questions
                 if q.text.strip()
@@ -70,6 +71,11 @@ def validate_lesson(lesson: Lesson, licence_confirmed: bool) -> Lesson:
         )
     if len(lesson.notes) > MAX_NOTES_CHARS:
         raise InvalidLessonError(f"Keep the notes under {MAX_NOTES_CHARS} characters.")
+    unreviewed = [q.number for q in lesson.questions if q.answer_needs_review]
+    if unreviewed:
+        raise InvalidLessonError(
+            "Check the answers Prof AI worked out before saving: " + ", ".join(unreviewed) + "."
+        )
     if (lesson.material or lesson.worked_examples or lesson.questions) and not licence_confirmed:
         raise InvalidLessonError("Confirm you're allowed to use this material with your student.")
     tokens = lesson_tokens(lesson)

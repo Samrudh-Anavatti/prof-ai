@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from prof_ai.auth import CurrentUser, require_role
 from prof_ai.chat.checking import QuestionProgress, question_progress
-from prof_ai.chat.models import ChatMessage, Conversation, SupportLevel, WorkedExample
+from prof_ai.chat.models import ChatMessage, Conversation, SupportLevel, Verdict, WorkedExample
 from prof_ai.chat.service import (
     ChatEvent,
     ChatRefusedError,
@@ -62,11 +62,24 @@ class ConversationDetail(ConversationSummary):
 
 class AnswerCheck(BaseModel):
     question: str
+    # One line per step, typed maths or words.
+    working: list[str]
     answer: str
 
 
+class WorkingCheck(BaseModel):
+    question: str
+    working: list[str]
+
+
 class CheckOutcome(BaseModel):
+    verdict: Verdict
     correct: bool
+    feedback: str
+    progress: list[QuestionProgress]
+
+
+class WorkingOutcome(BaseModel):
     feedback: str
     progress: list[QuestionProgress]
 
@@ -216,19 +229,37 @@ def create_chat_router() -> APIRouter:
     def check_answer(
         conversation_id: str, body: AnswerCheck, user: CurrentUser, request: Request
     ) -> CheckOutcome:
-        """Check the signed-in student's answer to a question in their own lesson chat."""
+        """Mark the signed-in student's working and answer in their own lesson chat."""
         try:
-            result = chat_service(request).check_answer(
-                user, conversation_id, body.question, body.answer
+            result = chat_service(request).submit_answer(
+                user, conversation_id, body.question, body.working, body.answer
             )
         except ConversationNotFoundError as error:
             raise HTTPException(404, "Chat not found.") from error
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error
         return CheckOutcome(
+            verdict=result.verdict,
             correct=result.correct,
             feedback=result.feedback,
             progress=question_progress(result.conversation),
+        )
+
+    @router.post("/conversations/{conversation_id}/working")
+    def check_working(
+        conversation_id: str, body: WorkingCheck, user: CurrentUser, request: Request
+    ) -> WorkingOutcome:
+        """A hint on the signed-in student's unfinished working; nothing is marked."""
+        try:
+            result = chat_service(request).check_working(
+                user, conversation_id, body.question, body.working
+            )
+        except ConversationNotFoundError as error:
+            raise HTTPException(404, "Chat not found.") from error
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+        return WorkingOutcome(
+            feedback=result.feedback, progress=question_progress(result.conversation)
         )
 
     return router

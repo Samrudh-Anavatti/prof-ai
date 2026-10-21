@@ -13,6 +13,7 @@ import {
   listStudentChats,
   listUsers,
   setPreferredModel,
+  solveQuestions,
   UNAVAILABLE,
   type ExtractedPage,
   type LessonSource,
@@ -139,12 +140,15 @@ export function LessonsPage({
     studentId === me.id
       ? "you"
       : (students?.find((s) => s.id === studentId)?.display_name ?? "this student");
+  const missingAnswers = questions.filter((q) => q.text.trim() && !(q.answer ?? "").trim());
+  const toReview = questions.filter((q) => q.answer_needs_review && (q.answer ?? "").trim());
   const canSave =
     !busy &&
     chats !== null &&
     !full &&
     title.trim() !== "" &&
     !overCap &&
+    toReview.length === 0 &&
     (!hasContent || licensed);
 
   async function act(work: () => Promise<string>) {
@@ -270,6 +274,29 @@ export function LessonsPage({
 
   function changeQuestion(index: number, change: Partial<Question>) {
     setQuestions((current) => current.map((q, i) => (i === index ? { ...q, ...change } : q)));
+  }
+
+  function workOutAnswers() {
+    void act(async () => {
+      const { answers } = await solveQuestions(
+        missingAnswers.map((q) => ({ number: q.number, text: q.text })),
+      );
+      const solved = new Map(answers.filter((a) => a.answer).map((a) => [a.number, a.answer]));
+      setQuestions((current) =>
+        current.map((q) => {
+          const answer = solved.get(q.number);
+          return answer && !(q.answer ?? "").trim()
+            ? { ...q, answer, answer_needs_review: true }
+            : q;
+        }),
+      );
+      const missed = missingAnswers.length - solved.size;
+      return (
+        `Prof AI worked out ${solved.size} ${solved.size === 1 ? "answer" : "answers"}. ` +
+        "Check each one marked below before saving." +
+        (missed > 0 ? ` ${missed} still need an answer from you.` : "")
+      );
+    });
   }
 
   function changeExample(index: number, change: Partial<WorkedExample>) {
@@ -701,8 +728,18 @@ export function LessonsPage({
                 <span>Questions ({questions.length})</span>
                 <p className="muted lesson-hint">
                   Extract them from a worksheet above, or add them by hand. Answers are only for
-                  checking: students never see them.
+                  checking students&apos; working: students never see them.
                 </p>
+                {missingAnswers.length > 0 && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={busy}
+                    onClick={workOutAnswers}
+                  >
+                    Work out missing answers ({missingAnswers.length})
+                  </button>
+                )}
                 {questions.map((question, index) => (
                   <div key={index} className="review-item">
                     <div className="review-row">
@@ -716,7 +753,12 @@ export function LessonsPage({
                         aria-label={`Question ${index + 1} answer`}
                         placeholder="Answer (optional)"
                         value={question.answer ?? ""}
-                        onChange={(e) => changeQuestion(index, { answer: e.target.value })}
+                        onChange={(e) =>
+                          changeQuestion(index, {
+                            answer: e.target.value,
+                            answer_needs_review: false,
+                          })
+                        }
                       />
                       <button
                         type="button"
@@ -734,6 +776,19 @@ export function LessonsPage({
                       value={question.text}
                       onChange={(e) => changeQuestion(index, { text: e.target.value })}
                     />
+                    {question.answer_needs_review && (
+                      <div className="answer-review">
+                        <span className="status-badge ai-answer">Worked out by Prof AI</span>
+                        <span className="muted">Check it against the question.</span>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => changeQuestion(index, { answer_needs_review: false })}
+                        >
+                          Looks right
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button
@@ -766,6 +821,12 @@ export function LessonsPage({
                   I'm allowed to use this material with {studentName}: it's my own, or its licence
                   allows it.
                 </label>
+              )}
+              {toReview.length > 0 && (
+                <p className="lesson-hint needs-input-hint">
+                  Check the {toReview.length === 1 ? "answer" : "answers"} Prof AI worked out before
+                  setting up the chat.
+                </p>
               )}
               <button type="submit" className="primary" disabled={!canSave}>
                 Set up chat

@@ -6,6 +6,7 @@ import {
   getConversationVersion,
   listConversations,
   checkAnswer,
+  checkWorking,
   sendMessage,
   startConversation,
   UNAVAILABLE,
@@ -44,7 +45,8 @@ export function ChatPage({ me }: { me: Me }) {
             version: () => getConversationVersion(activeId),
             send: (content, handlers, toTutor, question) =>
               sendMessage(activeId, content, handlers, {}, toTutor, question),
-            check: (question, answer) => checkAnswer(activeId, question, answer),
+            check: (question, working, answer) => checkAnswer(activeId, question, working, answer),
+            checkWorking: (question, working) => checkWorking(activeId, question, working),
           },
     [activeId],
   );

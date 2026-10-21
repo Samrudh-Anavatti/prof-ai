@@ -8,17 +8,21 @@ from typing import Literal
 
 from prof_ai.chat.checking import (
     CHECK_OUTPUT_TOKENS,
-    CORRECT,
+    FEEDBACK,
+    KEEP_GOING,
     MAX_ANSWER_CHARS,
-    NO_KEY,
-    NOT_YET,
     CheckError,
-    check_request,
     find_question,
     leaks_key,
+    mark_request,
     matches_key,
-    parse_check,
+    missing_working,
+    parse_mark,
+    parse_working_check,
     question_reference,
+    tidy_working,
+    working_check_request,
+    working_message,
 )
 from prof_ai.chat.context import (
     AssembledContext,
@@ -48,9 +52,18 @@ from prof_ai.chat.models import (
     SupportLevel,
     TurnContext,
     Usage,
+    Verdict,
 )
 from prof_ai.chat.prompts import SUPPORT_PROMPTS, load_profile_layers
 from prof_ai.chat.store import ChatStore
+from prof_ai.lessons.answers import (
+    SOLVE_OUTPUT_TOKENS,
+    AnswersError,
+    QuestionToSolve,
+    SolvedAnswer,
+    parse_answers,
+    solve_request,
+)
 from prof_ai.lessons.describe import (
     DRAFT_OUTPUT_TOKENS,
     DraftError,
@@ -139,7 +152,17 @@ class AvailableModel:
 
 @dataclass(frozen=True)
 class CheckResult:
-    correct: bool
+    verdict: Verdict
+    feedback: str
+    conversation: Conversation
+
+    @property
+    def correct(self) -> bool:
+        return self.verdict == "correct"
+
+
+@dataclass(frozen=True)
+class WorkingFeedback:
     feedback: str
     conversation: Conversation
 
@@ -339,77 +362,130 @@ class ChatService:
             logger.exception("Charging a %s failed for tutor %s", task, tutor.id)
         return reply
 
-    def check_answer(
-        self, owner: User, conversation_id: str, question_number: str, answer: str
+    def submit_answer(
+        self,
+        owner: User,
+        conversation_id: str,
+        question_number: str,
+        working: list[str],
+        answer: str,
     ) -> CheckResult:
-        """Right, or "not yet" with a pointer; never the answer. Recorded for the tutor."""
+        """A verdict on the working and final answer; never the answer. Recorded for the tutor."""
         answer = answer.strip()
         if not answer:
-            raise ChatRefusedError(400, "Type your answer first.")
+            raise ChatRefusedError(400, "Type your final answer first.")
         if len(answer) > MAX_ANSWER_CHARS:
             raise ChatRefusedError(400, f"Keep your answer under {MAX_ANSWER_CHARS} characters.")
+        steps = self._steps(working)
+        problem = missing_working(steps, answer)
+        if problem:
+            raise ChatRefusedError(400, problem)
         conversation = self.get_conversation(owner, conversation_id)
-        question = find_question(conversation, question_number)
+        question = self._question(conversation, question_number)
+        reply = self._student_task(
+            owner,
+            conversation,
+            mark_request(question, steps, answer),
+            "\n".join([*steps, answer]),
+        )
+        try:
+            verdict, feedback = parse_mark(reply)
+        except CheckError as error:
+            raise ChatRefusedError(502, str(error)) from error
+        key = question.answer
+        # The answer is right, so at worst the working is what's missing.
+        if key and matches_key(answer, key) and verdict in ("slip", "not_yet"):
+            verdict, feedback = "show_working", FEEDBACK["show_working"]
+        if key and verdict != "correct" and leaks_key(feedback, key):
+            feedback = FEEDBACK[verdict]
+        now = self._clock()
+        attempt = Attempt(
+            question=question.number,
+            working=steps,
+            answer=answer,
+            correct=verdict == "correct",
+            verdict=verdict,
+            verified=bool(key),
+            at=now,
+        )
+        content = (
+            f"My working for {question.number}:\n\n{working_message(steps)}\n\n"
+            f"**My answer:** {answer}"
+        )
+        saved = self._record_exchange(owner, conversation_id, question, content, feedback, attempt)
+        return CheckResult(verdict, feedback, saved)
+
+    def check_working(
+        self, owner: User, conversation_id: str, question_number: str, working: list[str]
+    ) -> WorkingFeedback:
+        """A hint on unfinished working: on track, or the first step to look at. Not marked."""
+        steps = self._steps(working)
+        if not steps:
+            raise ChatRefusedError(400, "Write at least one step first.")
+        conversation = self.get_conversation(owner, conversation_id)
+        question = self._question(conversation, question_number)
+        reply = self._student_task(
+            owner, conversation, working_check_request(question, steps), "\n".join(steps)
+        )
+        try:
+            feedback = parse_working_check(reply)
+        except CheckError as error:
+            raise ChatRefusedError(502, str(error)) from error
+        if question.answer and leaks_key(feedback, question.answer):
+            feedback = KEEP_GOING
+        content = f"Can you check my working so far?\n\n{working_message(steps)}"
+        saved = self._record_exchange(owner, conversation_id, question, content, feedback)
+        return WorkingFeedback(feedback, saved)
+
+    def solve_questions(self, tutor: User, questions: list[QuestionToSolve]) -> list[SolvedAnswer]:
+        """Final answers for questions without a key, for the tutor to confirm before saving.
+
+        Questions are tutor content, so the tutor's preferred model may be unapproved.
+        """
+        try:
+            messages = solve_request(questions)
+        except AnswersError as error:
+            raise ChatRefusedError(400, str(error)) from error
+        engine = self._models.get(tutor.preferred_model or "", self._default)
+        reply = self._tutor_task(tutor, messages, engine, SOLVE_OUTPUT_TOKENS, "solve")
+        try:
+            return parse_answers(reply, [q.number for q in questions if q.text.strip()])
+        except AnswersError as error:
+            raise ChatRefusedError(502, str(error)) from error
+
+    @staticmethod
+    def _steps(working: list[str]) -> list[str]:
+        try:
+            return tidy_working(working)
+        except CheckError as error:
+            raise ChatRefusedError(400, str(error)) from error
+
+    @staticmethod
+    def _question(conversation: Conversation, number: str) -> Question:
+        question = find_question(conversation, number)
         if question is None:
             raise ChatRefusedError(404, "Question not found.")
-        if not question.answer:
-            raise ChatRefusedError(409, NO_KEY)
-        wait_reason = self._limiter.try_acquire(owner.id)
-        if wait_reason:
-            raise ChatRefusedError(429, wait_reason)
-        try:
-            if matches_key(answer, question.answer):
-                correct, feedback = True, CORRECT
-            else:
-                correct, feedback = self._model_check(owner, conversation, question, answer)
-        finally:
-            self._limiter.release(owner.id)
-        now = self._clock()
-        exchange = [
-            ChatMessage(
-                role="user",
-                content=f"Check my answer to {question.number}: {answer}",
-                at=now,
-                author=author_of(owner),
-                author_name=owner.display_name,
-                question=question.number,
-                checks_answer=True,
-            ),
-            ChatMessage(
-                role="assistant",
-                content=feedback,
-                at=now,
-                question=question.number,
-                checks_answer=True,
-            ),
-        ]
-        attempt = Attempt(question=question.number, answer=answer, correct=correct, at=now)
+        return question
 
-        def record(current: Conversation) -> None:
-            current.messages.extend(exchange)
-            current.attempts.append(attempt)
-            current.updated_at = now
-
-        try:
-            saved = self._store.update_conversation(owner.id, conversation_id, record)
-        except Exception as error:
-            logger.exception("Saving an answer check failed for conversation %s", conversation_id)
-            raise ChatRefusedError(503, UNAVAILABLE) from error
-        return CheckResult(correct, feedback, saved)
-
-    def _model_check(
-        self, owner: User, conversation: Conversation, question: Question, answer: str
-    ) -> tuple[bool, str]:
+    def _student_task(
+        self,
+        owner: User,
+        conversation: Conversation,
+        messages: list[PromptMessage],
+        student_text: str,
+    ) -> str:
+        """One model call about a question in the owner's chat, on its approved model."""
         if not self._limits.enabled:
             raise ChatRefusedError(503, "Chat is switched off at the moment.")
         engine = self._engine_for(owner, conversation)
         self._check_budgets(owner)
+        wait_reason = self._limiter.try_acquire(owner.id)
+        if wait_reason:
+            raise ChatRefusedError(429, wait_reason)
         try:
-            reply, usage = self._complete(
-                check_request(question, answer), engine, CHECK_OUTPUT_TOKENS
-            )
+            reply, usage = self._complete(messages, engine, CHECK_OUTPUT_TOKENS)
         except ContentFilteredError as error:
-            flag = Flag(kind="content_filter", message=answer, at=self._clock())
+            flag = Flag(kind="content_filter", message=student_text, at=self._clock())
             try:
                 self._store.update_conversation(
                     owner.id, conversation.id, lambda c: c.flags.append(flag)
@@ -420,19 +496,58 @@ class ChatService:
         except ModelRateLimitedError as error:
             raise ChatRefusedError(429, BUSY) from error
         except Exception as error:
-            logger.exception("Checking an answer failed for conversation %s", conversation.id)
+            logger.exception("Checking working failed for conversation %s", conversation.id)
             raise ChatRefusedError(503, UNAVAILABLE) from error
+        finally:
+            self._limiter.release(owner.id)
         try:
             self._charge(owner, usage, engine.profile)
         except Exception:
-            logger.exception("Charging an answer check failed for %s", conversation.id)
+            logger.exception("Charging a working check failed for %s", conversation.id)
+        return reply
+
+    def _record_exchange(
+        self,
+        owner: User,
+        conversation_id: str,
+        question: Question,
+        content: str,
+        feedback: str,
+        attempt: Attempt | None = None,
+    ) -> Conversation:
+        """A submission (with its attempt) or a working check, tagged with its question."""
+        now = self._clock()
+        marked = attempt is not None
+        exchange = [
+            ChatMessage(
+                role="user",
+                content=content,
+                at=now,
+                author=author_of(owner),
+                author_name=owner.display_name,
+                question=question.number,
+                checks_answer=marked,
+            ),
+            ChatMessage(
+                role="assistant",
+                content=feedback,
+                at=now,
+                question=question.number,
+                checks_answer=marked,
+            ),
+        ]
+
+        def record(current: Conversation) -> None:
+            current.messages.extend(exchange)
+            if attempt is not None:
+                current.attempts.append(attempt)
+            current.updated_at = now
+
         try:
-            correct, feedback = parse_check(reply)
-        except CheckError as error:
-            raise ChatRefusedError(502, str(error)) from error
-        if not correct and question.answer and leaks_key(feedback, question.answer):
-            feedback = NOT_YET
-        return correct, feedback
+            return self._store.update_conversation(owner.id, conversation_id, record)
+        except Exception as error:
+            logger.exception("Saving a working check failed for conversation %s", conversation_id)
+            raise ChatRefusedError(503, UNAVAILABLE) from error
 
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
         conversation = self._store.get_conversation(user.id, conversation_id)

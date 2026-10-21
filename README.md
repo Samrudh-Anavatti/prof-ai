@@ -67,6 +67,7 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Worksheet extraction**: questions, answers and worked examples drafted from a worksheet PDF for the tutor to review | Live |
 | ✅ | **Student lesson page**: worked examples, questions one at a time, help buttons, *Check my answer*, per-question progress | Live |
 | ✅ | **Describe it instead**: draft a lesson's fields from a description, with a checklist of what to cover | Live after merge |
+| ✅ | **Show your working**: step-by-step working with a live maths preview, hints as you go, four-way marking, missing answers worked out for the tutor to confirm | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Formal marking and a tutor dashboard across students | Phase 1, later |
@@ -77,21 +78,24 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Describe it instead · 2026-10-22 · Punji
+### Show your working · 2026-10-22 · Punji
 
-Set up a lesson by describing it in your own words instead of filling in each field.
+A question is now done when the student shows working that gets to the right answer, not when they type the answer ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md) amendment, **proposed**).
 
-- **A button in the corner** of *New lesson chat* opens a checklist and a text box. The checklist asks who it's for, the topic, what they've covered, what they find hard, how much help to give, and what to focus on.
-- **Prof AI drafts** the title, topics, notes and support level. It marks the checklist items you didn't cover and highlights the fields it couldn't fill. You check the form and save as usual.
-- **Student details stay on approved models:** a description is usually about a student, so it never goes to a model that isn't approved for student conversations.
+- **Students write their working step by step,** typing maths the calculator way (`x^2`, `3/4`, `sqrt(10)`), and see it typeset live under each line.
+- ***Check my working so far*** gives a hint at the step they're on, without marking.
+- ***Submit my answer*** returns one of four verdicts: *Correct* (with *Next question*), *Show your working*, *Nearly* or *Not yet*. Feedback never gives the answer, and you see every attempt's working.
+- **Missing answer keys:** *Work out missing answers* on the Lessons page has Prof AI solve them. You confirm each one before saving.
+- **For Sam:** MathLive (Desmos-style maths input) needs a security-policy change. See *Decisions for Sam* below.
 
-📄 [plan](docs/features/2026-10-22-describe-lesson/plan.md) · [handover](docs/features/2026-10-22-describe-lesson/handover.md)
+📄 [plan](docs/features/2026-10-22-show-your-working/plan.md) · [handover](docs/features/2026-10-22-show-your-working/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-22 | **Describe it instead**: draft a lesson's title, topics, notes and support level from one description, with a checklist of what to cover | Punji | [handover](docs/features/2026-10-22-describe-lesson/handover.md) |
 | 2026-10-22 | **Student lesson page**: worked examples first, questions one at a time with help buttons, *Check my answer* that never gives the answer, per-question progress | Punji | [handover](docs/features/2026-10-22-student-lesson-page/handover.md) |
 | 2026-10-21 | **Worksheet extraction**: questions, tutor-only answers and worked examples drafted from a worksheet PDF and reviewed on the Lessons page | Punji | [handover](docs/features/2026-10-21-worksheet-extraction/handover.md) |
 | 2026-10-21 | **Maths rendering**: Markdown and typeset maths (KaTeX to MathML) in Prof AI's replies | Punji | [handover](docs/features/2026-10-21-maths-rendering/handover.md) |
@@ -311,6 +315,7 @@ sequenceDiagram
 
 **Decisions for Sam**
 
+- [ ] **MathLive and the security policy** (discuss with Punji): Desmos-style maths input needs `style-src-attr 'unsafe-inline'` in the CSP, which your `test_shell_has_strict_security_headers` forbids. Students type plain maths with a live preview until you decide. The trade-offs are in the [handover](docs/features/2026-10-22-show-your-working/handover.md).
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
 - [ ] **Turn on Ollama Cloud** (after merging model providers): store the key in Key Vault as `ollama-api-key`, then run `bash scripts/deploy-infra.sh`. Steps in the [handover](docs/features/2026-10-21-model-providers/handover.md).
 - [ ] **A student-approved alternative to Luna**: Ollama models are wired in but not approved for students (US hosting, no DPA, no content filter). Approving any model needs those, plus a `prof eval dilution` pass (ADR 0005).

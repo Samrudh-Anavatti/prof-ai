@@ -74,11 +74,16 @@ export interface LessonOverview {
   questions?: QuestionOverview[];
 }
 
+export type Verdict = "correct" | "show_working" | "slip" | "not_yet";
+
 export interface QuestionProgress {
   number: string;
   status: "not_started" | "working" | "correct";
   attempts: number;
   help_messages: number;
+  last_verdict?: Verdict | null;
+  /** Marked without an answer key, so the tutor should look. */
+  unverified?: boolean;
 }
 
 export interface ConversationDetail extends ConversationSummary {
@@ -88,7 +93,13 @@ export interface ConversationDetail extends ConversationSummary {
 }
 
 export interface CheckOutcome {
+  verdict: Verdict;
   correct: boolean;
+  feedback: string;
+  progress: QuestionProgress[];
+}
+
+export interface WorkingOutcome {
   feedback: string;
   progress: QuestionProgress[];
 }
@@ -109,6 +120,13 @@ export interface Question {
   number: string;
   text: string;
   /** Tutor-only: checks the student's answer, never shown to them. */
+  answer: string | null;
+  /** Worked out by Prof AI; the tutor must confirm it before saving. */
+  answer_needs_review?: boolean;
+}
+
+export interface SolvedAnswer {
+  number: string;
   answer: string | null;
 }
 
@@ -405,6 +423,13 @@ export function extractWorksheet(text: string, options?: ApiOptions): Promise<Wo
   return sendJson<Worksheet>("POST", "/api/lessons/worksheet", { text }, options);
 }
 
+export function solveQuestions(
+  questions: { number: string; text: string }[],
+  options?: ApiOptions,
+): Promise<{ answers: SolvedAnswer[] }> {
+  return sendJson("POST", "/api/lessons/answers", { questions }, options);
+}
+
 export function draftLesson(description: string, options?: ApiOptions): Promise<LessonDraft> {
   return sendJson<LessonDraft>("POST", "/api/lessons/describe", { description }, options);
 }
@@ -475,17 +500,33 @@ export function sendMessage(
   return postMessage(path, content, handlers, options, messageExtras(toTutor, question));
 }
 
-/** Check the student's answer to one question of their lesson. */
+/** Mark the student's working and final answer to one question of their lesson. */
 export function checkAnswer(
   conversationId: string,
   question: string,
+  working: string[],
   answer: string,
   options?: ApiOptions,
 ): Promise<CheckOutcome> {
   return sendJson<CheckOutcome>(
     "POST",
     conversationPath(conversationId, "/check"),
-    { question, answer },
+    { question, working, answer },
+    options,
+  );
+}
+
+/** A hint on unfinished working; nothing is marked. */
+export function checkWorking(
+  conversationId: string,
+  question: string,
+  working: string[],
+  options?: ApiOptions,
+): Promise<WorkingOutcome> {
+  return sendJson<WorkingOutcome>(
+    "POST",
+    conversationPath(conversationId, "/working"),
+    { question, working },
     options,
   );
 }

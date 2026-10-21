@@ -30,6 +30,8 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-22 | Describe it instead: draft a lesson's title, topics, notes and support level from one description, with a checklist of what to cover, next to the existing form | Punji | merged | [plan](2026-10-22-describe-lesson/plan.md) · [handover](2026-10-22-describe-lesson/handover.md) |
 | — | Later: scanned worksheets: page images to a vision model, or Azure Document Intelligence (ADR 0006) | — | planned | — |
 | — | Later: reuse lessons across students: a tutor's lesson library, so similar lessons aren't rebuilt (and re-extracted) per student | — | planned | — |
+| 2026-10-22 | Show your working: students write their working step by step with a live maths preview, check it as they go, and submit for a verdict (correct, show your working, slip, not yet); Prof AI works out missing answers for the tutor to confirm (ADR 0006) | Punji | merged | [plan](2026-10-22-show-your-working/plan.md) · [handover](2026-10-22-show-your-working/handover.md) |
+| — | Later: adaptive practice: an Anki-style scheduler that gives a student more or fewer questions of each type based on how confident they seem (right first time, help needed, slips), bringing weak types back over the following days (learning science L9, L10) | — | planned | — |
 | — | Later: help-seeking signals: show the tutor when a student guesses rapidly or keeps asking for answers (learning science L11); a signal, never a lock | — | planned | — |
 
 Status values: `planned`, `in-progress`, `merged`, `abandoned`.

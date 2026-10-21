@@ -26,12 +26,12 @@ Every feature plan has a **Learning check** that names the principles it applies
 |-----------|-------------------|--------|
 | L1 Worked examples | *Step by step* walks through the worked example first; worked examples are extracted from the tutor's material and stored with the lesson ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)) | done: the student's lesson page opens them first at *Step by step* and folds them away otherwise |
 | L2 Expertise reversal | Support levels per lesson: step by step, balanced, stretch; *Describe it instead* asks the tutor for the level and what the student already knows ([describe it instead](../features/2026-10-22-describe-lesson/plan.md)) | done |
-| L3 Retrieval practice | Worksheet-first lessons: questions extracted from the tutor's worksheet ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)); the student's lesson page has them one at a time with *Check my answer* | done |
-| L4 Useful feedback | *Check my answer*: right, or "not yet" with what to look at again, never the answer ([student lesson page](../features/2026-10-22-student-lesson-page/plan.md)) | done |
+| L3 Retrieval practice | Worksheet-first lessons: questions extracted from the tutor's worksheet ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)); the student's lesson page has them one at a time, and a question is done only when the student shows working that reaches the answer ([show your working](../features/2026-10-22-show-your-working/plan.md)) | done |
+| L4 Useful feedback | Marking says what kind of problem it is (working missing, a slip, the method) and names the step, never the answer ([show your working](../features/2026-10-22-show-your-working/plan.md)) | done |
 | L5 Productive struggle | Base prompt: try first, hints, never final answers (eval-tested) | done |
 | L6 Self-explanation | *Stretch* level asks students to explain their reasoning | done |
-| L7 Step-based hints | Base prompt and levels: one step or hint at a time; help buttons and chat tagged to the current question | done |
+| L7 Step-based hints | Base prompt and levels: one step or hint at a time; help buttons and chat tagged to the current question; *Check my working so far* hints at the step the student is on | done |
 | L8 Manageable load | *Step by step*: one idea per message; short explanations; maths typeset rather than written as `(3x+2)/(x-1)` ([maths rendering](../features/2026-10-21-maths-rendering/plan.md)) | done |
-| L9 Spaced practice | The weekly loop | partly: no spaced review yet |
-| L10 Interleaving | Not yet | gap |
-| L11 Gaming the system | Attempts and help messages counted per question and shown to the tutor; flags for begging or rapid guessing are later | partly |
+| L9 Spaced practice | The weekly loop; later, adaptive practice that brings weak question types back over the following days (INDEX) | partly: no spaced review yet |
+| L10 Interleaving | Later: adaptive practice mixes question types (INDEX) | gap |
+| L11 Gaming the system | Attempts and help messages counted per question and shown to the tutor; a pasted answer no longer completes a question without working; flags for begging or rapid guessing are later | partly |
