@@ -78,23 +78,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Show your working · 2026-10-22 · Punji
+### Lesson chat bugs · 2026-10-21 · Sam
 
-A question is now done when the student shows working that gets to the right answer, not when they type the answer ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md) amendment, **proposed**).
+Fixes for the three lesson-chat bugs Punji logged.
 
-- **Students write their working step by step,** typing maths the calculator way (`x^2`, `3/4`, `sqrt(10)`), and see it typeset live under each line.
-- ***Check my working so far*** gives a hint at the step they're on, without marking.
-- ***Submit my answer*** returns one of four verdicts: *Correct* (with *Next question*), *Show your working*, *Nearly* or *Not yet*. Feedback never gives the answer, and you see every attempt's working.
-- **Missing answer keys:** *Work out missing answers* on the Lessons page has Prof AI solve them. You confirm each one before saving.
-- **For Sam:** MathLive (Desmos-style maths input) needs a security-policy change. See *Decisions for Sam* below.
+- **Only *Submit my answer* completes a question.** Prof AI can say a step looks right, but now tells the student to submit instead of saying the question is done and moving on.
+- **The thread follows the question you're on.** Switching questions shows that question's messages (plus general ones); *Show all questions* shows everything.
+- **Trying a lesson on yourself works like a student's view:** working editor, help buttons, *Submit my answer*, and Prof AI answers without `@AI`.
+- **Eval:** new `premature-done` case. Run `prof eval dilution --yes`; it also covers Punji's prompt changes.
 
-📄 [plan](docs/features/2026-10-22-show-your-working/plan.md) · [handover](docs/features/2026-10-22-show-your-working/handover.md)
+📄 [plan](docs/features/2026-10-21-lesson-chat-bugs/plan.md) · [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-22 | **Show your working**: step-by-step working with a live maths preview, *Check my working so far*, four verdicts on *Submit my answer*, Prof AI works out missing answer keys for the tutor to confirm | Punji | [handover](docs/features/2026-10-22-show-your-working/handover.md) |
 | 2026-10-22 | **Describe it instead**: draft a lesson's title, topics, notes and support level from one description, with a checklist of what to cover | Punji | [handover](docs/features/2026-10-22-describe-lesson/handover.md) |
 | 2026-10-22 | **Student lesson page**: worked examples first, questions one at a time with help buttons, *Check my answer* that never gives the answer, per-question progress | Punji | [handover](docs/features/2026-10-22-student-lesson-page/handover.md) |
 | 2026-10-21 | **Worksheet extraction**: questions, tutor-only answers and worked examples drafted from a worksheet PDF and reviewed on the Lessons page | Punji | [handover](docs/features/2026-10-21-worksheet-extraction/handover.md) |
@@ -280,13 +280,13 @@ sequenceDiagram
 |-----|----------|-----|
 | [0001](docs/decisions/0001-stack.md) | **Python 3.11 + FastAPI on App Service B1**, Foundry `gpt-5.6-luna`, Blob, Bicep, GitHub Actions; managed identity everywhere | Fast, cheap (~£10/month fixed), a path the team knows, and no keys next to a public repo |
 | [0002](docs/decisions/0002-auth-and-users.md) | **Entra External ID** (separate tenant) + **Easy Auth**; invite-only; **Cosmos DB serverless** for app data | Children's accounts kept away from the Azure tenant; locks checked on every request; ~£0 vs ~£12/month for Postgres |
-| [0003](docs/decisions/0003-frontend.md) | **React + TypeScript (Vite)**, built into the Python package and served by FastAPI from one origin | One cookie covers the app and API, with no CORS and no second auth setup; strict CSP |
+| [0003](docs/decisions/0003-frontend.md) | **React + TypeScript (Vite)**, built into the Python package and served by FastAPI from one origin | One cookie covers the app and API, with no CORS and no second auth setup; strict CSP (inline style attributes allowed for MathLive, 2026-10-21) |
 | [0004](docs/decisions/0004-invites-and-sign-up.md) | **Email-code sign-up, gated by invites in the app**; the first sign-in links the invite by its verified email | No passwords or reset step for new users, and no Graph rights for the web app |
 | *(in feature plans)* | **A content store in Blob, not a search index**: chapter-in-context first, lazy extraction | A student only needs the chapter they're on, so an always-on search cluster would be wasted money |
 | *(in feature plans)* | **Per-user AI configuration as markdown files in Blob**, layered after the base prompt | Easy for tutors to read and edit; safety rules always come first |
 | *(in feature plans)* | **Hard budgets in the app**: per-user and global daily caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
 | [0005](docs/decisions/0005-models-and-context-budget.md) | **Frontier models (Luna default, Foundry-hosted preferred); every prompt layer capped to fit the deployment's tokens per minute (50k now); dollar budgets; tutor-created shared chats with `@AI`** | Lessons and the knowledge graph get a fixed, enforced 64k each; caching and model choice show up in the budget; Ollama Cloud rejected for student data |
-| [0006](docs/decisions/0006-worksheet-first-lessons.md) | **Worksheet-first lessons** (proposed): worked examples and questions from the tutor's worksheet, Prof AI as help per question; answers tutor-only | A blank chat box leaves a stuck student aimless; questions first is the vision's loop and what the research backs (worked examples, retrieval practice) |
+| [0006](docs/decisions/0006-worksheet-first-lessons.md) | **Worksheet-first lessons**: worked examples and questions from the tutor's worksheet, Prof AI as help per question; answers tutor-only | A blank chat box leaves a stuck student aimless; questions first is the vision's loop and what the research backs (worked examples, retrieval practice) |
 
 ### Direction
 
@@ -315,7 +315,8 @@ sequenceDiagram
 
 **Decisions for Sam**
 
-- [ ] **MathLive and the security policy** (discuss with Punji): Desmos-style maths input needs `style-src-attr 'unsafe-inline'` in the CSP, which your `test_shell_has_strict_security_headers` forbids. Students type plain maths with a live preview until you decide. The trade-offs are in the [handover](docs/features/2026-10-22-show-your-working/handover.md).
+- [x] **MathLive and the security policy:** approved 2026-10-21 ([ADR 0003](docs/decisions/0003-frontend.md) amendment). The CSP change and the test update land with the MathLive feature.
+- [x] **Punji's proposals:** ADR 0005's two amendments of 2026-10-21 and ADR 0006 (with show your working) accepted 2026-10-21.
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
 - [ ] **Turn on Ollama Cloud** (after merging model providers): store the key in Key Vault as `ollama-api-key`, then run `bash scripts/deploy-infra.sh`. Steps in the [handover](docs/features/2026-10-21-model-providers/handover.md).
 - [ ] **A student-approved alternative to Luna**: Ollama models are wired in but not approved for students (US hosting, no DPA, no content filter). Approving any model needs those, plus a `prof eval dilution` pass (ADR 0005).

@@ -1,6 +1,6 @@
 # 0006: Worksheet-first lessons
 
-- **Status:** proposed (2026-10-21, Punji). It becomes accepted once both founders agree. Built in stages: extraction and tutor review ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)), then the student's lesson page.
+- **Status:** accepted (proposed 2026-10-21 by Punji, accepted by Sam 2026-10-21, including the show-your-working amendment). Built in stages: extraction and tutor review ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)), then the student's lesson page.
 
 ## Context
 A lesson today is a title, topics, notes and a block of PDF text in the prompt, with a chat on top. A student who is stuck doesn't know what to ask a blank chat box, and the app has no idea which questions the student is meant to answer. The vision's weekly loop was always questions first (Practise → Mark → Re-explain); chat came first only because it was built first.
@@ -29,7 +29,7 @@ The research we follow points the same way (see [learning science](../product/le
 - A worked example that solves the same problem as a question gives that answer away. The tutor sees both on the review screen and decides.
 - Reusing a lesson across students (a tutor's lesson library) is planned for later and would save repeat extractions.
 
-## Amendment 2026-10-22: show your working (proposed, Punji)
+## Amendment 2026-10-22: show your working (Punji, accepted)
 - **A question is done on the working, not the answer.** Students write their working step by step and submit it with a final answer. The model marks both against the key: `correct`, `show_working` (right answer, working missing), `slip` or `not_yet`. Only `correct` completes a question. Typing the right answer alone is no longer enough, and nothing is marked without a model call. An exact match can't be marked wrong, only sent back for working.
 - **Students can check unfinished working** at any point, to get a hint at the step they're on, without being marked.
 - **Missing answer keys:** the tutor can ask Prof AI to work them out. They must confirm each one before the lesson saves. A question still saved without a key is marked by the model alone, labelled unverified for the tutor.

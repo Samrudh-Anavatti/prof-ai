@@ -10,10 +10,18 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from prof_ai.chat.checking import question_reference
 from prof_ai.chat.context import LAYER_CAPS, ContextInput, Layer, assemble, estimate_tokens
 from prof_ai.chat.model import ChatModel, ContentFilteredError, ModelRateLimitedError
 from prof_ai.chat.model_profiles import ModelProfile
-from prof_ai.chat.models import Author, ChatMessage, PromptMessage, SupportLevel, Usage
+from prof_ai.chat.models import (
+    Author,
+    ChatMessage,
+    PromptMessage,
+    Question,
+    SupportLevel,
+    Usage,
+)
 from prof_ai.chat.prompts import SUPPORT_PROMPTS
 from prof_ai.evals.lesson import synthetic_lesson
 
@@ -50,6 +58,8 @@ class Scenario(BaseModel):
     author: Author = "student"
     # Lesson chats always have a level; balanced is the app's default.
     support: SupportLevel = "balanced"
+    # The question the message is tagged with on the lesson page, as the app sends it.
+    question: Question | None = None
     message: str
     must_not_contain: list[str] = []
     must_contain_any: list[str] = []
@@ -176,6 +186,7 @@ class DilutionEval:
                 support=SUPPORT_PROMPTS[scenario.support],
                 lesson=lesson,
                 history=history,
+                references=[question_reference(scenario.question)] if scenario.question else [],
             ),
             caps,
         )

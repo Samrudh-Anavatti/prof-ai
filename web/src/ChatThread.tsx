@@ -17,7 +17,7 @@ import {
 import { Avatar } from "./Avatar";
 import { LessonPanel } from "./LessonPanel";
 import { Markdown } from "./Markdown";
-import { nextQuestion } from "./progress";
+import { messagesForQuestion, nextQuestion } from "./progress";
 
 const MAX_INPUT_CHARS = 2000;
 const POLL_MS = 5000;
@@ -49,10 +49,16 @@ export interface ChatEndpoints {
   checkWorking?: (question: string, working: string[]) => Promise<WorkingOutcome>;
 }
 
-/** Mirrors chat.service.asks_ai. */
-export function asksAi(shared: boolean, author: Author, content: string, toTutor = false): boolean {
+/** Mirrors chat.service.asks_ai: in a lesson chat, its owner gets Prof AI by default. */
+export function asksAi(
+  shared: boolean,
+  author: Author,
+  content: string,
+  toTutor = false,
+  ownerAuthor: Author = "student",
+): boolean {
   if (!shared || AI_MENTION.test(content)) return true;
-  return author === "student" && !toTutor;
+  return author === ownerAuthor && !toTutor;
 }
 
 export function withMention(content: string): string {
@@ -75,13 +81,17 @@ function firstName(me: Me): string {
   return me.display_name.split(" ")[0] || me.display_name;
 }
 
+/** own: the viewer owns this chat, so in a lesson they work the questions, as a student does
+ * (a tutor trying a lesson on themselves). */
 export function ChatThread({
   me,
   endpoints,
+  own = false,
   onTitle,
 }: {
   me: Me;
   endpoints: ChatEndpoints;
+  own?: boolean;
   onTitle?: (title: string) => void;
 }) {
   const viewer: Author = me.role === "tutor" ? "tutor" : "student";
@@ -92,6 +102,7 @@ export function ChatThread({
   const threadEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const [pickedQuestion, setPickedQuestion] = useState<string | null>(null);
+  const [showAllQuestions, setShowAllQuestions] = useState(false);
   const sending = reply !== null;
   const shared = detail?.lesson != null;
   const questions = detail?.lesson?.questions ?? [];
@@ -109,7 +120,7 @@ export function ChatThread({
 
   useEffect(() => {
     threadEnd.current?.scrollIntoView({ block: "end" });
-  }, [detail?.messages.length, reply]);
+  }, [detail?.messages.length, reply, currentQuestion, showAllQuestions]);
 
   const knownVersion = detail?.updated_at;
   useEffect(() => {
@@ -141,7 +152,7 @@ export function ChatThread({
       question,
     };
     setDetail({ ...before, messages: [...before.messages, mine] });
-    setReply(asksAi(shared, viewer, content, toTutor) ? "" : null);
+    setReply(asksAi(shared, viewer, content, toTutor, own ? viewer : "student") ? "" : null);
     let streamed = "";
     try {
       const result = await endpoints.send(
@@ -178,10 +189,12 @@ export function ChatThread({
     }
   }
 
-  const messages = detail?.messages ?? [];
+  const allMessages = detail?.messages ?? [];
+  const filtering = currentQuestion !== null && !showAllQuestions;
+  const messages = filtering ? messagesForQuestion(allMessages, currentQuestion) : allMessages;
   const lesson = detail?.lesson ?? null;
-  const studentInLesson = shared && viewer === "student";
-  const starters = (viewer === "student" || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
+  const solving = shared && own;
+  const starters = (own || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
 
   async function checkAnswer(
     question: string,
@@ -227,13 +240,29 @@ export function ChatThread({
           progress={detail?.progress ?? []}
           current={currentQuestion}
           onSelect={setPickedQuestion}
-          onHelp={viewer === "student" ? (text) => void send(text) : undefined}
-          onCheck={endpoints.check && viewer === "student" ? checkAnswer : undefined}
-          onCheckWorking={endpoints.checkWorking && viewer === "student" ? checkWorking : undefined}
+          onHelp={solving ? (text) => void send(text) : undefined}
+          onCheck={endpoints.check && solving ? checkAnswer : undefined}
+          onCheckWorking={endpoints.checkWorking && solving ? checkWorking : undefined}
           busy={sending}
         />
       )}
       <div className="thread" aria-live="polite">
+        {currentQuestion !== null && allMessages.length > 0 && (
+          <div className="thread-filter">
+            <span className="muted">
+              {showAllQuestions
+                ? "Showing every question's messages"
+                : `Showing messages about question ${currentQuestion}`}
+            </span>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setShowAllQuestions(!showAllQuestions)}
+            >
+              {showAllQuestions ? `Only question ${currentQuestion}` : "Show all questions"}
+            </button>
+          </div>
+        )}
         {!detail && !error && (
           <div className="thread-skeleton" role="status">
             <span className="visually-hidden">Loading the chat…</span>
@@ -242,17 +271,20 @@ export function ChatThread({
             <span className="skeleton skeleton-bubble" />
           </div>
         )}
-        {detail && messages.length === 0 && reply === null && (
+        {filtering && allMessages.length > 0 && messages.length === 0 && reply === null && (
+          <p className="muted thread-filter-empty">No messages about this question yet.</p>
+        )}
+        {detail && allMessages.length === 0 && reply === null && (
           <div className="empty">
             <p className="empty-wave" aria-hidden="true">
               👋
             </p>
             <h1>Hi {firstName(me)}</h1>
             <p className="muted">
-              {studentInLesson && hasWorksheet
+              {solving && hasWorksheet
                 ? "Try the question above. When you're stuck, use a help button or ask Prof AI here."
-                : studentInLesson
-                  ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson, or send a message to your tutor only.`
+                : solving
+                  ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson${viewer === "student" ? ", or send a message to your tutor only" : ""}.`
                   : shared
                     ? `This chat is about ${lesson?.title}. Write to your student here, or start with @AI to ask Prof AI.`
                     : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
@@ -323,7 +355,7 @@ export function ChatThread({
           maxLength={MAX_INPUT_CHARS}
           rows={2}
           placeholder={
-            shared && !studentInLesson
+            shared && !solving
               ? "Write a message, or start with @AI to ask Prof AI…"
               : "Ask Prof AI…"
           }
@@ -332,9 +364,9 @@ export function ChatThread({
         />
         <div className="composer-actions">
           <button type="submit" disabled={sending || !detail || !draft.trim()}>
-            {studentInLesson ? "Ask Prof AI" : "Send"}
+            {solving ? "Ask Prof AI" : "Send"}
           </button>
-          {studentInLesson && (
+          {solving && viewer === "student" && (
             <button
               type="button"
               className="secondary"
@@ -344,7 +376,7 @@ export function ChatThread({
               Send to tutor only
             </button>
           )}
-          {shared && !studentInLesson && (
+          {shared && !solving && (
             <button
               type="button"
               className="ask-ai"
