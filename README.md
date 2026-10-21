@@ -43,7 +43,7 @@ A tutor teaches a live lesson and assigns a chapter and questions. During the we
                                    + AI)       guarded AI)    everything)
 ```
 
-The student's assistant **coaches rather than hands over answers**, stays **grounded in the tutor's own content**, and is **heavily guarded**. The tutor sees results, transcripts, flags and usage before the next lesson. First users: Sam and Punjy as tutors, with 5–6 students each. More in [vision.md](docs/product/vision.md).
+The student's assistant **coaches rather than hands over answers**, stays **grounded in the tutor's own content**, and is **heavily guarded**. The tutor sees results, transcripts, flags and usage before the next lesson. First users: Sam and Punji as tutors, with 5–6 students each. More in [vision.md](docs/product/vision.md).
 
 ## 📍 Where we are
 
@@ -141,7 +141,7 @@ A friendlier, easier-to-read look for students aged 11–18 and their tutors. No
 
 ## ☁️ Azure architecture
 
-Everything lives in **`rg-prof-ai`** (UK South), defined in [`infra/main.bicep`](infra/main.bicep), tagged `project=prof-ai`, `owner=sam|punjy`. **No keys anywhere**: services talk with managed identities, deploys use GitHub OIDC, and local dev uses your `az login`. The only secret (Easy Auth's client secret) sits in Key Vault.
+Everything lives in **`rg-prof-ai`** (UK South), defined in [`infra/main.bicep`](infra/main.bicep), tagged `project=prof-ai`, `owner=sam|punji`. **No keys anywhere**: services talk with managed identities, deploys use GitHub OIDC, and local dev uses your `az login`. The only secret (Easy Auth's client secret) sits in Key Vault.
 
 ```mermaid
 flowchart LR
@@ -247,7 +247,7 @@ sequenceDiagram
 **The system prompt is layered**, and you can always see the result with `prof profiles show <email>` or on the Teaching style page:
 
 1. **Base tutor prompt**, in the repo ([`tutor.md`](src/prof_ai/chat/prompts/tutor.md)): coach rather than give answers, stay on school topics, no personal details, distress → trusted adult and Childline.
-2. **The tutor's teaching style**: `profiles/<tutor-id>/teaching-style.md`. A student gets their tutor's style, so Sam's and Punjy's students get different behaviour.
+2. **The tutor's teaching style**: `profiles/<tutor-id>/teaching-style.md`. A student gets their tutor's style, so Sam's and Punji's students get different behaviour.
 3. **The user's profile**: `profiles/<user-id>/profile.md`.
 4. **Lesson material** (feature b) and the **conversation summary**, then the history, the new message with any **reference material**, and a closing safety reminder. Caps and order: [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
 
@@ -289,17 +289,17 @@ sequenceDiagram
 - [ ] **Guard pipeline** (R1, R2, R11): Prompt Shields, topic relevance, an immediate tutor flag on self-harm categories, auto-lock. A stricter custom content filter for ages 11–18.
 - [ ] **Data residency** (R16): GlobalStandard may process prompts outside the UK.
 - [ ] **Children's data** (R10): jurisdiction, parental consent, privacy notice, retention policy for transcripts.
-- [ ] **Safeguarding process**: agree the escalation steps and resources between Sam and Punjy.
+- [ ] **Safeguarding process**: agree the escalation steps and resources between Sam and Punji.
 
 **Decisions for Sam**
 
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
-- [ ] **Important: a better serverless LLM provider** (proposed for Punjy): something like Ollama Cloud at a similar price without Azure's 50k-tokens-a-minute squeeze. ADR 0005 set Ollama aside for student data (US hosting, no DPA, no content filter, API key), so the pick must clear that bar and pass `prof eval dilution`. See the INDEX row.
+- [ ] **Important: a better serverless LLM provider** (proposed for Punji): something like Ollama Cloud at a similar price without Azure's 50k-tokens-a-minute squeeze. ADR 0005 set Ollama aside for student data (US hosting, no DPA, no content filter, API key), so the pick must clear that bar and pass `prof eval dilution`. See the INDEX row.
 - [ ] **Request more Luna quota** (https://aka.ms/oai/stuquotarequest): Prof AI is capped at 50k tokens a minute because the football project holds 200 of 250. Then raise `chatModel.capacity` and the context caps (ADR 0005 amendment).
 
 **Setup and housekeeping**
 
-- [ ] **Punjy's access**: invite Punjy as a tutor at `/users` (and `prof users set-admin` if Punjy should manage everyone); for Azure and CLI access, add Punjy to the workforce tenant and `tutorPrincipalIds`.
+- [ ] **Punji's access**: invite Punji as a tutor at `/users` (and `prof users set-admin` if Punji should manage everyone); for Azure and CLI access, add Punji to the workforce tenant and `tutorPrincipalIds`.
 - [ ] **Roll out invites** (after merging the users admin page): run `scripts/setup_external_id.py` (opens sign-up and adds the email claim), `prof users set-admin` yourself, then test an invite end to end.
 - [ ] **Rotate the auth secret by 2027-04-16** (`scripts/rotate_auth_secret.py`).
 - [ ] **Verify live**: Easy Auth returns 401 rather than 302 to `fetch` when a session expires; replies stream word by word on App Service.
@@ -372,14 +372,14 @@ scripts/               test.sh, deploy-infra.sh, External ID setup, secret rotat
 
 ## 🤝 How we work
 
-Sam and Punjy each drive a coding agent, on their own time. [CLAUDE.md](CLAUDE.md) and `docs/features/` keep the two agents in sync:
+Sam and Punji each drive a coding agent, on their own time. [CLAUDE.md](CLAUDE.md) and `docs/features/` keep the two agents in sync:
 
 1. **Risk-first plan** before code: `docs/features/<date>-<slug>/plan.md`, checked against the [risk register](docs/product/risks.md).
-2. Build on `<owner>/<slug>`, with tests in `tests/<slug>/`.
+2. Build on `<feat|fix|refactor|chore|docs>/<slug>`, with tests in `tests/<slug>/`.
 3. **Handover** before merging: what was built, contracts, gotchas, and what the other person needs to do.
 4. **Update the [🆕 Latest](#-latest) section of this README** and the INDEX row.
 5. Green suite (`bash scripts/test.sh`), then a PR to `master`. Merging deploys.
 
 **Never weaken someone else's test.** The repo is **public**: no real student data, no secrets, no textbooks.
 
-**Team:** Sam ([@Samrudh-Anavatti](https://github.com/Samrudh-Anavatti)) · Punjy · **License:** [MIT](LICENSE)
+**Team:** Sam ([@Samrudh-Anavatti](https://github.com/Samrudh-Anavatti)) · Punji · **License:** [MIT](LICENSE)

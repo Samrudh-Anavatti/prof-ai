@@ -12,7 +12,7 @@ URL = "/api/users"
 
 
 class AdminHarness(Harness):
-    """Sam is an admin; Punjy is a tutor; Alex is Sam's student; Bea is Punjy's."""
+    """Sam is an admin; Punji is a tutor; Alex is Sam's student; Bea is Punji's."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -65,18 +65,18 @@ def test_admin_sees_everyone_with_their_tutors(h):
     assert response.status_code == 200
     assert emails(response) == {
         "sam@example.com",
-        "punjy@example.com",
+        "punji@example.com",
         "alex@example.com",
         "bea@example.com",
     }
     bea = next(u for u in response.json() if u["email"] == "bea@example.com")
-    assert bea["tutor_email"] == "punjy@example.com"
+    assert bea["tutor_email"] == "punji@example.com"
     assert bea["status"] == "active"
     assert bea["is_admin"] is False
 
 
 def test_tutor_sees_only_themselves_and_their_students(h):
-    assert emails(h.get("punjy")) == {"punjy@example.com", "bea@example.com"}
+    assert emails(h.get("punji")) == {"punji@example.com", "bea@example.com"}
 
 
 def test_students_cannot_use_the_admin_api(h):
@@ -87,12 +87,12 @@ def test_students_cannot_use_the_admin_api(h):
 
 def test_me_reports_admin(h):
     assert h.get("sam", "/api/me").json()["is_admin"] is True
-    assert h.get("punjy", "/api/me").json()["is_admin"] is False
+    assert h.get("punji", "/api/me").json()["is_admin"] is False
 
 
 def test_tutor_invites_a_student_who_is_always_theirs(h):
     response = h.invite(
-        "punjy", email="Cara@Example.com", display_name="Cara", tutor_email="sam@example.com"
+        "punji", email="Cara@Example.com", display_name="Cara", tutor_email="sam@example.com"
     )
 
     assert response.status_code == 201
@@ -102,13 +102,13 @@ def test_tutor_invites_a_student_who_is_always_theirs(h):
         "invited",
         "student",
     )
-    assert body["tutor_email"] == "punjy@example.com"
+    assert body["tutor_email"] == "punji@example.com"
     assert h.users.events[-1].action == "user_added"
 
 
 def test_only_admins_invite_tutors(h):
     assert (
-        h.invite("punjy", email="t@example.com", display_name="T", role="tutor").status_code == 403
+        h.invite("punji", email="t@example.com", display_name="T", role="tutor").status_code == 403
     )
     response = h.invite("sam", email="t@example.com", display_name="T", role="tutor")
     assert response.status_code == 201
@@ -117,10 +117,10 @@ def test_only_admins_invite_tutors(h):
 
 def test_admin_invites_a_student_for_another_tutor(h):
     response = h.invite(
-        "sam", email="cara@example.com", display_name="Cara", tutor_email="punjy@example.com"
+        "sam", email="cara@example.com", display_name="Cara", tutor_email="punji@example.com"
     )
 
-    assert response.json()["tutor_email"] == "punjy@example.com"
+    assert response.json()["tutor_email"] == "punji@example.com"
 
 
 @pytest.mark.parametrize(
@@ -183,9 +183,9 @@ def test_lock_needs_a_reason_and_a_signed_up_user(h):
 
 def test_tutors_cannot_touch_other_tutors_students_or_tutors(h):
     for user_id in ("alex", "sam"):
-        assert h.lock("punjy", user_id).status_code == 404
-        assert h.unlock("punjy", user_id).status_code == 404
-        assert h.delete("punjy", user_id).status_code == 404
+        assert h.lock("punji", user_id).status_code == 404
+        assert h.unlock("punji", user_id).status_code == 404
+        assert h.delete("punji", user_id).status_code == 404
     assert h.users.get("alex").status == AccountStatus.ACTIVE
     assert h.users.get("sam") is not None
 
@@ -200,7 +200,7 @@ def test_delete_erases_chats_usage_profiles_and_the_account(h):
     h.profiles.put("bea", ProfileFile.PROFILE, "Bea is in year 8.")
     h.send("alex", h.start("alex"), "hi")
 
-    assert h.delete("punjy", "bea").status_code == 204
+    assert h.delete("punji", "bea").status_code == 204
 
     assert h.users.get("bea") is None
     assert h.store.list_conversations("bea") == []
@@ -214,9 +214,9 @@ def test_delete_erases_chats_usage_profiles_and_the_account(h):
 
 
 def test_a_tutor_with_students_cannot_be_deleted(h):
-    assert h.delete("sam", "punjy").status_code == 400
+    assert h.delete("sam", "punji").status_code == 400
     assert h.delete("sam", "bea").status_code == 204
-    assert h.delete("sam", "punjy").status_code == 204
+    assert h.delete("sam", "punji").status_code == 204
 
 
 def test_delete_failure_keeps_the_account(h, monkeypatch):

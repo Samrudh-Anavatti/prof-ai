@@ -28,11 +28,11 @@ def test_student_prompt_layers_base_then_tutor_style_then_profile(harness):
 
 def test_students_of_different_tutors_get_different_prompts(harness):
     harness.profiles.put("sam", ProfileFile.TEACHING_STYLE, "Sam style: worked examples.")
-    harness.profiles.put("punjy", ProfileFile.TEACHING_STYLE, "Punjy style: quick quizzes.")
+    harness.profiles.put("punji", ProfileFile.TEACHING_STYLE, "Punji style: quick quizzes.")
     alex = build_system_prompt(harness.users.get("alex"), harness.profiles)
     bea = build_system_prompt(harness.users.get("bea"), harness.profiles)
-    assert "Sam style" in alex and "Punjy style" not in alex
-    assert "Punjy style" in bea and "Sam style" not in bea
+    assert "Sam style" in alex and "Punji style" not in alex
+    assert "Punji style" in bea and "Sam style" not in bea
 
 
 def test_tutor_gets_their_own_teaching_style(harness):

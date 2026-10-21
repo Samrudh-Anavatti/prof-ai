@@ -10,7 +10,7 @@ The first usable proof of concept: a signed-in user chats with Luna (`gpt-5.6-lu
 ## Approach
 - **Prompt assembly** (`prof_ai.chat.prompts`). The system prompt is built from layers, in this order:
   1. **Base tutor prompt**, in the repo (`src/prof_ai/chat/prompts/tutor.md`). It covers the tutoring style (guide, don't hand over answers), age-appropriate tone, scope, and what to do with distress ("talk to your tutor or a trusted adult").
-  2. **Teaching style** of the user's tutor: `profiles/<tutor-id>/teaching-style.md`. For a student this is their tutor's file; for a tutor it's their own. This is how Sam's students and Punjy's students get different behaviour.
+  2. **Teaching style** of the user's tutor: `profiles/<tutor-id>/teaching-style.md`. For a student this is their tutor's file; for a tutor it's their own. This is how Sam's students and Punji's students get different behaviour.
   3. **The user's own profile**: `profiles/<user-id>/profile.md` (first name, year group, subjects, goals, tone notes).
   4. Later: knowledge-base context and memory slot in here.
 
@@ -43,7 +43,7 @@ The first usable proof of concept: a signed-in user chats with Luna (`gpt-5.6-lu
 | **R8 cross-user data** | Conversations and usage are partitioned by the signed-in user's ID, with no user ID in any request. Tests check that another user's conversation returns 404 and that profile layers come from the right user and tutor. |
 | **R4 answer leakage** | Out of scope until assignments exist. The base prompt tells the model to coach, not solve. |
 | **R6 wrong answers** | The base prompt says to admit uncertainty and suggest asking the tutor. Tutors can read transcripts with `prof chats show`. |
-| **R10 / R16 children's data** | **PoC use is limited to Sam, Punjy and synthetic test accounts** until R16 and parental consent are resolved. Profiles hold only first name and learning details. Transcripts stay in Cosmos (UK South), and no message content goes into logs. Retention policy is still to decide. |
+| **R10 / R16 children's data** | **PoC use is limited to Sam, Punji and synthetic test accounts** until R16 and parental consent are resolved. Profiles hold only first name and learning details. Transcripts stay in Cosmos (UK South), and no message content goes into logs. Retention policy is still to decide. |
 | **R11 safeguarding** | The base prompt sends distress to a trusted adult and the tutor. The automatic tutor flag on self-harm categories comes with the guard pipeline, which **must ship before real students use chat.** |
 | **R18 XSS** | Model output is rendered as React text, never HTML. |
 | **Failure** | If Foundry, Cosmos or the profile store fails, the user gets "unavailable" and nothing is half-saved: the user's message is stored only alongside a completed reply. If the budget check fails, the request is refused (fails closed). |
@@ -64,7 +64,7 @@ The first usable proof of concept: a signed-in user chats with Luna (`gpt-5.6-lu
 ## Tests to add
 `tests/tutor_chat/`, all offline with a fake model, an in-memory store and a fixed clock:
 - prompt layering for a student, a tutor, and a missing profile; size cap
-- Sam's student and Punjy's student get different system prompts
+- Sam's student and Punji's student get different system prompts
 - conversations are isolated per user (404 for someone else's)
 - every chat endpoint needs sign-in
 - input cap, daily user budget, global cap, kill switch and rate limit all refuse before any model call

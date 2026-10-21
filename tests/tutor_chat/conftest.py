@@ -135,9 +135,9 @@ class Harness:
         self.model = model or FakeModel()
         self.limits = limits or ChatLimits()
         self.users.save(make_user("sam", role=Role.TUTOR, email="sam@example.com"))
-        self.users.save(make_user("punjy", role=Role.TUTOR, email="punjy@example.com"))
+        self.users.save(make_user("punji", role=Role.TUTOR, email="punji@example.com"))
         self.users.save(make_user("alex", tutor_id="sam", email="alex@example.com"))
-        self.users.save(make_user("bea", tutor_id="punjy", email="bea@example.com"))
+        self.users.save(make_user("bea", tutor_id="punji", email="bea@example.com"))
         self.service = ChatService(
             self.model,
             self.store,

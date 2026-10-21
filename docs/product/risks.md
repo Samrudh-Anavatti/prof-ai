@@ -21,7 +21,7 @@ The platform puts a per-student, LLM-backed chat in front of children on the pub
 | Account lock | Jailbreak or prompt-injection detected; abusive content; suspicious login/usage patterns | All access blocked; tutor alerted | Tutor only |
 | Global kill switch | Monthly cost cap or an incident | All AI features off platform-wide | Head tutor |
 
-**Safeguarding exception.** If a student's message suggests self-harm, abuse or danger, **don't just lock.** Show a calm, supportive message with appropriate help resources, flag it to the tutor immediately, and keep a record. A distressed child must never just be met with "account locked". The resources and escalation process are to be agreed with Sam and Punjy before launch.
+**Safeguarding exception.** If a student's message suggests self-harm, abuse or danger, **don't just lock.** Show a calm, supportive message with appropriate help resources, flag it to the tutor immediately, and keep a record. A distressed child must never just be met with "account locked". The resources and escalation process are to be agreed with Sam and Punji before launch.
 
 ## Register
 

@@ -7,7 +7,7 @@ Living draft. Challenge anything here. Update it when the idea moves.
 An AI-assisted tutoring platform built around a human tutor, not one that replaces them. The tutor teaches a live one-hour lesson on a topic, usually a textbook chapter from a curriculum. During the week, each student keeps working on the platform. They do the questions the tutor assigned, and their own AI study assistant re-explains the chapter, grounded only in the content the tutor uploaded. The tutor sees everything: answers, marks, chat transcripts and usage.
 
 **Students:** grades 6–12.
-**First users:** Sam and Punjy as head tutors, each with 5–6 students.
+**First users:** Sam and Punji as head tutors, each with 5–6 students.
 
 ## The weekly loop (first cut)
 

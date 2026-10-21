@@ -47,7 +47,7 @@
 ## Known issues / TODOs
 - **Model processing location (R16):** GlobalStandard may process prompts outside the UK. Revisit before real students.
 - **Content filters:** the default filter is moderate. The chat feature should add a custom, stricter filter for a grade 6–12 audience.
-- **Punjy's access:** he isn't in the tenant yet. Once he is, add his object ID to `tutorPrincipalIds` in `infra/main.bicepparam` and redeploy the infra.
+- **Punji's access:** he isn't in the tenant yet. Once he is, add his object ID to `tutorPrincipalIds` in `infra/main.bicepparam` and redeploy the infra.
 - **Bicep CLI:** 0.36 works, but `az bicep upgrade` is available.
 
 ## For the other dev

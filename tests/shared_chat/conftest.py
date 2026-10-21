@@ -21,7 +21,7 @@ class SharedHarness(LessonHarness):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.users.save(self.users.get("sam").model_copy(update={"display_name": "Sam"}))
-        self.users.save(self.users.get("punjy").model_copy(update={"display_name": "Punjy"}))
+        self.users.save(self.users.get("punji").model_copy(update={"display_name": "Punji"}))
         self.chat_id = self.create("sam", "alex", RATIOS).json()["id"]
 
     def student_says(self, content: str):

@@ -1,7 +1,7 @@
 # Plan: <feature name>
 
-- **Owner:** <sam|punjy>
-- **Branch:** `<owner>/<slug>`
+- **Owner:** <sam|punji>
+- **Branch:** `<feat|fix|refactor|chore|docs>/<slug>`
 - **Date:** YYYY-MM-DD
 
 ## Goal

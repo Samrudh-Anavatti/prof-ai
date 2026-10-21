@@ -46,4 +46,4 @@ A deployed, empty Prof AI app at its default `azurewebsites.net` domain, with th
 `tests/app_skeleton/`: the health check contract, the landing page returning HTML, and API docs disabled when `APP_ENV=production`.
 
 ## Open questions
-- Punjy's Entra object ID (and whether they're in the same tenant), to add them to `tutorPrincipalIds`.
+- Punji's Entra object ID (and whether they're in the same tenant), to add them to `tutorPrincipalIds`.

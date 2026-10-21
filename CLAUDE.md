@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Instructions for every coding agent (Claude Code, Copilot, etc.) working in this repo. Two humans (Sam and Punjy) build features in parallel on their own time, each driving an agent. This file and `docs/features/` are how the two agents stay in sync. **Keep this file current.** If you change a convention, command, folder, or architecture decision, update this file in the same branch.
+Instructions for every coding agent (Claude Code, Copilot, etc.) working in this repo. Two humans (Sam and Punji) build features in parallel on their own time, each driving an agent. This file and `docs/features/` are how the two agents stay in sync. **Keep this file current.** If you change a convention, command, folder, or architecture decision, update this file in the same branch.
 
 ## Project
 
-**Prof AI**: an AI-assisted tutoring platform for grades 6–12. A human tutor teaches a lesson and assigns a chapter and questions. During the week, each student works on the platform: they submit answers, which are marked by software/AI and reviewed by the tutor, and they chat with their own heavily guarded assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage. The first users are Sam and Punjy as tutors, with 5–6 students each.
+**Prof AI**: an AI-assisted tutoring platform for grades 6–12. A human tutor teaches a lesson and assigns a chapter and questions. During the week, each student works on the platform: they submit answers, which are marked by software/AI and reviewed by the tutor, and they chat with their own heavily guarded assistant, grounded in the tutor's content. The tutor sees results, transcripts and usage. The first users are Sam and Punji as tutors, with 5–6 students each.
 
 The product is an early vision. `docs/product/` (vision, architecture, risks) is a living draft, not a rulebook. Question it, and update it when the idea moves.
 
@@ -12,7 +12,7 @@ The product is an early vision. `docs/product/` (vision, architecture, risks) is
 - Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md), [ADR 0003](docs/decisions/0003-frontend.md), [ADR 0004](docs/decisions/0004-invites-and-sign-up.md), [ADR 0005](docs/decisions/0005-models-and-context-budget.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication, with open email-code sign-up gated by tutor invites in the app's `users` container. Bicep for infrastructure, GitHub Actions for CI/CD. Frontend: React + TypeScript (Vite) in `web/`, built into `src/prof_ai/static/` and served by FastAPI from the same origin. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
 - No keys in code or config: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity. The one unavoidable secret (App Service Authentication's client secret) lives in Key Vault; rotate it with `scripts/rotate_auth_secret.py`.
 - **Every endpoint except `/healthz` and the static frontend shell must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced. All JSON endpoints live under `/api/`; a regression test fails if one doesn't require sign-in. The shell carries no data.
-- Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punjy>`.
+- Azure resource group: `rg-prof-ai` (UK South, subscription "Subscription 1", £50/month budget alert, all defined in `infra/main.bicep`). Every resource must go in this group with tags `project=prof-ai` and `owner=<sam|punji>`.
 
 ## Start of every session
 
@@ -36,7 +36,7 @@ Don't skip the docs. The other person's agent depends on them because it wasn't 
 ## Git workflow
 
 - Default branch is `master`. Don't commit directly to it.
-- Branch names: `<owner>/<short-slug>`, e.g. `sam/event-ingest` or `punjy/fan-overlay`.
+- Branch names: `<type>/<short-slug>`, where type is `feat` (new behaviour), `fix` (a bug), `refactor` (restructuring code without changing behaviour), `chore` (renames, tooling, cleanup) or `docs` (docs only), and the slug matches the feature folder without its date, e.g. `feat/lesson-behaviour` or `chore/rename-punji`. Who owns a feature is recorded in `docs/features/INDEX.md`, not the branch name.
 - Merge to `master` through a PR. The PR description links the feature's `plan.md` and `handover.md`.
 - Keep branches short-lived. Rebase on or merge `master` before opening the PR, and re-run the suite after.
 - Commit messages are short and imperative: "Add login endpoint", not "added stuff".

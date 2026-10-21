@@ -1,6 +1,6 @@
 # Handover: <feature name>
 
-- **Owner:** <sam|punjy>
+- **Owner:** <sam|punji>
 - **PR:** <link>
 - **Merged:** YYYY-MM-DD
 
