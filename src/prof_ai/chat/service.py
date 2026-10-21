@@ -51,6 +51,13 @@ from prof_ai.chat.models import (
 )
 from prof_ai.chat.prompts import SUPPORT_PROMPTS, load_profile_layers
 from prof_ai.chat.store import ChatStore
+from prof_ai.lessons.describe import (
+    DRAFT_OUTPUT_TOKENS,
+    DraftError,
+    LessonDraft,
+    draft_request,
+    parse_draft,
+)
 from prof_ai.lessons.rules import InvalidLessonError, render_lesson, validate_lesson
 from prof_ai.lessons.worksheet import (
     EXTRACT_OUTPUT_TOKENS,
@@ -274,32 +281,63 @@ class ChatService:
             messages = extraction_request(text)
         except WorksheetError as error:
             raise ChatRefusedError(400, str(error)) from error
+        engine = self._models.get(tutor.preferred_model or "", self._default)
+        reply = self._tutor_task(tutor, messages, engine, EXTRACT_OUTPUT_TOKENS, "extraction")
+        try:
+            return parse_worksheet(reply)
+        except WorksheetError as error:
+            raise ChatRefusedError(502, str(error)) from error
+
+    def draft_lesson(self, tutor: User, description: str) -> LessonDraft:
+        """A lesson's title, topics, notes and support level from the tutor's description.
+
+        A description is usually about a student, so it only goes to a model approved for
+        student conversations: the tutor's preferred one if it is, otherwise the default.
+        """
+        try:
+            messages = draft_request(description)
+        except DraftError as error:
+            raise ChatRefusedError(400, str(error)) from error
+        engine = self._models.get(tutor.preferred_model or "", self._default)
+        if not engine.profile.approved_for_student_conversations:
+            engine = self._default
+        reply = self._tutor_task(tutor, messages, engine, DRAFT_OUTPUT_TOKENS, "lesson draft")
+        try:
+            return parse_draft(reply)
+        except DraftError as error:
+            raise ChatRefusedError(502, str(error)) from error
+
+    def _tutor_task(
+        self,
+        tutor: User,
+        messages: list[PromptMessage],
+        engine: AvailableModel,
+        max_output_tokens: int,
+        task: str,
+    ) -> str:
+        """One model call for a tutor's lesson setup, outside any chat, charged to the tutor."""
         if not self._limits.enabled:
             raise ChatRefusedError(503, "Chat is switched off at the moment.")
         self._check_budgets(tutor)
         wait_reason = self._limiter.try_acquire(tutor.id)
         if wait_reason:
             raise ChatRefusedError(429, wait_reason)
-        engine = self._models.get(tutor.preferred_model or "", self._default)
         try:
-            reply, usage = self._complete(messages, engine, EXTRACT_OUTPUT_TOKENS)
+            reply, usage = self._complete(messages, engine, max_output_tokens)
         except ContentFilteredError as error:
-            raise ChatRefusedError(400, "The content filter blocked that material.") from error
+            raise ChatRefusedError(400, "The content filter blocked that text.") from error
         except ModelRateLimitedError as error:
             raise ChatRefusedError(429, BUSY) from error
         except Exception as error:
-            logger.exception("Worksheet extraction failed for tutor %s", tutor.id)
+            logger.exception("A %s failed for tutor %s", task, tutor.id)
             raise ChatRefusedError(503, UNAVAILABLE) from error
         finally:
             self._limiter.release(tutor.id)
         try:
             self._charge(tutor, usage, engine.profile)
         except Exception:
-            logger.exception("Charging a worksheet extraction failed for tutor %s", tutor.id)
-        try:
-            return parse_worksheet(reply)
-        except WorksheetError as error:
-            raise ChatRefusedError(502, str(error)) from error
+            logger.exception("Charging a %s failed for tutor %s", task, tutor.id)
+        return reply
 
     def check_answer(
         self, owner: User, conversation_id: str, question_number: str, answer: str

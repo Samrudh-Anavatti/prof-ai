@@ -25,6 +25,7 @@ from prof_ai.chat.service import (
     ChatRefusedError,
     ConversationNotFoundError,
 )
+from prof_ai.lessons.describe import LessonDraft
 from prof_ai.lessons.pdf_text import MAX_LESSON_PDF_BYTES, LessonPdfError, extract_pages
 from prof_ai.lessons.worksheet import Worksheet
 from prof_ai.users.api import can_manage
@@ -73,6 +74,10 @@ class PdfUpload(BaseModel):
 
 class WorksheetText(BaseModel):
     text: str
+
+
+class LessonDescription(BaseModel):
+    description: str
 
 
 class ExtractedPage(BaseModel):
@@ -246,6 +251,14 @@ def create_lessons_router() -> APIRouter:
         """Draft questions and worked examples for the tutor to review before saving."""
         try:
             return chat_service(request).extract_worksheet(tutor, body.text)
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+
+    @router.post("/lessons/describe")
+    def describe_lesson(body: LessonDescription, tutor: Tutor, request: Request) -> LessonDraft:
+        """Draft a lesson's fields from the tutor's description, for them to check."""
+        try:
+            return chat_service(request).draft_lesson(tutor, body.description)
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error
 

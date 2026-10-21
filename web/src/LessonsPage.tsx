@@ -6,6 +6,7 @@ import {
   changeStudentChatSupport,
   createStudentChat,
   deleteStudentChat,
+  draftLesson,
   extractPdf,
   extractWorksheet,
   listModels,
@@ -24,8 +25,10 @@ import {
   type UserView,
   type WorkedExample,
 } from "./api";
+import { DescribeLesson } from "./DescribeLesson";
 import { PageSkeleton } from "./Skeleton";
 import {
+  applyDraft,
   initialModel,
   lessonTokens,
   MAX_PDF_BYTES,
@@ -35,6 +38,7 @@ import {
   SUPPORT_LEVELS,
   supportLevel,
   toBase64,
+  type DraftField,
 } from "./lessons";
 
 interface UploadedPdf {
@@ -77,6 +81,10 @@ export function LessonsPage({
   const [licensed, setLicensed] = useState(false);
   const [pdf, setPdf] = useState<UploadedPdf | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [describing, setDescribing] = useState(false);
+  const [description, setDescription] = useState("");
+  const [unanswered, setUnanswered] = useState<string[] | null>(null);
+  const [unfilled, setUnfilled] = useState<DraftField[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +173,40 @@ export function LessonsPage({
     setLicensed(false);
     setPdf(null);
     setPicked(new Set());
+    setDescribing(false);
+    setDescription("");
+    setUnanswered(null);
+    setUnfilled([]);
+  }
+
+  function filled(field: DraftField) {
+    setUnfilled((current) => current.filter((f) => f !== field));
+  }
+
+  function fieldClass(field: DraftField, base = ""): string | undefined {
+    return [base, unfilled.includes(field) && "needs-input"].filter(Boolean).join(" ") || undefined;
+  }
+
+  function notInDescription(field: DraftField) {
+    return (
+      unfilled.includes(field) && (
+        <span className="needs-input-hint">Not in your description: add it here.</span>
+      )
+    );
+  }
+
+  function draft() {
+    void act(async () => {
+      const drafted = await draftLesson(description);
+      const applied = applyDraft({ title, topics, notes, support }, drafted);
+      setTitle(applied.fields.title);
+      setTopics(applied.fields.topics);
+      setNotes(applied.fields.notes);
+      setSupport(applied.fields.support);
+      setUnfilled(applied.unfilled);
+      setUnanswered(drafted.unanswered);
+      return "Drafted from your description. Check the fields below before setting up the chat.";
+    });
   }
 
   function choosePdf(event: ChangeEvent<HTMLInputElement>) {
@@ -460,33 +502,64 @@ export function LessonsPage({
             </div>
           ) : (
             <form className="invite-form lesson-form" onSubmit={create}>
-              <h2>New lesson chat</h2>
+              <div className="lesson-form-head">
+                <h2>New lesson chat</h2>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-expanded={describing}
+                  onClick={() => setDescribing((open) => !open)}
+                >
+                  Describe it instead
+                </button>
+              </div>
+              {describing && (
+                <DescribeLesson
+                  description={description}
+                  onChange={setDescription}
+                  unanswered={unanswered}
+                  busy={busy}
+                  onDraft={draft}
+                  onClose={() => setDescribing(false)}
+                />
+              )}
               <div className="invite-fields">
-                <label>
+                <label className={fieldClass("title")}>
                   Lesson title
                   <input
                     required
                     maxLength={120}
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      filled("title");
+                    }}
                     placeholder="Ratios"
                   />
+                  {notInDescription("title")}
                 </label>
               </div>
-              <label className="lesson-field">
+              <label className={fieldClass("topics", "lesson-field")}>
                 Topics covered, one per line
                 <textarea
                   rows={3}
                   value={topics}
-                  onChange={(e) => setTopics(e.target.value)}
+                  onChange={(e) => {
+                    setTopics(e.target.value);
+                    filled("topics");
+                  }}
                   placeholder={"Simplifying ratios\nSharing in a ratio"}
                 />
+                {notInDescription("topics")}
               </label>
-              <label className="lesson-field">
+              <label className={fieldClass("support", "lesson-field")}>
                 How much help should Prof AI give?
                 <select
                   value={support}
-                  onChange={(e) => setSupport(e.target.value as SupportLevel)}
+                  onChange={(e) => {
+                    setSupport(e.target.value as SupportLevel);
+                    filled("support");
+                  }}
                 >
                   {SUPPORT_LEVELS.map((level) => (
                     <option key={level.value} value={level.value}>
@@ -498,6 +571,7 @@ export function LessonsPage({
                   {supportLevel(support).hint} It never gives final answers. You can change this
                   later.
                 </span>
+                {notInDescription("support")}
               </label>
               {models && (
                 <label className="lesson-field">
@@ -510,14 +584,18 @@ export function LessonsPage({
                   )}
                 </label>
               )}
-              <label className="lesson-field">
+              <label className={fieldClass("notes", "lesson-field")}>
                 Notes for Prof AI (what to focus on, what they found hard)
                 <textarea
                   rows={3}
                   maxLength={2000}
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    filled("notes");
+                  }}
                 />
+                {notInDescription("notes")}
               </label>
 
               <div className="lesson-field">
