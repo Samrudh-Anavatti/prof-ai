@@ -5,7 +5,7 @@
 - **Date:** 2026-10-18
 
 ## Goal
-A signed-in tutor can read and edit their own `teaching-style.md` in the web app, see exactly what Luna is told, and try the change straight away in a new chat. Today this needs the CLI and Azure access. Punjy should be able to tune the style and watch replies change without touching a terminal.
+A signed-in tutor can read and edit their own `teaching-style.md` in the web app, see exactly what Luna is told, and try the change straight away in a new chat. Today this needs the CLI and Azure access. Punji should be able to tune the style and watch replies change without touching a terminal.
 
 Also in this branch: a much fuller front-page `README.md` (architecture diagram, decisions, latest feature, links, open items), with a CLAUDE.md rule to keep its "Latest" section current on every merge.
 
@@ -27,7 +27,7 @@ Also in this branch: a much fuller front-page `README.md` (architecture diagram,
 | Risk | Control |
 |------|---------|
 | **A student edits a tutor's style or reads the base prompt** (R1, R8) | `require_role(Role.TUTOR)` on both endpoints; tests for a student getting 403 on both. The path is always `profiles/<signed-in tutor id>/…`, never taken from the request. |
-| **A tutor edits another tutor's style** | No user ID in the request at all; tested by Punjy's save not changing Sam's file or Sam's students' prompt. |
+| **A tutor edits another tutor's style** | No user ID in the request at all; tested by Punji's save not changing Sam's file or Sam's students' prompt. |
 | **The app's managed identity can now write profiles** | Contributor is scoped to the `profiles` container only (not `content`, `sources` or `answer-keys`). Blob soft delete (14 days) allows recovery. Only the teaching-style path is reachable through the API; `profile.md` stays CLI-only. |
 | **Cross-site request forgery** | The Easy Auth cookie is sent cross-site only on top-level navigations; the PUT needs a JSON body, and a `text/plain` body is rejected (tested). No CORS is configured, so another origin can't send a JSON PUT. |
 | **XSS through the style text** (R18) | Rendered as plain text in a textarea and a `<pre>`; no HTML rendering. CSP unchanged. |

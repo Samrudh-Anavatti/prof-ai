@@ -111,7 +111,7 @@ def test_a_tutor_cannot_touch_another_tutors_student(h):
 
 def test_unknown_students_and_other_tutors_are_404(h):
     assert h.list("sam", "nobody").status_code == 404
-    assert h.create("sam", "punjy", RATIOS).status_code == 404
+    assert h.create("sam", "punji", RATIOS).status_code == 404
 
 
 def test_tutors_can_set_up_chats_for_themselves(h):

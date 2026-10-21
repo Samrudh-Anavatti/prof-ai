@@ -83,10 +83,10 @@ def test_a_tutor_asking_prof_ai_uses_the_students_context_and_pays_for_it(h):
 
 
 def test_other_tutors_and_students_cannot_use_the_tutor_routes(h):
-    assert h.tutor_says("hello", tutor="punjy").status_code == 404
+    assert h.tutor_says("hello", tutor="punji").status_code == 404
     base = f"/api/students/alex/chats/{h.chat_id}"
     for path in (base, f"{base}/version"):
-        assert h.client.get(path, headers=h.as_user("punjy")).status_code == 404
+        assert h.client.get(path, headers=h.as_user("punji")).status_code == 404
         assert h.client.get(path, headers=h.as_user("alex")).status_code == 403
     response = h.client.post(f"{base}/messages", json={"content": "hi"}, headers=h.as_user("alex"))
     assert response.status_code == 403

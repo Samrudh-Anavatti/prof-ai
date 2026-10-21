@@ -50,9 +50,9 @@ def test_saved_style_is_read_back_with_the_assembled_prompt(editor):
 
 
 def test_save_writes_the_tutors_blob_and_changes_only_their_students_chats(editor):
-    editor.save("punjy", "Use cooking analogies.")
+    editor.save("punji", "Use cooking analogies.")
 
-    assert editor.profiles.get("punjy", ProfileFile.TEACHING_STYLE) == "Use cooking analogies."
+    assert editor.profiles.get("punji", ProfileFile.TEACHING_STYLE) == "Use cooking analogies."
     assert editor.profiles.get("sam", ProfileFile.TEACHING_STYLE) is None
     editor.send("bea", editor.start("bea"), "hi")
     editor.send("alex", editor.start("alex"), "hi")

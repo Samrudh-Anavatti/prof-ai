@@ -24,7 +24,7 @@ None (docs only).
 
 ## Known issues / TODOs
 - No ADRs yet. Record the first concrete stack choices (languages, agent framework, models, data store) when the first feature is planned.
-- The open questions in `vision.md` need answers from Sam and Punjy, especially jurisdiction, content licences and the safeguarding escalation process. These must be settled before any real student uses the platform.
+- The open questions in `vision.md` need answers from Sam and Punji, especially jurisdiction, content licences and the safeguarding escalation process. These must be settled before any real student uses the platform.
 
 ## For the other dev
 Everything in `docs/product/` is a draft. If you disagree, change it in your branch and say so in your handover.

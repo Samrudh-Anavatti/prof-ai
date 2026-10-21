@@ -65,7 +65,7 @@ def test_student_needs_a_signed_up_tutor(admin):
 def test_tutor_cannot_have_a_tutor(admin, repository, directory):
     active_tutor(admin, repository, directory)
     with pytest.raises(UserAdminError):
-        admin.add("punjy@example.com", "Punjy", Role.TUTOR, tutor_email="sam@example.com")
+        admin.add("punji@example.com", "Punji", Role.TUTOR, tutor_email="sam@example.com")
 
 
 def test_duplicate_email_is_refused(admin):
@@ -95,9 +95,9 @@ def test_lock_requires_a_reason_and_a_signed_up_user(admin, repository, director
     add_tutor(admin)
     with pytest.raises(UserAdminError, match="hasn't signed up"):
         admin.lock("sam@example.com", reason="test")
-    active_tutor(admin, repository, directory, "punjy@example.com")
+    active_tutor(admin, repository, directory, "punji@example.com")
     with pytest.raises(UserAdminError):
-        admin.lock("punjy@example.com", reason=" ")
+        admin.lock("punji@example.com", reason=" ")
 
 
 def test_unlock_restores_access(admin, repository, directory):

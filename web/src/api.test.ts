@@ -201,8 +201,8 @@ describe("user admin", () => {
   });
 
   it("surfaces refusals such as deleting a tutor with students", async () => {
-    const detail = "punjy@example.com still has students. Remove them first.";
+    const detail = "punji@example.com still has students. Remove them first.";
     const fetchFn = fakeFetch(jsonResponse(400, { detail }));
-    await expect(deleteUser("punjy", { fetchFn })).rejects.toMatchObject({ message: detail });
+    await expect(deleteUser("punji", { fetchFn })).rejects.toMatchObject({ message: detail });
   });
 });

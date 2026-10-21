@@ -57,7 +57,7 @@
 ## Tests added
 - **`tests/tutor_chat/`** (38 tests):
   - prompt layering
-  - Sam's and Punjy's students get different prompts
+  - Sam's and Punji's students get different prompts
   - no cross-user profile leaks
   - profile size and emptiness checks
   - the SSE shape

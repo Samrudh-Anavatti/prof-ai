@@ -51,12 +51,12 @@ def test_turn_is_saved_with_usage(harness):
 
 def test_model_gets_the_users_own_system_prompt(harness):
     harness.profiles.put("sam", ProfileFile.TEACHING_STYLE, "Sam style.")
-    harness.profiles.put("punjy", ProfileFile.TEACHING_STYLE, "Punjy style.")
+    harness.profiles.put("punji", ProfileFile.TEACHING_STYLE, "Punji style.")
     harness.send("alex", harness.start("alex"), "hi")
     harness.send("bea", harness.start("bea"), "hi")
     alex_prompt, bea_prompt = harness.model.system_prompts
-    assert "Sam style." in alex_prompt and "Punjy style." not in alex_prompt
-    assert "Punjy style." in bea_prompt and "Sam style." not in bea_prompt
+    assert "Sam style." in alex_prompt and "Punji style." not in alex_prompt
+    assert "Punji style." in bea_prompt and "Sam style." not in bea_prompt
 
 
 def test_conversations_are_private_to_their_owner(harness):

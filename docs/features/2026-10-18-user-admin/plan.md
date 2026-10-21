@@ -5,7 +5,7 @@
 - **Date:** 2026-10-18
 
 ## Goal
-Tutors manage accounts in the web app instead of the CLI: invite, lock, unlock and delete. Admins (Sam, later Punjy) manage everyone. Other tutors manage only their own students. Inviting no longer needs the "Forgot password" step: the invited person signs up with an email code.
+Tutors manage accounts in the web app instead of the CLI: invite, lock, unlock and delete. Admins (Sam, later Punji) manage everyone. Other tutors manage only their own students. Inviting no longer needs the "Forgot password" step: the invited person signs up with an email code.
 
 Decisions (Sam, 2026-10-18):
 - Email-code invites, with no Graph access for the app.
