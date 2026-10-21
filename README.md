@@ -65,7 +65,8 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live |
 | ✅ | **Maths rendering**: Markdown and typeset maths in Prof AI's replies | Live |
 | ✅ | **Worksheet extraction**: questions, answers and worked examples drafted from a worksheet PDF for the tutor to review | Live |
-| ✅ | **Student lesson page**: worked examples, questions one at a time, help buttons, *Check my answer*, per-question progress | Live after merge |
+| ✅ | **Student lesson page**: worked examples, questions one at a time, help buttons, *Check my answer*, per-question progress | Live |
+| ✅ | **Describe it instead**: draft a lesson's fields from a description, with a checklist of what to cover | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Formal marking and a tutor dashboard across students | Phase 1, later |
@@ -76,22 +77,22 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Student lesson page · 2026-10-22 · Punji
+### Describe it instead · 2026-10-22 · Punji
 
-Lessons with questions are now a page to work through, not a blank chat ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md), **proposed**).
+Set up a lesson by describing it in your own words instead of filling in each field.
 
-- **Worked examples first** at *Step by step*, folded away at *Balanced* and *Stretch*.
-- **One question at a time** with ✓ chips, help buttons ("What is this question asking?", "Give me a hint…", "Check my working…") and the chat underneath, tagged to the question.
-- **Check my answer:** an exact match is marked right straight away, at no cost. Otherwise Prof AI checks against your answer key and says "not yet" with a pointer, never the answer.
-- **Progress for you:** open the student's chat to see each question's status, tries and help messages.
+- **A button in the corner** of *New lesson chat* opens a checklist and a text box. The checklist asks who it's for, the topic, what they've covered, what they find hard, how much help to give, and what to focus on.
+- **Prof AI drafts** the title, topics, notes and support level. It marks the checklist items you didn't cover and highlights the fields it couldn't fill. You check the form and save as usual.
+- **Student details stay on approved models:** a description is usually about a student, so it never goes to a model that isn't approved for student conversations.
 
-📄 [plan](docs/features/2026-10-22-student-lesson-page/plan.md) · [handover](docs/features/2026-10-22-student-lesson-page/handover.md)
+📄 [plan](docs/features/2026-10-22-describe-lesson/plan.md) · [handover](docs/features/2026-10-22-describe-lesson/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-22 | **Student lesson page**: worked examples first, questions one at a time with help buttons, *Check my answer* that never gives the answer, per-question progress | Punji | [handover](docs/features/2026-10-22-student-lesson-page/handover.md) |
 | 2026-10-21 | **Worksheet extraction**: questions, tutor-only answers and worked examples drafted from a worksheet PDF and reviewed on the Lessons page | Punji | [handover](docs/features/2026-10-21-worksheet-extraction/handover.md) |
 | 2026-10-21 | **Maths rendering**: Markdown and typeset maths (KaTeX to MathML) in Prof AI's replies | Punji | [handover](docs/features/2026-10-21-maths-rendering/handover.md) |
 | 2026-10-21 | **Model providers**: one OpenAI-compatible adapter, Ollama Cloud models for tutors' own chats, `approved_for_student_conversations` enforced, a model picker per lesson | Punji | [handover](docs/features/2026-10-21-model-providers/handover.md) |

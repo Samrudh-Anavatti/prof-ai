@@ -119,6 +119,15 @@ export interface Worksheet {
   questions: Question[];
 }
 
+export interface LessonDraft {
+  title: string;
+  topics: string[];
+  notes: string;
+  support: SupportLevel | null;
+  /** Checklist ids (DESCRIBE_CHECKLIST) the description didn't answer. */
+  unanswered: string[];
+}
+
 export interface Lesson {
   title: string;
   topics: string[];
@@ -394,6 +403,10 @@ export function extractPdf(
 /** Draft questions and worked examples from worksheet text, for the tutor to review. */
 export function extractWorksheet(text: string, options?: ApiOptions): Promise<Worksheet> {
   return sendJson<Worksheet>("POST", "/api/lessons/worksheet", { text }, options);
+}
+
+export function draftLesson(description: string, options?: ApiOptions): Promise<LessonDraft> {
+  return sendJson<LessonDraft>("POST", "/api/lessons/describe", { description }, options);
 }
 
 export interface ReplyHandlers {

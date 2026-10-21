@@ -1,4 +1,11 @@
-import type { ExtractedPage, Lesson, ModelList, ModelOption, SupportLevel } from "./api";
+import type {
+  ExtractedPage,
+  Lesson,
+  LessonDraft,
+  ModelList,
+  ModelOption,
+  SupportLevel,
+} from "./api";
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
@@ -19,6 +26,45 @@ export const SUPPORT_LEVELS: { value: SupportLevel; label: string; hint: string 
     hint: "Confident: straight to the questions, short hints and harder 'why' questions.",
   },
 ];
+
+/** What a good description covers; ids match prof_ai.lessons.describe.CHECKLIST. */
+export const DESCRIBE_CHECKLIST: { id: string; question: string }[] = [
+  { id: "level", question: "Who is it for? (year group or level)" },
+  { id: "topic", question: "What's the topic?" },
+  { id: "covered", question: "What have they already covered?" },
+  { id: "struggles", question: "What do they find hard?" },
+  { id: "support", question: "How much help should they get?" },
+  { id: "focus", question: "What should Prof AI focus on or avoid?" },
+];
+
+export interface LessonFields {
+  title: string;
+  /** One per line, as in the form. */
+  topics: string;
+  notes: string;
+  support: SupportLevel;
+}
+
+export type DraftField = keyof LessonFields;
+
+/** Fills the form from a draft, keeping any field the draft left empty, and lists those. */
+export function applyDraft(
+  fields: LessonFields,
+  draft: LessonDraft,
+): { fields: LessonFields; unfilled: DraftField[] } {
+  const next: LessonFields = {
+    title: draft.title || fields.title,
+    topics: draft.topics.length > 0 ? draft.topics.join("\n") : fields.topics,
+    notes: draft.notes || fields.notes,
+    support: draft.support ?? fields.support,
+  };
+  const unfilled: DraftField[] = [];
+  if (!next.title.trim()) unfilled.push("title");
+  if (!next.topics.trim()) unfilled.push("topics");
+  if (!next.notes.trim()) unfilled.push("notes");
+  if (draft.support === null) unfilled.push("support");
+  return { fields: next, unfilled };
+}
 
 /** Mirrors ChatService.check_model: a student's chat needs an approved model. */
 export function modelAllowed(model: ModelOption, forStudent: boolean): boolean {

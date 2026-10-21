@@ -25,7 +25,7 @@ Every feature plan has a **Learning check** that names the principles it applies
 | Principle | Where we apply it | Status |
 |-----------|-------------------|--------|
 | L1 Worked examples | *Step by step* walks through the worked example first; worked examples are extracted from the tutor's material and stored with the lesson ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)) | done: the student's lesson page opens them first at *Step by step* and folds them away otherwise |
-| L2 Expertise reversal | Support levels per lesson: step by step, balanced, stretch | done |
+| L2 Expertise reversal | Support levels per lesson: step by step, balanced, stretch; *Describe it instead* asks the tutor for the level and what the student already knows ([describe it instead](../features/2026-10-22-describe-lesson/plan.md)) | done |
 | L3 Retrieval practice | Worksheet-first lessons: questions extracted from the tutor's worksheet ([worksheet extraction](../features/2026-10-21-worksheet-extraction/plan.md)); the student's lesson page has them one at a time with *Check my answer* | done |
 | L4 Useful feedback | *Check my answer*: right, or "not yet" with what to look at again, never the answer ([student lesson page](../features/2026-10-22-student-lesson-page/plan.md)) | done |
 | L5 Productive struggle | Base prompt: try first, hints, never final answers (eval-tested) | done |
