@@ -64,10 +64,11 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live |
 | ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live |
 | ✅ | **Maths rendering**: Markdown and typeset maths in Prof AI's replies | Live |
-| ✅ | **Worksheet extraction**: questions, answers and worked examples drafted from a worksheet PDF for the tutor to review | Live after merge |
+| ✅ | **Worksheet extraction**: questions, answers and worked examples drafted from a worksheet PDF for the tutor to review | Live |
+| ✅ | **Student lesson page**: worked examples, questions one at a time, help buttons, *Check my answer*, per-question progress | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
-| ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
+| ⬜ | Formal marking and a tutor dashboard across students | Phase 1, later |
 
 The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
@@ -75,22 +76,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Worksheet extraction · 2026-10-21 · Punji
+### Student lesson page · 2026-10-22 · Punji
 
-Upload a worksheet PDF and Prof AI drafts its questions (with answers from the answer key) and worked examples for you to check. This is the first step towards worksheet-first lessons ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md), **proposed**).
+Lessons with questions are now a page to work through, not a blank chat ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md), **proposed**).
 
-- **On the Lessons page:** pick the PDF's pages, then *Extract questions and examples*. Edit, remove or add questions before saving. About 10–15 seconds and $0.002 per worksheet on Luna.
-- **Answers stay with you:** they're saved with the lesson but never go into Prof AI's lesson context and never reach a student's browser. They're for checking answers (next stage).
-- **Prof AI knows the questions:** it sees the questions and worked examples, so its help can be about the actual question.
-- **Next:** the student's page, with the worked example first, one question at a time and *Check my answer*.
+- **Worked examples first** at *Step by step*, folded away at *Balanced* and *Stretch*.
+- **One question at a time** with ✓ chips, help buttons ("What is this question asking?", "Give me a hint…", "Check my working…") and the chat underneath, tagged to the question.
+- **Check my answer:** an exact match is marked right straight away, at no cost. Otherwise Prof AI checks against your answer key and says "not yet" with a pointer, never the answer.
+- **Progress for you:** open the student's chat to see each question's status, tries and help messages.
 
-📄 [plan](docs/features/2026-10-21-worksheet-extraction/plan.md) · [handover](docs/features/2026-10-21-worksheet-extraction/handover.md)
+📄 [plan](docs/features/2026-10-22-student-lesson-page/plan.md) · [handover](docs/features/2026-10-22-student-lesson-page/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-21 | **Worksheet extraction**: questions, tutor-only answers and worked examples drafted from a worksheet PDF and reviewed on the Lessons page | Punji | [handover](docs/features/2026-10-21-worksheet-extraction/handover.md) |
 | 2026-10-21 | **Maths rendering**: Markdown and typeset maths (KaTeX to MathML) in Prof AI's replies | Punji | [handover](docs/features/2026-10-21-maths-rendering/handover.md) |
 | 2026-10-21 | **Model providers**: one OpenAI-compatible adapter, Ollama Cloud models for tutors' own chats, `approved_for_student_conversations` enforced, a model picker per lesson | Punji | [handover](docs/features/2026-10-21-model-providers/handover.md) |
 | 2026-10-21 | **Lesson behaviour**: support levels per lesson, lesson chats stay on the lesson, Prof AI answers students without `@AI`, learning-science register | Punji | [handover](docs/features/2026-10-21-lesson-behaviour/handover.md) |

@@ -150,8 +150,8 @@ def test_the_ledger_and_summary_are_not_sent_to_the_browser(h):
     detail = h.client.get(
         f"/api/chat/conversations/{conversation_id}", headers=h.as_user("alex")
     ).json()
-    assert set(detail) == {"id", "title", "updated_at", "lesson", "messages"}
-    message_fields = {"role", "author", "author_name", "content", "at"}
+    assert set(detail) == {"id", "title", "updated_at", "lesson", "messages", "progress"}
+    message_fields = {"role", "author", "author_name", "content", "at", "question"}
     assert all(set(m) == message_fields for m in detail["messages"])
 
 

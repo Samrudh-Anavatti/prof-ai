@@ -45,6 +45,8 @@ export interface ChatMessage {
   author_name: string;
   content: string;
   at: string;
+  /** The lesson question it's about, by number. */
+  question?: string | null;
 }
 
 export interface ConversationVersion {
@@ -58,14 +60,37 @@ export interface SendResult {
   ai: boolean;
 }
 
+export interface QuestionOverview {
+  number: string;
+  text: string;
+}
+
 export interface LessonOverview {
   title: string;
   topics: string[];
+  support?: SupportLevel;
+  worked_examples?: WorkedExample[];
+  /** What a student sees of each question: never its answer. */
+  questions?: QuestionOverview[];
+}
+
+export interface QuestionProgress {
+  number: string;
+  status: "not_started" | "working" | "correct";
+  attempts: number;
+  help_messages: number;
 }
 
 export interface ConversationDetail extends ConversationSummary {
   lesson: LessonOverview | null;
   messages: ChatMessage[];
+  progress?: QuestionProgress[];
+}
+
+export interface CheckOutcome {
+  correct: boolean;
+  feedback: string;
+  progress: QuestionProgress[];
 }
 
 export interface LessonSource {
@@ -381,14 +406,14 @@ async function postMessage(
   content: string,
   handlers: ReplyHandlers,
   options: ApiOptions,
-  toTutor = false,
+  extra: { to_tutor?: true; question?: string } = {},
 ): Promise<SendResult> {
   const response = await request(
     path,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify(toTutor ? { content, to_tutor: true } : { content }),
+      body: JSON.stringify({ content, ...extra }),
     },
     options,
   );
@@ -419,16 +444,37 @@ function conversationPath(id: string, action = ""): string {
   return `/api/chat/conversations/${encodeURIComponent(id)}${action}`;
 }
 
-/** toTutor: in a lesson chat, the student's message is for their tutor only. */
+function messageExtras(toTutor: boolean, question?: string) {
+  return { ...(toTutor ? { to_tutor: true as const } : {}), ...(question ? { question } : {}) };
+}
+
+/** toTutor: in a lesson chat, the student's message is for their tutor only. question: the
+ * lesson question it's about. */
 export function sendMessage(
   conversationId: string,
   content: string,
   handlers: ReplyHandlers,
   options: ApiOptions = {},
   toTutor = false,
+  question?: string,
 ): Promise<SendResult> {
   const path = conversationPath(conversationId, "/messages");
-  return postMessage(path, content, handlers, options, toTutor);
+  return postMessage(path, content, handlers, options, messageExtras(toTutor, question));
+}
+
+/** Check the student's answer to one question of their lesson. */
+export function checkAnswer(
+  conversationId: string,
+  question: string,
+  answer: string,
+  options?: ApiOptions,
+): Promise<CheckOutcome> {
+  return sendJson<CheckOutcome>(
+    "POST",
+    conversationPath(conversationId, "/check"),
+    { question, answer },
+    options,
+  );
 }
 
 export function getConversationVersion(
@@ -460,6 +506,8 @@ export function sendStudentChatMessage(
   content: string,
   handlers: ReplyHandlers,
   options: ApiOptions = {},
+  question?: string,
 ): Promise<SendResult> {
-  return postMessage(`${studentChatsPath(studentId, chatId)}/messages`, content, handlers, options);
+  const path = `${studentChatsPath(studentId, chatId)}/messages`;
+  return postMessage(path, content, handlers, options, messageExtras(false, question));
 }
