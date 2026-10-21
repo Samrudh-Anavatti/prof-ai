@@ -749,6 +749,65 @@ input[type="checkbox"] {
   color: var(--accent-ink);
 }
 
+.markdown {
+  white-space: normal;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre {
+  margin: 0 0 0.6em;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+
+.markdown li + li {
+  margin-top: 0.2em;
+}
+
+.markdown a {
+  color: var(--brand);
+}
+
+.markdown code {
+  padding: 0.05em 0.3em;
+  border-radius: var(--r-sm);
+  background: var(--brand-soft);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.markdown pre {
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  display: block;
+  padding: 0.6em 0.8em;
+}
+
+/* Inline fractions at full size: the default script size is hard to read for younger students. */
+.markdown math {
+  font-size: 1.12em;
+  math-style: normal;
+}
+
+.markdown math[display="block"] {
+  margin: 0.6em 0;
+}
+
 @media (prefers-color-scheme: dark) {
   .bubble.by-tutor .bubble-author,
   .bubble.by-student .bubble-author {

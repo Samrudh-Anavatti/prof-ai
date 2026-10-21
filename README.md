@@ -61,8 +61,9 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Dilution eval** (`prof eval dilution`): safety and coaching hold at lesson sizes up to 40k | Live |
 | ✅ | **Lessons**: tutors set up chats per lesson (5 per student) with PDF material capped at 12k | Live |
 | ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers students by default and tutors on `@AI` | Live |
-| ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live after merge |
-| ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live after merge and setup |
+| ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live |
+| ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live |
+| ✅ | **Maths rendering**: Markdown and typeset maths in Prof AI's replies | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -73,22 +74,22 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Model providers · 2026-10-21 · Punji
+### Maths in Prof AI's replies · 2026-10-21 · Punji
 
-Prof AI can now use models from other providers, starting with Ollama Cloud, and tutors choose the model per lesson.
+Prof AI's replies now show real maths, like fractions, powers, roots and equations, plus simple formatting: bold, lists and numbered steps.
 
-- **One adapter** for any OpenAI-compatible API. Luna on Foundry stays the default; GLM-5.3 Flash and DeepSeek V4.1 Flash on Ollama Cloud are added when its key is set.
-- **Student data stays put:** only models marked `approved_for_student_conversations` (just Luna) can run in a student's chat. `ChatService` enforces it. Ollama models are for your own test chats and evals.
-- **Model picker** on the Lessons page: per lesson, plus your default model, with an estimated cost per message and notes on how each model has been tested.
-- **Setup:** store the Ollama key in Key Vault and run `bash scripts/deploy-infra.sh` once (see [handover](docs/features/2026-10-21-model-providers/handover.md)). This is a **proposed** amendment to [ADR 0005](docs/decisions/0005-models-and-context-budget.md).
+- **Markdown and LaTeX:** Prof AI writes maths as `$\frac{3}{4}$`, and the chat shows it typeset. Inline fractions are full size so younger students can read them.
+- **No new load on the CSP:** KaTeX outputs MathML, which browsers draw natively, so there are no extra fonts, stylesheets or inline styles.
+- **Safe:** no raw HTML, no images, and only web and email links in replies. People's own messages stay plain text.
 
-📄 [plan](docs/features/2026-10-21-model-providers/plan.md) · [handover](docs/features/2026-10-21-model-providers/handover.md)
+📄 [plan](docs/features/2026-10-21-maths-rendering/plan.md) · [handover](docs/features/2026-10-21-maths-rendering/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-21 | **Model providers**: one OpenAI-compatible adapter, Ollama Cloud models for tutors' own chats, `approved_for_student_conversations` enforced, a model picker per lesson | Punji | [handover](docs/features/2026-10-21-model-providers/handover.md) |
 | 2026-10-21 | **Lesson behaviour**: support levels per lesson, lesson chats stay on the lesson, Prof AI answers students without `@AI`, learning-science register | Punji | [handover](docs/features/2026-10-21-lesson-behaviour/handover.md) |
 | 2026-10-20 | **Web app refresh**: Lexend, friendlier chat bubbles, starter prompts, tidier tutor pages, dark mode | Sam | [handover](docs/features/2026-10-20-web-refresh/handover.md) |
 | 2026-10-20 | **Shared chats with @AI**: tutor and student share each lesson chat; Prof AI replies only to `@AI` | Sam | [handover](docs/features/2026-10-20-shared-chat/handover.md) |
@@ -320,7 +321,6 @@ sequenceDiagram
 - The rate limiter is in memory (one B1 instance); it resets on restart.
 - Content-filtered and failed turns don't count towards budgets (the rate limit bounds them).
 - Luna's cached-input price is assumed at 10% of input until it shows on the bill.
-- Chat renders plain text only: no Markdown or maths yet.
 - Chapter detection needs PDF bookmarks; there's no command to edit chapters yet.
 - No monthly caps yet (daily dollar caps plus the Azure budget alert).
 - Luna makes mistakes (a wrong 7 × 8 hint in testing), so tutors should read transcripts (R6).

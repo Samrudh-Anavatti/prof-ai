@@ -13,6 +13,7 @@ import {
   type SendResult,
 } from "./api";
 import { Avatar } from "./Avatar";
+import { Markdown } from "./Markdown";
 
 const MAX_INPUT_CHARS = 2000;
 const POLL_MS = 5000;
@@ -227,7 +228,7 @@ export function ChatThread({
               {!own && <Avatar name={m.author_name} tone={m.author} />}
               <div className={`bubble ${own ? "user" : "assistant"} by-${m.author}`}>
                 {!own && <span className="bubble-author">{m.author_name}</span>}
-                {m.content}
+                {m.author === "ai" ? <Markdown text={m.content} /> : m.content}
               </div>
             </div>
           );
@@ -237,7 +238,9 @@ export function ChatThread({
             <Avatar name="Prof AI" tone="ai" />
             <div className="bubble assistant by-ai">
               <span className="bubble-author">Prof AI</span>
-              {reply || (
+              {reply ? (
+                <Markdown text={reply} />
+              ) : (
                 <span className="typing">
                   <span className="visually-hidden">Prof AI is thinking…</span>
                   <span className="typing-dot" />

@@ -31,7 +31,7 @@ Every feature plan has a **Learning check** that names the principles it applies
 | L5 Productive struggle | Base prompt: try first, hints, never final answers (eval-tested) | done |
 | L6 Self-explanation | *Stretch* level asks students to explain their reasoning | done |
 | L7 Step-based hints | Base prompt and levels: one step or hint at a time; per-question help panel | partly: panel planned |
-| L8 Manageable load | *Step by step*: one idea per message; short explanations | done |
+| L8 Manageable load | *Step by step*: one idea per message; short explanations; maths typeset rather than written as `(3x+2)/(x-1)` ([maths rendering](../features/2026-10-21-maths-rendering/plan.md)) | done |
 | L9 Spaced practice | The weekly loop | partly: no spaced review yet |
 | L10 Interleaving | Not yet | gap |
 | L11 Gaming the system | Attempt counts in the tutor's progress view; help-seeking signals | planned |
