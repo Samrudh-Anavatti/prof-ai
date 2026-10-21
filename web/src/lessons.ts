@@ -56,6 +56,16 @@ export function tidyLesson(lesson: Lesson): Lesson {
     topics: lesson.topics.map((t) => t.trim()).filter(Boolean),
     notes: lesson.notes.trim(),
     material: lesson.material.trim(),
+    worked_examples: (lesson.worked_examples ?? [])
+      .map((e) => ({ title: e.title.trim(), text: e.text.trim() }))
+      .filter((e) => e.text),
+    questions: (lesson.questions ?? [])
+      .map((q) => ({
+        number: q.number.trim(),
+        text: q.text.trim(),
+        answer: q.answer?.trim() || null,
+      }))
+      .filter((q) => q.text),
   };
 }
 
@@ -65,6 +75,17 @@ export function renderLesson(lesson: Lesson): string {
   if (lesson.topics.length) parts.push(`Topics: ${lesson.topics.join("; ")}`);
   if (lesson.notes) parts.push(`What the tutor wants this chat to focus on:\n${lesson.notes}`);
   if (lesson.material) parts.push(`Lesson material:\n\n${lesson.material}`);
+  const examples = lesson.worked_examples ?? [];
+  if (examples.length) {
+    const text = examples.map((e) => `#### ${e.title || "Example"}\n${e.text}`).join("\n\n");
+    parts.push(`Worked examples:\n\n${text}`);
+  }
+  const questions = lesson.questions ?? [];
+  if (questions.length) {
+    parts.push(
+      `Questions for the student:\n${questions.map((q) => `${q.number}. ${q.text}`).join("\n")}`,
+    );
+  }
   return parts.join("\n\n");
 }
 

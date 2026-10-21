@@ -75,6 +75,25 @@ export interface LessonSource {
 
 export type SupportLevel = "step_by_step" | "balanced" | "stretch";
 
+export interface WorkedExample {
+  title: string;
+  text: string;
+}
+
+export interface Question {
+  number: string;
+  text: string;
+  /** Tutor-only: checks the student's answer, never shown to them. */
+  answer: string | null;
+}
+
+export interface Worksheet {
+  title: string;
+  topics: string[];
+  worked_examples: WorkedExample[];
+  questions: Question[];
+}
+
 export interface Lesson {
   title: string;
   topics: string[];
@@ -83,6 +102,8 @@ export interface Lesson {
   sources: LessonSource[];
   /** The server defaults to balanced. */
   support?: SupportLevel;
+  worked_examples?: WorkedExample[];
+  questions?: Question[];
 }
 
 export interface StudentChat {
@@ -343,6 +364,11 @@ export function extractPdf(
     { filename, pdf_base64: pdfBase64 },
     options,
   );
+}
+
+/** Draft questions and worked examples from worksheet text, for the tutor to review. */
+export function extractWorksheet(text: string, options?: ApiOptions): Promise<Worksheet> {
+  return sendJson<Worksheet>("POST", "/api/lessons/worksheet", { text }, options);
 }
 
 export interface ReplyHandlers {

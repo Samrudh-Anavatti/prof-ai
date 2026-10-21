@@ -46,6 +46,19 @@ class LessonSource(BaseModel):
     pages: list[int] = Field(default=[], max_length=500)
 
 
+class WorkedExample(BaseModel):
+    title: str = Field(default="", max_length=200)
+    text: str = Field(max_length=20_000)
+
+
+class Question(BaseModel):
+    number: str = Field(max_length=20)
+    text: str = Field(max_length=4_000)
+    # The final answer, for checking a student's working. Never in the lesson layer and never
+    # sent to a student's browser (R4).
+    answer: str | None = Field(default=None, max_length=1_000)
+
+
 class Lesson(BaseModel):
     """What a tutor sets up for one chat. Rendered, it's the capped lesson layer (ADR 0005)."""
 
@@ -57,6 +70,8 @@ class Lesson(BaseModel):
     material: str = ""
     sources: list[LessonSource] = Field(default=[], max_length=20)
     support: SupportLevel = "balanced"
+    worked_examples: list[WorkedExample] = Field(default=[], max_length=10)
+    questions: list[Question] = Field(default=[], max_length=60)
 
 
 class Conversation(BaseModel):

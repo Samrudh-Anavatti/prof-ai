@@ -7,6 +7,7 @@ import {
   createStudentChat,
   deleteStudentChat,
   extractPdf,
+  extractWorksheet,
   listModels,
   listStudentChats,
   listUsers,
@@ -16,10 +17,12 @@ import {
   type LessonSource,
   type Me,
   type ModelList,
+  type Question,
   type StudentChat,
   type StudentChats,
   type SupportLevel,
   type UserView,
+  type WorkedExample,
 } from "./api";
 import { PageSkeleton } from "./Skeleton";
 import {
@@ -67,6 +70,8 @@ export function LessonsPage({
   const [material, setMaterial] = useState("");
   const [sources, setSources] = useState<LessonSource[]>([]);
   const [support, setSupport] = useState<SupportLevel>("balanced");
+  const [workedExamples, setWorkedExamples] = useState<WorkedExample[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [models, setModels] = useState<ModelList | null>(null);
   const [pickedModel, setPickedModel] = useState<string | null>(null);
   const [licensed, setLicensed] = useState(false);
@@ -107,7 +112,17 @@ export function LessonsPage({
       .catch((e: unknown) => setError(messageOf(e)));
   }, [studentId]);
 
-  const lesson = { title, topics: topics.split("\n"), notes, material, sources, support };
+  const lesson = {
+    title,
+    topics: topics.split("\n"),
+    notes,
+    material,
+    sources,
+    support,
+    worked_examples: workedExamples,
+    questions,
+  };
+  const hasContent = material.trim() !== "" || workedExamples.length > 0 || questions.length > 0;
   const tokens = lessonTokens(lesson);
   const maxTokens = chats?.max_lesson_tokens ?? 0;
   const overCap = chats !== null && tokens > maxTokens;
@@ -122,7 +137,7 @@ export function LessonsPage({
     !full &&
     title.trim() !== "" &&
     !overCap &&
-    (!material.trim() || licensed);
+    (!hasContent || licensed);
 
   async function act(work: () => Promise<string>) {
     setBusy(true);
@@ -144,6 +159,8 @@ export function LessonsPage({
     setMaterial("");
     setSources([]);
     setSupport("balanced");
+    setWorkedExamples([]);
+    setQuestions([]);
     setPickedModel(null);
     setLicensed(false);
     setPdf(null);
@@ -186,6 +203,35 @@ export function LessonsPage({
     ]);
     setPdf(null);
     setPicked(new Set());
+  }
+
+  function extractPages() {
+    if (!pdf) return;
+    const text = pagesText(pdf.pages, picked);
+    const source = { filename: pdf.filename, pages: [...picked].sort((a, b) => a - b) };
+    void act(async () => {
+      const worksheet = await extractWorksheet(text);
+      setWorkedExamples((current) => [...current, ...worksheet.worked_examples]);
+      setQuestions((current) => [...current, ...worksheet.questions]);
+      if (!title.trim()) setTitle(worksheet.title);
+      if (!topics.trim()) setTopics(worksheet.topics.join("\n"));
+      setSources((current) => [...current, source]);
+      setPdf(null);
+      setPicked(new Set());
+      return (
+        `Found ${worksheet.questions.length} questions and ` +
+        `${worksheet.worked_examples.length} worked examples in ${source.filename}. ` +
+        "Check them below before saving."
+      );
+    });
+  }
+
+  function changeQuestion(index: number, change: Partial<Question>) {
+    setQuestions((current) => current.map((q, i) => (i === index ? { ...q, ...change } : q)));
+  }
+
+  function changeExample(index: number, change: Partial<WorkedExample>) {
+    setWorkedExamples((current) => current.map((e, i) => (i === index ? { ...e, ...change } : e)));
   }
 
   function create(event: FormEvent) {
@@ -480,8 +526,9 @@ export function LessonsPage({
                   Add pages from a PDF of the chapter, then edit the text if you need to.
                 </p>
                 <div className="signup-link lesson-warning">
-                  Leave out answer pages and mark schemes. Students should work answers out
-                  themselves.
+                  Adding pages as text? Leave out answer pages and mark schemes. Extracting
+                  questions keeps answers separate: Prof AI only uses them to check a student&apos;s
+                  answer, and students never see them.
                 </div>
                 <input
                   type="file"
@@ -511,14 +558,24 @@ export function LessonsPage({
                         </li>
                       ))}
                     </ul>
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={picked.size === 0}
-                      onClick={addPages}
-                    >
-                      Add {picked.size} selected {picked.size === 1 ? "page" : "pages"}
-                    </button>
+                    <div className="page-pick-actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={picked.size === 0 || busy}
+                        onClick={extractPages}
+                      >
+                        Extract questions and examples
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={picked.size === 0 || busy}
+                        onClick={addPages}
+                      >
+                        Add {picked.size} {picked.size === 1 ? "page" : "pages"} as text
+                      </button>
+                    </div>
                   </div>
                 )}
                 <textarea
@@ -530,13 +587,98 @@ export function LessonsPage({
                 />
               </div>
 
+              {workedExamples.length > 0 && (
+                <div className="lesson-field worksheet-review">
+                  <span>Worked examples ({workedExamples.length})</span>
+                  {workedExamples.map((example, index) => (
+                    <div key={index} className="review-item">
+                      <div className="review-row">
+                        <input
+                          aria-label={`Worked example ${index + 1} title`}
+                          value={example.title}
+                          onChange={(e) => changeExample(index, { title: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() =>
+                            setWorkedExamples((current) => current.filter((_, i) => i !== index))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <textarea
+                        rows={6}
+                        aria-label={`Worked example ${index + 1}`}
+                        value={example.text}
+                        onChange={(e) => changeExample(index, { text: e.target.value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="lesson-field worksheet-review">
+                <span>Questions ({questions.length})</span>
+                <p className="muted lesson-hint">
+                  Extract them from a worksheet above, or add them by hand. Answers are only for
+                  checking: students never see them.
+                </p>
+                {questions.map((question, index) => (
+                  <div key={index} className="review-item">
+                    <div className="review-row">
+                      <input
+                        className="question-number"
+                        aria-label={`Question ${index + 1} number`}
+                        value={question.number}
+                        onChange={(e) => changeQuestion(index, { number: e.target.value })}
+                      />
+                      <input
+                        aria-label={`Question ${index + 1} answer`}
+                        placeholder="Answer (optional)"
+                        value={question.answer ?? ""}
+                        onChange={(e) => changeQuestion(index, { answer: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() =>
+                          setQuestions((current) => current.filter((_, i) => i !== index))
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <textarea
+                      rows={3}
+                      aria-label={`Question ${index + 1}`}
+                      value={question.text}
+                      onChange={(e) => changeQuestion(index, { text: e.target.value })}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setQuestions((current) => [
+                      ...current,
+                      { number: String(current.length + 1), text: "", answer: null },
+                    ])
+                  }
+                >
+                  Add a question
+                </button>
+              </div>
+
               <div className="style-actions">
                 <span className={overCap ? "byte-count over" : "byte-count muted"}>
                   {tokens.toLocaleString()} of {maxTokens.toLocaleString()} tokens
                   {overCap && ": remove some pages or text"}
                 </span>
               </div>
-              {material.trim() && (
+              {hasContent && (
                 <label className="lesson-licence">
                   <input
                     type="checkbox"

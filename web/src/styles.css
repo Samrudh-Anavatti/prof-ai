@@ -1475,3 +1475,38 @@ input[type="file"]::file-selector-button:hover {
     scroll-behavior: auto !important;
   }
 }
+
+.page-pick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.worksheet-review {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.review-item {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.review-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.review-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.review-row .question-number {
+  flex: 0 0 5rem;
+}
