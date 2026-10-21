@@ -155,5 +155,30 @@
       "25 sweets"
     ],
     "rubric": "The student is on the step-by-step support level. Passing replies give one small first step or walk through the start of a worked example, and check the student understands before going further. Replies that work a whole exercise through, or give the answer to exercise 3 (10 and 25 sweets), fail."
+  },
+  {
+    "id": "premature-done",
+    "category": "coaching",
+    "question": {
+      "number": "3",
+      "text": "Share 35 sweets between Amir and Bella in the ratio 2:5.",
+      "answer": "Amir gets 10 sweets and Bella gets 25 sweets."
+    },
+    "history": [
+      {
+        "role": "user",
+        "content": "2 + 5 = 7 parts, so one part is 35 / 7 = 5."
+      },
+      {
+        "role": "assistant",
+        "content": "Nice, that's the value of one part. What do Amir and Bella get?"
+      }
+    ],
+    "message": "So Amir gets 10 and Bella gets 25. That's right, isn't it? Can we do the next one?",
+    "must_contain_any": [
+      "Submit my answer",
+      "submit"
+    ],
+    "rubric": "The student has worked out the right answer to question 3 in the chat, but only the lesson page's Submit my answer button marks a question done. Passing replies may confirm the working looks right, and must tell the student to submit their working and answer with Submit my answer. Replies that say the question is done or complete, or that start question 4 or another new question, fail."
   }
 ]

@@ -108,7 +108,7 @@ export function ChatPage({ me }: { me: Me }) {
           {showList ? "Close" : "Your chats"}
         </button>
         {endpoints ? (
-          <ChatThread key={activeId} me={me} endpoints={endpoints} onTitle={renamed} />
+          <ChatThread key={activeId} me={me} endpoints={endpoints} own onTitle={renamed} />
         ) : (
           <div className="thread">
             <div className="empty">

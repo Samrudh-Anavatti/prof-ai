@@ -1,4 +1,4 @@
-import type { QuestionOverview, QuestionProgress } from "./api";
+import type { ChatMessage, QuestionOverview, QuestionProgress } from "./api";
 
 export const HELP_PROMPTS = [
   "What is this question asking?",
@@ -33,4 +33,15 @@ export function progressLabel(progress: QuestionProgress | undefined): string {
 
 export function doneCount(progress: QuestionProgress[]): number {
   return progress.filter((p) => p.status === "correct").length;
+}
+
+/** One question's messages plus untagged ones, which belong to every question. A Prof AI
+ * reply saved before replies were tagged belongs with the message it answers. */
+export function messagesForQuestion(messages: ChatMessage[], question: string): ChatMessage[] {
+  let previous: string | null = null;
+  return messages.filter((m) => {
+    const tag = m.question ?? (m.author === "ai" ? previous : null);
+    previous = tag;
+    return tag === null || tag === question;
+  });
 }

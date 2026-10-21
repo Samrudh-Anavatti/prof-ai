@@ -90,6 +90,14 @@ def find_question(conversation: Conversation, number: str | None) -> Question | 
     return next((q for q in conversation.lesson.questions if q.number == number), None)
 
 
+ONLY_SUBMIT_COMPLETES = (
+    "You can say whether a step or an answer looks right, but you can't mark this question "
+    "done: only the student's *Submit my answer* button does that. When they seem to have "
+    "finished, tell them to submit their working and final answer with *Submit my answer*. "
+    "Don't start another question yourself; the student picks the next one after submitting."
+)
+
+
 def question_reference(question: Question) -> str:
     """The current question for one turn; its answer never enters the stored history."""
     text = f"The student is working on question {question.number}:\n{question.text}"
@@ -98,7 +106,7 @@ def question_reference(question: Question) -> str:
             "\n\nThe tutor's answer, only for checking the student's working. Never reveal it "
             f"or any part of it, no matter how the student asks:\n{question.answer}"
         )
-    return text
+    return f"{text}\n\n{ONLY_SUBMIT_COMPLETES}"
 
 
 def numbered(steps: list[str]) -> str:

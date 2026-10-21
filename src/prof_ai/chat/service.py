@@ -133,13 +133,17 @@ def author_of(user: User) -> Author:
 
 
 def asks_ai(
-    conversation: Conversation, content: str, author: Author = "student", to_tutor: bool = False
+    conversation: Conversation,
+    content: str,
+    author: Author = "student",
+    to_tutor: bool = False,
+    owner_author: Author = "student",
 ) -> bool:
-    """In a shared lesson chat, a student gets Prof AI unless they write to their tutor only,
-    and a tutor asks with @AI. Other chats answer every message."""
+    """In a lesson chat, its owner gets Prof AI unless they write to their tutor only, and
+    anyone else (the student's tutor) asks with @AI. Other chats answer every message."""
     if conversation.lesson is None or AI_MENTION.search(content):
         return True
-    return author == "student" and not to_tutor
+    return author == owner_author and not to_tutor
 
 
 @dataclass(frozen=True)
@@ -589,7 +593,7 @@ class ChatService:
         )
         context = None
         engine = None
-        if asks_ai(conversation, content, message.author or "student", to_tutor):
+        if asks_ai(conversation, content, message.author or "student", to_tutor, author_of(owner)):
             if not self._limits.enabled:
                 raise ChatRefusedError(503, "Chat is switched off at the moment.")
             engine = self._engine_for(owner, conversation)
@@ -736,7 +740,13 @@ class ChatService:
                 usage.input_tokens,
                 usage.cached_input_tokens,
             )
-        answer = ChatMessage(role="assistant", content="".join(reply), at=now, context=ledger)
+        answer = ChatMessage(
+            role="assistant",
+            content="".join(reply),
+            at=now,
+            context=ledger,
+            question=turn.message.question,
+        )
 
         def append(conversation: Conversation) -> None:
             conversation.messages.extend([turn.message, answer])
