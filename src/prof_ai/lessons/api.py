@@ -26,6 +26,7 @@ from prof_ai.chat.service import (
     ConversationNotFoundError,
 )
 from prof_ai.lessons.pdf_text import MAX_LESSON_PDF_BYTES, LessonPdfError, extract_pages
+from prof_ai.lessons.worksheet import Worksheet
 from prof_ai.users.api import can_manage
 from prof_ai.users.models import AuditEvent, Role, User
 from prof_ai.users.repository import UserRepository
@@ -68,6 +69,10 @@ class ChatChange(BaseModel):
 class PdfUpload(BaseModel):
     filename: str
     pdf_base64: str
+
+
+class WorksheetText(BaseModel):
+    text: str
 
 
 class ExtractedPage(BaseModel):
@@ -235,5 +240,13 @@ def create_lessons_router() -> APIRouter:
         except binascii.Error as error:
             raise HTTPException(400, "That file isn't a PDF.") from error
         return ExtractedPdf(pages=[ExtractedPage(**vars(page)) for page in pages])
+
+    @router.post("/lessons/worksheet")
+    def extract_worksheet(body: WorksheetText, tutor: Tutor, request: Request) -> Worksheet:
+        """Draft questions and worked examples for the tutor to review before saving."""
+        try:
+            return chat_service(request).extract_worksheet(tutor, body.text)
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
 
     return router

@@ -36,6 +36,13 @@ from prof_ai.chat.models import (
 from prof_ai.chat.prompts import SUPPORT_PROMPTS, load_profile_layers
 from prof_ai.chat.store import ChatStore
 from prof_ai.lessons.rules import InvalidLessonError, render_lesson, validate_lesson
+from prof_ai.lessons.worksheet import (
+    EXTRACT_OUTPUT_TOKENS,
+    Worksheet,
+    WorksheetError,
+    extraction_request,
+    parse_worksheet,
+)
 from prof_ai.profiles.store import ProfileStore
 from prof_ai.users.models import Role, User
 
@@ -233,6 +240,43 @@ class ChatService:
             current.model = model
 
         return self._store.update_conversation(owner.id, conversation_id, apply)
+
+    def extract_worksheet(self, tutor: User, text: str) -> Worksheet:
+        """Questions and worked examples from worksheet text, for the tutor to review.
+
+        Worksheets are tutor content, not student data, so the tutor's preferred model may be
+        one that isn't approved for student conversations.
+        """
+        try:
+            messages = extraction_request(text)
+        except WorksheetError as error:
+            raise ChatRefusedError(400, str(error)) from error
+        if not self._limits.enabled:
+            raise ChatRefusedError(503, "Chat is switched off at the moment.")
+        self._check_budgets(tutor)
+        wait_reason = self._limiter.try_acquire(tutor.id)
+        if wait_reason:
+            raise ChatRefusedError(429, wait_reason)
+        engine = self._models.get(tutor.preferred_model or "", self._default)
+        try:
+            reply, usage = self._complete(messages, engine, EXTRACT_OUTPUT_TOKENS)
+        except ContentFilteredError as error:
+            raise ChatRefusedError(400, "The content filter blocked that material.") from error
+        except ModelRateLimitedError as error:
+            raise ChatRefusedError(429, BUSY) from error
+        except Exception as error:
+            logger.exception("Worksheet extraction failed for tutor %s", tutor.id)
+            raise ChatRefusedError(503, UNAVAILABLE) from error
+        finally:
+            self._limiter.release(tutor.id)
+        try:
+            self._charge(tutor, usage, engine.profile)
+        except Exception:
+            logger.exception("Charging a worksheet extraction failed for tutor %s", tutor.id)
+        try:
+            return parse_worksheet(reply)
+        except WorksheetError as error:
+            raise ChatRefusedError(502, str(error)) from error
 
     def get_conversation(self, user: User, conversation_id: str) -> Conversation:
         conversation = self._store.get_conversation(user.id, conversation_id)
@@ -469,11 +513,14 @@ class ChatService:
             logger.exception("Summarising failed for conversation %s", conversation.id)
 
     def _complete(
-        self, messages: Sequence[PromptMessage], engine: AvailableModel
+        self,
+        messages: Sequence[PromptMessage],
+        engine: AvailableModel,
+        max_output_tokens: int = SUMMARY_OUTPUT_TOKENS,
     ) -> tuple[str, Usage | None]:
         parts: list[str] = []
         usage: Usage | None = None
-        for item in engine.model.stream(messages, SUMMARY_OUTPUT_TOKENS):
+        for item in engine.model.stream(messages, max_output_tokens):
             if isinstance(item, Usage):
                 usage = item
             else:

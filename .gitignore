@@ -39,3 +39,6 @@ data/generated/
 
 # Frontend build output (built by web/, served by FastAPI)
 src/prof_ai/static/
+
+# Real sample worksheets for local testing: may be copyrighted, never commit them.
+dummy-data/

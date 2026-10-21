@@ -25,7 +25,10 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | — | Guard pipeline (Prompt Shields, topic checks, safeguarding flags, auto-lock): required before real students | Sam | planned | — |
 | — | End-of-sprint lint/cleanup pass | both | planned | — |
 | 2026-10-21 | Lesson behaviour: support levels per lesson, staying on the lesson, Prof AI answers students by default (ADR 0005 amendment, proposed), learning-science register | Punji | merged | [plan](2026-10-21-lesson-behaviour/plan.md) · [handover](2026-10-21-lesson-behaviour/handover.md) |
-| — | Worksheet-first lessons: extract worked example, questions and answers from the material; question list, per-question help and "Check my answer"; maths rendering; tutor progress view | Punji | planned | — |
+| 2026-10-21 | Worksheet extraction: draft questions (with answer-key answers, tutor-only) and worked examples from a worksheet PDF, reviewed on the Lessons page ([ADR 0006](../decisions/0006-worksheet-first-lessons.md), proposed) | Punji | merged | [plan](2026-10-21-worksheet-extraction/plan.md) · [handover](2026-10-21-worksheet-extraction/handover.md) |
+| — | Student lesson page: worked example first (by support level), one question at a time, help buttons, "Check my answer", messages tagged by question, tutor progress view (ADR 0006) | Punji | planned | — |
+| — | "Describe it instead": draft a lesson's title, topics, notes and level from one description, next to the existing form | Punji | planned | — |
+| — | Later: scanned worksheets: page images to a vision model, or Azure Document Intelligence (ADR 0006) | — | planned | — |
 | — | Later: reuse lessons across students: a tutor's lesson library, so similar lessons aren't rebuilt (and re-extracted) per student | — | planned | — |
 | — | Later: help-seeking signals: show the tutor when a student guesses rapidly or keeps asking for answers (learning science L11); a signal, never a lock | — | planned | — |
 

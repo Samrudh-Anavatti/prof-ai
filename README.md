@@ -63,7 +63,8 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Shared chats**: tutor and student in one lesson chat; Prof AI answers students by default and tutors on `@AI` | Live |
 | ✅ | **Support levels**: step by step, balanced or stretch per lesson; lesson chats stay on the lesson | Live |
 | ✅ | **Model providers**: Ollama Cloud alongside Luna, a model picker per lesson; only approved models reach students | Live |
-| ✅ | **Maths rendering**: Markdown and typeset maths in Prof AI's replies | Live after merge |
+| ✅ | **Maths rendering**: Markdown and typeset maths in Prof AI's replies | Live |
+| ✅ | **Worksheet extraction**: questions, answers and worked examples drafted from a worksheet PDF for the tutor to review | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Assignments, marking, tutor dashboard | Phase 1, later |
@@ -74,21 +75,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Maths in Prof AI's replies · 2026-10-21 · Punji
+### Worksheet extraction · 2026-10-21 · Punji
 
-Prof AI's replies now show real maths, like fractions, powers, roots and equations, plus simple formatting: bold, lists and numbered steps.
+Upload a worksheet PDF and Prof AI drafts its questions (with answers from the answer key) and worked examples for you to check. This is the first step towards worksheet-first lessons ([ADR 0006](docs/decisions/0006-worksheet-first-lessons.md), **proposed**).
 
-- **Markdown and LaTeX:** Prof AI writes maths as `$\frac{3}{4}$`, and the chat shows it typeset. Inline fractions are full size so younger students can read them.
-- **No new load on the CSP:** KaTeX outputs MathML, which browsers draw natively, so there are no extra fonts, stylesheets or inline styles.
-- **Safe:** no raw HTML, no images, and only web and email links in replies. People's own messages stay plain text.
+- **On the Lessons page:** pick the PDF's pages, then *Extract questions and examples*. Edit, remove or add questions before saving. About 10–15 seconds and $0.002 per worksheet on Luna.
+- **Answers stay with you:** they're saved with the lesson but never go into Prof AI's lesson context and never reach a student's browser. They're for checking answers (next stage).
+- **Prof AI knows the questions:** it sees the questions and worked examples, so its help can be about the actual question.
+- **Next:** the student's page, with the worked example first, one question at a time and *Check my answer*.
 
-📄 [plan](docs/features/2026-10-21-maths-rendering/plan.md) · [handover](docs/features/2026-10-21-maths-rendering/handover.md)
+📄 [plan](docs/features/2026-10-21-worksheet-extraction/plan.md) · [handover](docs/features/2026-10-21-worksheet-extraction/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-21 | **Maths rendering**: Markdown and typeset maths (KaTeX to MathML) in Prof AI's replies | Punji | [handover](docs/features/2026-10-21-maths-rendering/handover.md) |
 | 2026-10-21 | **Model providers**: one OpenAI-compatible adapter, Ollama Cloud models for tutors' own chats, `approved_for_student_conversations` enforced, a model picker per lesson | Punji | [handover](docs/features/2026-10-21-model-providers/handover.md) |
 | 2026-10-21 | **Lesson behaviour**: support levels per lesson, lesson chats stay on the lesson, Prof AI answers students without `@AI`, learning-science register | Punji | [handover](docs/features/2026-10-21-lesson-behaviour/handover.md) |
 | 2026-10-20 | **Web app refresh**: Lexend, friendlier chat bubbles, starter prompts, tidier tutor pages, dark mode | Sam | [handover](docs/features/2026-10-20-web-refresh/handover.md) |
@@ -276,6 +279,7 @@ sequenceDiagram
 | *(in feature plans)* | **Per-user AI configuration as markdown files in Blob**, layered after the base prompt | Easy for tutors to read and edit; safety rules always come first |
 | *(in feature plans)* | **Hard budgets in the app**: per-user and global daily caps, input and output caps, kill switch | Cost risk (R3) is controlled before the model is called, not after the bill |
 | [0005](docs/decisions/0005-models-and-context-budget.md) | **Frontier models (Luna default, Foundry-hosted preferred); every prompt layer capped to fit the deployment's tokens per minute (50k now); dollar budgets; tutor-created shared chats with `@AI`** | Lessons and the knowledge graph get a fixed, enforced 64k each; caching and model choice show up in the budget; Ollama Cloud rejected for student data |
+| [0006](docs/decisions/0006-worksheet-first-lessons.md) | **Worksheet-first lessons** (proposed): worked examples and questions from the tutor's worksheet, Prof AI as help per question; answers tutor-only | A blank chat box leaves a stuck student aimless; questions first is the vision's loop and what the research backs (worked examples, retrieval practice) |
 
 ### Direction
 
