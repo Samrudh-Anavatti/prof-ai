@@ -20,3 +20,16 @@ Students and tutors need a web UI: assignments, answer submission, a streaming c
 - **The static shell (`index.html`, `/assets/*`) is served without `CurrentUser`.** Easy Auth still requires sign-in for it, and it carries no data. All data goes through `/api/*`, which always depends on `CurrentUser`. A regression test enforces this.
 - **`GET /me` moved to `GET /api/me`.**
 - **npm is a new supply-chain surface (R19).** Keep dependencies few and pinned.
+
+## Amendment (2026-10-21): inline style attributes for MathLive
+
+Status: **accepted** (Sam, with Punji), not built yet.
+
+**Why.** MathLive gives students Desmos-style maths input (`x^2` becomes a superscript as they type, and phones get a maths keyboard). It positions maths with inline `style=""` attributes, which `style-src 'self'` blocks, so fractions and roots render broken. Trade-offs are in the [show your working handover](../features/2026-10-22-show-your-working/handover.md).
+
+**Decision:** the app shell's CSP may add `style-src-attr 'unsafe-inline'`, and only that. Inline scripts, `<style>` blocks and anything a style loads from another origin stay blocked. The change lands with the MathLive feature, which updates `test_shell_has_strict_security_headers` to allow exactly this directive and still fail on any other `unsafe-inline`.
+
+**Consequences:**
+- R18 is slightly looser: injected markup could restyle the page, but not run script. React escaping and the `dangerouslySetInnerHTML` lint ban still prevent injecting markup at all.
+- About 230 KB of script (lazy-loaded on lesson pages) and 300 KB of self-hosted fonts.
+- Acceptable now because no real student uses the app before the guard pipeline lands; revisit if MathLive is dropped.

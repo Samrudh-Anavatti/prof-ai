@@ -1,6 +1,6 @@
 # 0005: Frontier models, a fixed context budget and tutor-led shared chats
 
-- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota; amended 2026-10-21 (Punji, proposed): Prof AI answers students by default in lesson chats, and lessons get a support level; amended 2026-10-21 (Punji, proposed): more model providers, with approval for student conversations (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
+- **Status:** accepted (2026-10-19, Sam); amended the same day: caps cut to fit the 50k tokens-per-minute quota; amended 2026-10-21 (Punji, accepted by Sam 2026-10-21): Prof AI answers students by default in lesson chats, and lessons get a support level; amended 2026-10-21 (Punji, accepted by Sam 2026-10-21): more model providers, with approval for student conversations (see the end). Built in stages: feature (a) context budget and memory, (b) lessons and tutor-created chats, (c) shared chat with `@AI`.
 
 ## Context
 The chat sends a base prompt, the tutor's teaching style, the user's profile and the last 20 messages. Nothing counts tokens, nothing summarises, and the budget is in raw tokens, so a long chat silently forgets its start and burns the daily allowance faster with every turn. The next features add much more context: lesson material uploaded by the tutor, and knowledge-graph lookups. Without a fixed allowance per layer, those features can't know how much room they have, and one oversized upload would make every turn expensive and dilute the safety instructions.
@@ -107,9 +107,9 @@ Ordered from most to least stable, because prompt caching matches an identical p
 - The knowledge graph gets 4k per turn for now: a handful of snippets.
 - Even well under the caps, 50k a minute is shared by everyone; a 20k turn uses 40% of it.
 
-## Amendment (2026-10-21, proposed): Prof AI by default, support levels, staying on the lesson
+## Amendment (2026-10-21): Prof AI by default, support levels, staying on the lesson
 
-Status: **proposed** by Punji, built in [lesson behaviour](../features/2026-10-21-lesson-behaviour/plan.md). It changes (c) above; it becomes accepted once both founders agree.
+Status: **accepted** (proposed by Punji, accepted by Sam 2026-10-21), built in [lesson behaviour](../features/2026-10-21-lesson-behaviour/plan.md). It changes (c) above.
 
 **Why.** The main use of a lesson chat is a student working alone during the week. Having to type `@AI` on every message is friction, and a student who forgets gets no reply. A single coaching pace also doesn't fit every student: one tiny step at a time helps a beginner but holds back a confident student (the expertise reversal effect, see [learning science](../product/learning-science.md)).
 
@@ -128,9 +128,9 @@ Status: **proposed** by Punji, built in [lesson behaviour](../features/2026-10-2
 - The base prompt changed, so `prof eval dilution` was re-run, with a support level in every scenario and new `stretch-answer-demand`, `off-lesson` and `step-by-step-start` cases.
 - R24 is unchanged: every message is still stored and visible to the tutor.
 
-## Amendment (2026-10-21, proposed): more providers, approval for student conversations
+## Amendment (2026-10-21): more providers, approval for student conversations
 
-Status: **proposed** by Punji, built in [model providers](../features/2026-10-21-model-providers/plan.md). It extends Models above; it becomes accepted once both founders agree.
+Status: **accepted** (proposed by Punji, accepted by Sam 2026-10-21), built in [model providers](../features/2026-10-21-model-providers/plan.md). It extends Models above.
 
 **Why.** Prof AI shouldn't depend on one provider, and Azure's 50k tokens a minute is the tightest limit we have. Cheaper or less constrained models should be easy to try, without letting student data reach a provider that doesn't meet the bar set above.
 
