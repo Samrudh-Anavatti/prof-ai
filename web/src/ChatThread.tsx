@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import {
   ApiError,
@@ -15,11 +15,13 @@ import {
   type WorkingOutcome,
 } from "./api";
 import { Avatar } from "./Avatar";
+import { Composer, type Recipient } from "./Composer";
 import { LessonPanel } from "./LessonPanel";
 import { Markdown } from "./Markdown";
-import { messagesForQuestion, nextQuestion } from "./progress";
+import { HELP_PROMPTS, messagesForQuestion, nextQuestion } from "./progress";
 
-const MAX_INPUT_CHARS = 2000;
+export type { Recipient } from "./Composer";
+
 const POLL_MS = 5000;
 // Mirrors the server: a whole-word @AI, so an address like me@ai.example doesn't count.
 const AI_MENTION = /(?<![\w@.])@ai\b/i;
@@ -65,14 +67,6 @@ export function withMention(content: string): string {
   return AI_MENTION.test(content) ? content : `@AI ${content}`;
 }
 
-export type Recipient = "ai" | "tutor" | "student";
-
-export const RECIPIENT_LABELS: Record<Recipient, string> = {
-  ai: "Prof AI",
-  tutor: "My tutor",
-  student: "Student",
-};
-
 /** Who the composer can send to, the default first. One choice means no toggle. */
 export function recipients(shared: boolean, solving: boolean, viewer: Author): Recipient[] {
   if (!shared) return ["ai"];
@@ -107,8 +101,9 @@ function firstName(me: Me): string {
   return me.display_name.split(" ")[0] || me.display_name;
 }
 
-/** own: the viewer owns this chat, so in a lesson they work the questions, as a student does
- * (a tutor trying a lesson on themselves). */
+/** A lesson with questions puts them on the left and the chat on the right (a sheet on narrow
+ * screens); any other chat is the chat alone. own: the viewer owns this chat, so in a lesson they
+ * work the questions, as a student does (a tutor trying a lesson on themselves). */
 export function ChatThread({
   me,
   endpoints,
@@ -125,29 +120,42 @@ export function ChatThread({
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const threadEnd = useRef<HTMLDivElement>(null);
+  const thread = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const chatButton = useRef<HTMLButtonElement>(null);
   const [pickedQuestion, setPickedQuestion] = useState<string | null>(null);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [pickedRecipient, setPickedRecipient] = useState<Recipient | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [seen, setSeen] = useState(0);
   const sending = reply !== null;
-  const shared = detail?.lesson != null;
-  const questions = detail?.lesson?.questions ?? [];
-  const hasWorksheet = questions.length > 0 || (detail?.lesson?.worked_examples ?? []).length > 0;
+  const lesson = detail?.lesson ?? null;
+  const shared = lesson !== null;
+  const questions = lesson?.questions ?? [];
+  const hasWorksheet = questions.length > 0 || (lesson?.worked_examples ?? []).length > 0;
   const currentQuestion = questions.some((q) => q.number === pickedQuestion)
     ? pickedQuestion
     : nextQuestion(questions, detail?.progress ?? []);
+  const solving = shared && own;
 
   useEffect(() => {
     endpoints
       .load()
-      .then(setDetail)
+      .then((loaded) => {
+        setDetail(loaded);
+        setSeen(loaded.messages.length);
+      })
       .catch((e: unknown) => setError(messageOf(e)));
   }, [endpoints]);
 
   useEffect(() => {
-    threadEnd.current?.scrollIntoView({ block: "end" });
-  }, [detail?.messages.length, reply, currentQuestion, showAllQuestions]);
+    const element = thread.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [detail?.messages.length, reply, currentQuestion, showAllQuestions, chatOpen]);
+
+  useEffect(() => {
+    if (chatOpen) composer.current?.focus();
+  }, [chatOpen]);
 
   const knownVersion = detail?.updated_at;
   useEffect(() => {
@@ -205,32 +213,35 @@ export function ChatThread({
   }
 
   const allMessages = detail?.messages ?? [];
-  const filtering = currentQuestion !== null && !showAllQuestions;
+  const filtering = hasWorksheet && currentQuestion !== null && !showAllQuestions;
   const messages = filtering ? messagesForQuestion(allMessages, currentQuestion) : allMessages;
-  const lesson = detail?.lesson ?? null;
-  const solving = shared && own;
   const starters = (own || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
   const recipientOptions = recipients(shared, solving, viewer);
   const recipient =
     pickedRecipient && recipientOptions.includes(pickedRecipient)
       ? pickedRecipient
       : recipientOptions[0];
+  // Counted while the chat sheet is closed; on wide screens the chat is always in view.
+  const unread = chatOpen ? 0 : allMessages.slice(seen).filter((m) => m.author !== viewer).length;
 
   function sendDraft() {
     const message = outgoing(recipient, solving || !shared, draft.trim());
     void send(message.content, message.toTutor);
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    sendDraft();
+  function askForHelp(text: string) {
+    setChatOpen(true);
+    void send(text);
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      sendDraft();
-    }
+  function closeChat() {
+    setSeen(allMessages.length);
+    setChatOpen(false);
+    chatButton.current?.focus();
+  }
+
+  function onPaneKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape" && chatOpen) closeChat();
   }
 
   async function checkAnswer(
@@ -257,182 +268,204 @@ export function ChatThread({
   }
 
   return (
-    <>
-      {lesson && (
-        <header className="lesson-banner">
-          <span className="lesson-kicker">Lesson</span>
-          <strong className="lesson-title">{lesson.title}</strong>
-          {lesson.topics.length > 0 && (
-            <ul className="topic-chips" aria-label="Topics">
-              {lesson.topics.map((topic) => (
-                <li key={topic}>{topic}</li>
-              ))}
-            </ul>
-          )}
-        </header>
-      )}
+    <div
+      className={hasWorksheet ? "lesson-layout has-workspace" : "lesson-layout"}
+      data-chat-open={chatOpen || undefined}
+    >
       {lesson && hasWorksheet && (
         <LessonPanel
           lesson={lesson}
           progress={detail?.progress ?? []}
+          attempts={detail?.attempts ?? []}
           current={currentQuestion}
           onSelect={setPickedQuestion}
-          onHelp={solving ? (text) => void send(text) : undefined}
+          onStuck={solving ? askForHelp : undefined}
           onCheck={endpoints.check && solving ? checkAnswer : undefined}
           onCheckWorking={endpoints.checkWorking && solving ? checkWorking : undefined}
           busy={sending}
         />
       )}
-      <div className="thread" aria-live="polite">
-        {currentQuestion !== null && allMessages.length > 0 && (
-          <div className="thread-filter">
-            <span className="muted">
-              {showAllQuestions
-                ? "Showing every question's messages"
-                : `Showing messages about question ${currentQuestion}`}
-            </span>
+      <section className="chat-pane" aria-label="Chat" onKeyDown={onPaneKeyDown}>
+        {hasWorksheet ? (
+          <header className="chat-pane-head">
+            <h2 className="chat-pane-title">
+              Chat{" "}
+              <span className="muted">
+                · {filtering ? `question ${currentQuestion}` : "all questions"}
+              </span>
+            </h2>
+            {currentQuestion !== null && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setShowAllQuestions(!showAllQuestions)}
+              >
+                {showAllQuestions ? `Only question ${currentQuestion}` : "Show all questions"}
+              </button>
+            )}
             <button
               type="button"
-              className="secondary"
-              onClick={() => setShowAllQuestions(!showAllQuestions)}
+              className="chat-pane-close"
+              aria-label="Close chat"
+              onClick={closeChat}
             >
-              {showAllQuestions ? `Only question ${currentQuestion}` : "Show all questions"}
+              ×
             </button>
-          </div>
+          </header>
+        ) : (
+          lesson && (
+            <header className="lesson-banner">
+              <span className="lesson-kicker">Lesson</span>
+              <strong className="lesson-title">{lesson.title}</strong>
+              {lesson.topics.length > 0 && (
+                <ul className="topic-chips" aria-label="Topics">
+                  {lesson.topics.map((topic) => (
+                    <li key={topic}>{topic}</li>
+                  ))}
+                </ul>
+              )}
+            </header>
+          )
         )}
-        {!detail && !error && (
-          <div className="thread-skeleton" role="status">
-            <span className="visually-hidden">Loading the chat…</span>
-            <span className="skeleton skeleton-bubble" />
-            <span className="skeleton skeleton-bubble mine" />
-            <span className="skeleton skeleton-bubble" />
-          </div>
-        )}
-        {filtering && allMessages.length > 0 && messages.length === 0 && reply === null && (
-          <p className="muted thread-filter-empty">No messages about this question yet.</p>
-        )}
-        {detail && allMessages.length === 0 && reply === null && (
-          <div className="empty">
-            <p className="empty-wave" aria-hidden="true">
-              👋
-            </p>
-            <h1>Hi {firstName(me)}</h1>
-            <p className="muted">
-              {solving && hasWorksheet
-                ? "Try the question above. When you're stuck, use a help button or ask Prof AI here."
-                : solving
+        <div className="thread" ref={thread} aria-live="polite">
+          {!detail && !error && (
+            <div className="thread-skeleton" role="status">
+              <span className="visually-hidden">Loading the chat…</span>
+              <span className="skeleton skeleton-bubble" />
+              <span className="skeleton skeleton-bubble mine" />
+              <span className="skeleton skeleton-bubble" />
+            </div>
+          )}
+          {detail && hasWorksheet && messages.length === 0 && reply === null && (
+            <div className="chat-empty">
+              {solving ? (
+                <>
+                  <p>Stuck on question {currentQuestion}? Ask Prof AI here, or try one of these.</p>
+                  {HELP_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      className="starter"
+                      onClick={() => askForHelp(prompt)}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <p className="muted">No messages about question {currentQuestion} yet.</p>
+              )}
+            </div>
+          )}
+          {detail && !hasWorksheet && allMessages.length === 0 && reply === null && (
+            <div className="empty">
+              <p className="empty-wave" aria-hidden="true">
+                👋
+              </p>
+              <h1>Hi {firstName(me)}</h1>
+              <p className="muted">
+                {solving
                   ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson${viewer === "student" ? ", or send a message to your tutor only" : ""}.`
                   : shared
                     ? `This chat is about ${lesson?.title}. Write to your student here, or switch to Prof AI below.`
                     : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
-            </p>
-            {starters.length > 0 && (
-              <div className="starters">
-                <p className="starters-label">Not sure where to start? Try one:</p>
-                {starters.map((text) => (
-                  <button
-                    key={text}
-                    type="button"
-                    className="starter"
-                    onClick={() => pickStarter(text)}
-                  >
-                    {text}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        {messages.map((m, index) => {
-          const own = m.author === viewer;
-          return (
-            <div key={index} className={`message ${own ? "mine" : "theirs"} by-${m.author}`}>
-              {!own && <Avatar name={m.author_name} tone={m.author} />}
-              <div className={`bubble ${own ? "user" : "assistant"} by-${m.author}`}>
-                {!own && <span className="bubble-author">{m.author_name}</span>}
-                {m.question && <span className="question-tag">Question {m.question}</span>}
-                {m.author === "ai" ? <Markdown text={m.content} /> : m.content}
-              </div>
-            </div>
-          );
-        })}
-        {reply !== null && (
-          <div className="message theirs by-ai">
-            <Avatar name="Prof AI" tone="ai" />
-            <div className="bubble assistant by-ai">
-              <span className="bubble-author">Prof AI</span>
-              {reply ? (
-                <Markdown text={reply} />
-              ) : (
-                <span className="typing">
-                  <span className="visually-hidden">Prof AI is thinking…</span>
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </span>
+              </p>
+              {starters.length > 0 && (
+                <div className="starters">
+                  <p className="starters-label">Not sure where to start? Try one:</p>
+                  {starters.map((text) => (
+                    <button
+                      key={text}
+                      type="button"
+                      className="starter"
+                      onClick={() => pickStarter(text)}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
-        )}
-        <div ref={threadEnd} />
-      </div>
-
-      {error && (
-        <div className="notice" role="alert">
-          {error}
-        </div>
-      )}
-
-      <form className="composer" onSubmit={submit}>
-        <textarea
-          ref={composer}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={onKeyDown}
-          maxLength={MAX_INPUT_CHARS}
-          rows={2}
-          placeholder={
-            recipient === "ai"
-              ? "Ask Prof AI…"
-              : recipient === "tutor"
-                ? "Write to your tutor only…"
-                : "Write to your student (Prof AI won't reply)…"
-          }
-          aria-label="Message"
-          disabled={!detail}
-        />
-        <div className="composer-actions">
-          {recipientOptions.length > 1 && (
-            <div className="recipient-toggle" role="radiogroup" aria-label="Send to">
-              {recipientOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={option === recipient}
-                  onClick={() => {
-                    setPickedRecipient(option);
-                    composer.current?.focus();
-                  }}
-                >
-                  {RECIPIENT_LABELS[option]}
-                </button>
-              ))}
+          )}
+          {messages.map((m, index) => {
+            const mine = m.author === viewer;
+            return (
+              <div key={index} className={`message ${mine ? "mine" : "theirs"} by-${m.author}`}>
+                {!mine && <Avatar name={m.author_name} tone={m.author} />}
+                <div className={`bubble ${mine ? "user" : "assistant"} by-${m.author}`}>
+                  {!mine && <span className="bubble-author">{m.author_name}</span>}
+                  {m.question && !filtering && (
+                    <span className="question-tag">Question {m.question}</span>
+                  )}
+                  {/* Submissions and maths-field working carry $…$ maths; other messages stay plain. */}
+                  {m.author === "ai" || m.content.includes("$") ? (
+                    <Markdown text={m.content} />
+                  ) : (
+                    m.content
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {reply !== null && (
+            <div className="message theirs by-ai">
+              <Avatar name="Prof AI" tone="ai" />
+              <div className="bubble assistant by-ai">
+                <span className="bubble-author">Prof AI</span>
+                {reply ? (
+                  <Markdown text={reply} />
+                ) : (
+                  <span className="typing">
+                    <span className="visually-hidden">Prof AI is thinking…</span>
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </span>
+                )}
+              </div>
             </div>
           )}
-          <button
-            type="submit"
-            className={recipient === "ai" ? "ask-ai" : undefined}
-            disabled={sending || !detail || !draft.trim()}
-          >
-            Send
-          </button>
         </div>
-      </form>
-      <p className="disclaimer">
-        {shared && viewer === "student" && "Your tutor can read this chat. "}
-        Prof AI can make mistakes. Check important answers with your tutor.
-      </p>
-    </>
+
+        {error && (
+          <div className="notice" role="alert">
+            {error}
+          </div>
+        )}
+
+        <Composer
+          value={draft}
+          onChange={setDraft}
+          onSend={sendDraft}
+          options={recipientOptions}
+          recipient={recipient}
+          onRecipient={setPickedRecipient}
+          ready={detail !== null}
+          sending={sending}
+          textareaRef={composer}
+        />
+        <p className="disclaimer">
+          {shared && viewer === "student" && "Your tutor can read this chat. "}
+          Prof AI can make mistakes. Check important answers with your tutor.
+        </p>
+      </section>
+      {hasWorksheet && (
+        <button
+          ref={chatButton}
+          type="button"
+          className="chat-sheet-button"
+          aria-expanded={chatOpen}
+          onClick={() => setChatOpen(true)}
+        >
+          {solving ? "Ask Prof AI" : "Chat"}
+          {unread > 0 && (
+            <span className="unread-badge">
+              <span className="visually-hidden">, </span>
+              {unread} new
+            </span>
+          )}
+        </button>
+      )}
+    </div>
   );
 }

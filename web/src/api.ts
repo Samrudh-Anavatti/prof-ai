@@ -72,6 +72,8 @@ export interface LessonOverview {
   worked_examples?: WorkedExample[];
   /** What a student sees of each question: never its answer. */
   questions?: QuestionOverview[];
+  /** By question number, only at step by step: the line a student's working starts from. */
+  first_steps?: Record<string, string>;
 }
 
 export type Verdict = "correct" | "show_working" | "slip" | "not_yet";
@@ -86,10 +88,24 @@ export interface QuestionProgress {
   unverified?: boolean;
 }
 
+/** A submitted answer and its working, seen by the student and their tutor. */
+export interface Attempt {
+  question: string;
+  working: string[];
+  answer: string;
+  verdict: Verdict | null;
+  correct: boolean;
+  /** False when there was no answer key to mark against. */
+  verified: boolean;
+  at: string;
+}
+
 export interface ConversationDetail extends ConversationSummary {
   lesson: LessonOverview | null;
   messages: ChatMessage[];
   progress?: QuestionProgress[];
+  /** Left out when there are none. */
+  attempts?: Attempt[];
 }
 
 export interface CheckOutcome {
@@ -123,6 +139,15 @@ export interface Question {
   answer: string | null;
   /** Worked out by Prof AI; the tutor must confirm it before saving. */
   answer_needs_review?: boolean;
+  /** Shown to students at step by step as the first line of their working. */
+  first_step?: string | null;
+  /** Drafted by Prof AI; the tutor must confirm it before saving. */
+  first_step_needs_review?: boolean;
+}
+
+export interface FirstStepDraft {
+  number: string;
+  first_step: string | null;
 }
 
 export interface SolvedAnswer {
@@ -428,6 +453,13 @@ export function solveQuestions(
   options?: ApiOptions,
 ): Promise<{ answers: SolvedAnswer[] }> {
   return sendJson("POST", "/api/lessons/answers", { questions }, options);
+}
+
+export function draftFirstSteps(
+  questions: { number: string; text: string; answer: string | null }[],
+  options?: ApiOptions,
+): Promise<{ first_steps: FirstStepDraft[] }> {
+  return sendJson("POST", "/api/lessons/first-steps", { questions }, options);
 }
 
 export function draftLesson(description: string, options?: ApiOptions): Promise<LessonDraft> {

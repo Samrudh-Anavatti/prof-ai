@@ -5,7 +5,7 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel
 
-from prof_ai.chat.models import Conversation, PromptMessage, Question, Verdict
+from prof_ai.chat.models import Conversation, Lesson, PromptMessage, Question, Verdict
 
 PROMPTS = Path(__file__).parent / "prompts"
 MARK_PROMPT = (PROMPTS / "mark_working.md").read_text("utf-8").strip()
@@ -100,9 +100,20 @@ ONLY_SUBMIT_COMPLETES = (
 )
 
 
-def question_reference(question: Question) -> str:
+def shown_first_step(lesson: Lesson | None, question: Question) -> str | None:
+    """The first line of working the student was given: only at step by step."""
+    if lesson is None or lesson.support != "step_by_step":
+        return None
+    return question.first_step
+
+
+def question_reference(question: Question, first_step: str | None = None) -> str:
     """The current question for one turn; its answer never enters the stored history."""
     text = f"The student is working on question {question.number}:\n{question.text}"
+    if first_step:
+        text += (
+            f"\n\nTheir working starts from this first step, which they were given:\n{first_step}"
+        )
     if question.answer:
         text += (
             "\n\nThe tutor's answer, only for checking the student's working. Never reveal it "
@@ -121,15 +132,20 @@ def working_message(steps: list[str]) -> str:
     return "\n".join(f"{index}. {line}" for index, line in enumerate(lines, start=1))
 
 
-def _key_block(question: Question) -> str:
+def _key_block(question: Question, first_step: str | None) -> str:
     key = question.answer or "None: the tutor hasn't given one."
-    return f"<question>\n{question.text}\n</question>\n<answer_key>\n{key}\n</answer_key>\n"
+    block = f"<question>\n{question.text}\n</question>\n<answer_key>\n{key}\n</answer_key>\n"
+    if first_step:
+        block += f"<given_first_step>\n{first_step}\n</given_first_step>\n"
+    return block
 
 
-def mark_request(question: Question, steps: list[str], answer: str) -> list[PromptMessage]:
+def mark_request(
+    question: Question, steps: list[str], answer: str, first_step: str | None = None
+) -> list[PromptMessage]:
     exact = "yes" if question.answer and matches_key(answer, question.answer) else "no"
     content = (
-        _key_block(question)
+        _key_block(question, first_step)
         + f"<student_working>\n{numbered(steps)}\n</student_working>\n"
         + f"<student_answer>\n{answer}\n</student_answer>\n"
         + f"<matches_key_exactly>{exact}</matches_key_exactly>"
@@ -140,8 +156,13 @@ def mark_request(question: Question, steps: list[str], answer: str) -> list[Prom
     ]
 
 
-def working_check_request(question: Question, steps: list[str]) -> list[PromptMessage]:
-    content = _key_block(question) + f"<student_working>\n{numbered(steps)}\n</student_working>"
+def working_check_request(
+    question: Question, steps: list[str], first_step: str | None = None
+) -> list[PromptMessage]:
+    content = (
+        _key_block(question, first_step)
+        + f"<student_working>\n{numbered(steps)}\n</student_working>"
+    )
     return [
         PromptMessage(role="system", content=WORKING_PROMPT),
         PromptMessage(role="user", content=content),

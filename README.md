@@ -68,6 +68,7 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Student lesson page**: worked examples, questions one at a time, help buttons, *Check my answer*, per-question progress | Live |
 | ✅ | **Describe it instead**: draft a lesson's fields from a description, with a checklist of what to cover | Live after merge |
 | ✅ | **Show your working**: step-by-step working with a live maths preview, hints as you go, four-way marking, missing answers worked out for the tutor to confirm | Live after merge |
+| ✅ | **Lesson workspace**: question and working beside the chat (a sheet on phones), ruled working lines, a tutor-confirmed first step at *Step by step*, *I'm stuck*, and students' attempts for tutors | Live after merge |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Formal marking and a tutor dashboard across students | Phase 1, later |
@@ -78,22 +79,25 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### MathLive maths input · 2026-10-22 · Punji
+### Lesson workspace · 2026-10-22 · Punji
 
-- **Students write working as maths, as in Desmos.** Each step and the final answer is a MathLive maths field:
-  - `^` makes a power, `/` makes a fraction and `sqrt` makes a root.
-  - `or` and `and` stay as words, and `"` switches to text on any keyboard.
-  - Phones get a maths keyboard.
-- **What's sent:** steps arrive as `$…$` LaTeX, which the server, the chat and the tutor's view already read. Exact matching against the answer key ignores MathLive's spacing and word wrappers.
-- **Security policy:** it now allows inline style attributes (`style-src-attr 'unsafe-inline'`), and nothing else inline, as ADR 0003's amendment agreed. MathLive's fonts are self-hosted and its script only loads on lesson pages.
+- **The question comes first.** On a wide screen, a lesson with a worksheet is two panes: the question and working on the left, the chat on the right, each scrolling on its own. On phones and narrow windows, the chat is a sheet that slides up from an *Ask Prof AI* button, which shows how many messages are new.
+- **Getting around:** previous and next, "Question 2" with "2 of 28", a progress strip, and a grid of every question on demand. Moving to a question scrolls back to the top.
+- **Working on ruled lines,** like an exercise book. Enter adds a line, Backspace on an empty line removes it, ↑ and ↓ move between lines, and Ctrl/⌘+Enter checks. The answer is the last line, underlined twice.
+- **Support fades:** at *Step by step*, the working starts from a **first step** the tutor confirmed ("Started for you"); *Balanced* prompts "Start with what you know"; *Stretch* is a blank page.
+- **First steps on the Lessons page:** type one per question, or *Draft first steps* and check each draft. A lesson can't be saved with an unconfirmed draft, and drafts that contain the answer are dropped.
+- **One check button:** *Check my working* gives a hint while the answer line is empty; *Submit my answer* marks it once there's an answer. *I'm stuck* sends the working so far to Prof AI and opens the chat.
+- **Students see Not started, Started or Done,** with no counts. **Tutors** see each submitted attempt (working, answer, verdict and time) beside the student's chat.
+- **Lessons page:** the chat list no longer squeezes lesson titles.
 
-📄 [plan](docs/features/2026-10-22-mathlive/plan.md) · [handover](docs/features/2026-10-22-mathlive/handover.md)
+📄 [plan](docs/features/2026-10-22-lesson-workspace/plan.md) · [handover](docs/features/2026-10-22-lesson-workspace/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-22 | **MathLive maths input**: working and answers typed as maths, as in Desmos, with a maths keyboard on phones; the CSP allows inline style attributes only | Punji | [handover](docs/features/2026-10-22-mathlive/handover.md) |
 | 2026-10-22 | **Lesson answering**: your own lesson works from the Lessons page; one *Send* with a "Send to" toggle (Prof AI or tutor) | Punji | [handover](docs/features/2026-10-22-lesson-answering/handover.md) |
 | 2026-10-21 | **Lesson chat bugs**: only *Submit my answer* completes a question, the thread follows the current question, trying a lesson on yourself gets the student controls | Sam | [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md) |
 | 2026-10-22 | **Show your working**: step-by-step working with a live maths preview, *Check my working so far*, four verdicts on *Submit my answer*, Prof AI works out missing answer keys for the tutor to confirm | Punji | [handover](docs/features/2026-10-22-show-your-working/handover.md) |
@@ -339,6 +343,7 @@ sequenceDiagram
 - Chapter detection needs PDF bookmarks; there's no command to edit chapters yet.
 - No monthly caps yet (daily dollar caps plus the Azure budget alert).
 - Luna makes mistakes (a wrong 7 × 8 hint in testing), so tutors should read transcripts (R6).
+- Saved lessons can't be edited yet, so lessons set up before the lesson workspace have no first steps; *Step by step* falls back to "Start by writing down what the question gives you".
 
 ## 🛠️ Run it locally
 

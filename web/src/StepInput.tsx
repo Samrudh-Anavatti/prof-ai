@@ -13,9 +13,37 @@ export interface StepInputProps {
   value: string;
   onChange: (value: string) => void;
   label: string;
-  onEnter?: () => void;
   placeholder?: string;
-  autoFocus?: boolean;
+  /** Enter. */
+  onEnter?: () => void;
+  /** Ctrl or ⌘ with Enter. */
+  onSubmit?: () => void;
+  /** Backspace on an empty line. */
+  onRemove?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  /** The line takes focus whenever this changes. */
+  focusToken?: number;
+}
+
+export type LineKey = "next" | "submit" | "remove";
+
+/** The keys every line of working shares. Arrows differ: inside a maths field they move
+ * between a fraction's parts, so MathLive reports when they leave the field instead. */
+export function lineKey(
+  event: { key: string; ctrlKey: boolean; metaKey: boolean },
+  empty: boolean,
+): LineKey | null {
+  if (event.key === "Enter") return event.ctrlKey || event.metaKey ? "submit" : "next";
+  if (event.key === "Backspace" && empty) return "remove";
+  return null;
+}
+
+function handlerFor(key: LineKey | null, props: StepInputProps): (() => void) | undefined {
+  if (key === "next") return props.onEnter;
+  if (key === "submit") return props.onSubmit;
+  if (key === "remove") return props.onRemove;
+  return undefined;
 }
 
 /**
@@ -39,21 +67,14 @@ export function StepInput(props: StepInputProps) {
   return mathField ? <MathStep {...props} element={mathField} /> : <TypedStep {...props} />;
 }
 
-function MathStep({
-  value,
-  onChange,
-  label,
-  onEnter,
-  placeholder,
-  autoFocus,
-  element,
-}: StepInputProps & { element: typeof MathfieldElement }) {
+function MathStep(props: StepInputProps & { element: typeof MathfieldElement }) {
+  const { value, label, placeholder, focusToken, element } = props;
   const host = useRef<HTMLDivElement>(null);
   const field = useRef<MathfieldElement | null>(null);
-  const handlers = useRef({ onChange, onEnter });
+  const latest = useRef(props);
 
   useEffect(() => {
-    handlers.current = { onChange, onEnter };
+    latest.current = props;
   });
 
   // Created by hand rather than as JSX, so React never reconciles MathLive's own DOM.
@@ -66,22 +87,41 @@ function MathStep({
     mf.smartFence = true;
     mf.inlineShortcuts = { ...mf.inlineShortcuts, ...WORD_SHORTCUTS };
     mf.setValue(fieldLatex(value), { silenceNotifications: true });
-    const onInput = () => handlers.current.onChange(stepValue(mf.getValue("latex-expanded")));
+    const onInput = () => latest.current.onChange(stepValue(mf.getValue("latex-expanded")));
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       // MathLive only maps " to words on US layouts; a UK keyboard types it with Shift+2.
-      if (event.key === '"')
+      if (event.key === '"') {
         mf.executeCommand(["switchMode", mf.mode === "text" ? "math" : "text"]);
-      else if (event.key === "Enter" && handlers.current.onEnter) handlers.current.onEnter();
-      else return;
+      } else {
+        const run = handlerFor(
+          lineKey(event, !mf.getValue("latex-expanded").trim()),
+          latest.current,
+        );
+        if (!run) return;
+        run();
+      }
       event.preventDefault();
       event.stopPropagation();
     };
+    const onMoveOut = (event: Event) => {
+      const { direction } = (event as CustomEvent<{ direction: string }>).detail;
+      const run =
+        direction === "upward"
+          ? latest.current.onMoveUp
+          : direction === "downward"
+            ? latest.current.onMoveDown
+            : undefined;
+      if (!run) return;
+      event.preventDefault();
+      run();
+    };
     mf.addEventListener("input", onInput);
     mf.addEventListener("keydown", onKeyDown, { capture: true });
-    if (autoFocus) mf.focus();
+    mf.addEventListener("move-out", onMoveOut);
     return () => {
       mf.removeEventListener("input", onInput);
       mf.removeEventListener("keydown", onKeyDown, { capture: true });
+      mf.removeEventListener("move-out", onMoveOut);
       mf.remove();
       field.current = null;
     };
@@ -102,25 +142,41 @@ function MathStep({
     if (field.current) field.current.placeholder = placeholder ? placeholderLatex(placeholder) : "";
   }, [label, placeholder]);
 
+  useEffect(() => {
+    if (focusToken !== undefined) field.current?.focus();
+  }, [focusToken]);
+
   return <div ref={host} className="step-input maths" />;
 }
 
-function TypedStep({ value, onChange, label, onEnter, placeholder, autoFocus }: StepInputProps) {
+function TypedStep(props: StepInputProps) {
+  const { value, onChange, label, placeholder, focusToken } = props;
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusToken !== undefined) input.current?.focus();
+  }, [focusToken]);
+
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" && onEnter) {
-      event.preventDefault();
-      onEnter();
-    }
+    const run =
+      event.key === "ArrowUp"
+        ? props.onMoveUp
+        : event.key === "ArrowDown"
+          ? props.onMoveDown
+          : handlerFor(lineKey(event, !value.trim()), props);
+    if (!run) return;
+    event.preventDefault();
+    run();
   }
 
   return (
     <div className="step-input">
       <input
+        ref={input}
         aria-label={label}
         value={value}
         maxLength={MAX_STEP_CHARS}
         placeholder={placeholder}
-        autoFocus={autoFocus}
         autoComplete="off"
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}

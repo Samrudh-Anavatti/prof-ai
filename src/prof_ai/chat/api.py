@@ -5,10 +5,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from prof_ai.auth import CurrentUser, require_role
-from prof_ai.chat.checking import QuestionProgress, question_progress
+from prof_ai.chat.checking import QuestionProgress, question_progress, shown_first_step
 from prof_ai.chat.models import ChatMessage, Conversation, SupportLevel, Verdict, WorkedExample
 from prof_ai.chat.service import (
     ChatEvent,
@@ -52,12 +52,29 @@ class LessonOverview(BaseModel):
     support: SupportLevel = "balanced"
     worked_examples: list[WorkedExample] = []
     questions: list[QuestionOverview] = []
+    # By question number, only at step by step: the line a student's working starts from.
+    # Left out when there are none, so a lesson without them looks as it always has.
+    first_steps: dict[str, str] = Field(default={}, exclude_if=lambda steps: not steps)
+
+
+class AttemptOut(BaseModel):
+    """A submitted answer and its working, for the student and their tutor."""
+
+    question: str
+    working: list[str]
+    answer: str
+    verdict: Verdict | None
+    correct: bool
+    verified: bool
+    at: datetime
 
 
 class ConversationDetail(ConversationSummary):
     lesson: LessonOverview | None
     messages: list[MessageOut]
     progress: list[QuestionProgress] = []
+    # Left out when there are none, so a chat without submissions looks as it always has.
+    attempts: list[AttemptOut] = Field(default=[], exclude_if=lambda attempts: not attempts)
 
 
 class AnswerCheck(BaseModel):
@@ -133,6 +150,9 @@ def lesson_overview(conversation: Conversation) -> LessonOverview | None:
         support=lesson.support,
         worked_examples=lesson.worked_examples,
         questions=[QuestionOverview(number=q.number, text=q.text) for q in lesson.questions],
+        first_steps={
+            q.number: step for q in lesson.questions if (step := shown_first_step(lesson, q))
+        },
     )
 
 
@@ -158,6 +178,7 @@ def conversation_detail(request: Request, owner: User, conversation_id: str) -> 
         lesson=lesson_overview(conversation),
         messages=[message_out(m, owner) for m in conversation.messages],
         progress=question_progress(conversation),
+        attempts=[AttemptOut(**a.model_dump()) for a in conversation.attempts],
     )
 
 

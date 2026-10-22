@@ -64,6 +64,10 @@ class Question(BaseModel):
     answer: str | None = Field(default=None, max_length=1_000)
     # Worked out by Prof AI and not yet confirmed by the tutor; a lesson can't be saved with it.
     answer_needs_review: bool = False
+    # The first line of working a student sees at step by step, to carry on from. Never the answer.
+    first_step: str | None = Field(default=None, max_length=300)
+    # Drafted by Prof AI and not yet confirmed by the tutor; a lesson can't be saved with it.
+    first_step_needs_review: bool = False
 
 
 class Lesson(BaseModel):
