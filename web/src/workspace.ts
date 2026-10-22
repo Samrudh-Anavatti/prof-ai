@@ -15,10 +15,17 @@ export function checkLabel(answer: string): string {
   return answer.trim() ? "Submit my answer" : "Check my working";
 }
 
-/** The message I'm stuck sends, with the working so far so Prof AI hints at the right step. */
-export function stuckMessage(steps: string[]): string {
-  if (steps.length === 0) return "I'm stuck. How do I start?";
-  const lines = steps.map((step, index) => `${index + 1}. ${step}`).join("\n");
+/** The message I'm stuck sends, with the working so far so Prof AI hints at the right step.
+ * A first step the student was given is line 1, as on their screen. */
+export function stuckMessage(steps: string[], given?: string): string {
+  if (steps.length === 0) {
+    return given
+      ? "I'm stuck. How do I carry on from the first step?"
+      : "I'm stuck. How do I start?";
+  }
+  const lines = (given ? [given, ...steps] : steps)
+    .map((step, index) => `${index + 1}. ${step}`)
+    .join("\n");
   return `I'm stuck. Here's my working so far:\n\n${lines}`;
 }
 

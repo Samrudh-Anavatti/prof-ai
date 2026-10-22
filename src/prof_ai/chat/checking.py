@@ -10,7 +10,9 @@ from prof_ai.chat.models import Conversation, Lesson, PromptMessage, Question, V
 PROMPTS = Path(__file__).parent / "prompts"
 MARK_PROMPT = (PROMPTS / "mark_working.md").read_text("utf-8").strip()
 WORKING_PROMPT = (PROMPTS / "check_working.md").read_text("utf-8").strip()
-CHECK_OUTPUT_TOKENS = 300
+# Reasoning tokens count towards the cap. Marking two roots of an age question, one of them
+# impossible, took up to 256 of them before the JSON reply, which a cap of 300 cut off.
+CHECK_OUTPUT_TOKENS = 1_000
 MAX_ANSWER_CHARS = 500
 MAX_STEPS = 30
 MAX_STEP_CHARS = 300
