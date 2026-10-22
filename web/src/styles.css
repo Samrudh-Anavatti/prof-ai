@@ -865,8 +865,10 @@ input[type="checkbox"] {
   }
 }
 
+/* Wide maths scrolls sideways; tall maths gets room instead of a scrollbar. */
 .question-text {
-  overflow-x: auto;
+  padding-block: 0.1em;
+  overflow: auto hidden;
   font-size: 1.3rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -899,13 +901,13 @@ input[type="checkbox"] {
   font-size: 0.92rem;
 }
 
-.working {
+.working-sheet {
   --margin: 3.75rem;
   position: relative;
 }
 
 /* The exercise book's margin rule, unbroken through every line. */
-.working::before {
+.working-sheet::before {
   content: "";
   position: absolute;
   inset: 0 auto 0 calc(var(--margin) - 2px);
@@ -922,7 +924,7 @@ input[type="checkbox"] {
 
 .working-line {
   display: grid;
-  grid-template-columns: var(--margin) minmax(0, 1fr) 2.5rem;
+  grid-template-columns: var(--margin) minmax(0, 1fr) 4.4rem;
   align-items: center;
   min-height: 3.1rem;
   border-bottom: 1px solid var(--line-strong);
@@ -950,7 +952,7 @@ input[type="checkbox"] {
 .given-step {
   min-width: 0;
   padding: 0.4rem 0.6rem;
-  overflow-x: auto;
+  overflow: auto hidden;
   font-size: 1.1rem;
 }
 
@@ -971,7 +973,7 @@ input[type="checkbox"] {
     padding-inline: 0.9rem;
   }
 
-  .working {
+  .working-sheet {
     --margin: 3.4rem;
   }
 
@@ -1036,7 +1038,7 @@ input[type="checkbox"] {
 }
 
 /* Over the global field style: on a ruled line, the line is the field. */
-.working .step-input input {
+.working-sheet .step-input input {
   width: 100%;
   padding: 0.35rem 0.6rem;
   border: 0;
@@ -1046,7 +1048,7 @@ input[type="checkbox"] {
   font-size: 0.95rem;
 }
 
-.working .step-input input:focus {
+.working-sheet .step-input input:focus {
   box-shadow: none;
 }
 
@@ -1060,8 +1062,16 @@ input[type="checkbox"] {
   margin: 0;
 }
 
-.line-remove {
-  justify-self: center;
+.line-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.2rem;
+  padding-right: 0.15rem;
+}
+
+.line-actions button {
+  display: grid;
+  place-items: center;
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -1069,7 +1079,6 @@ input[type="checkbox"] {
   border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
-  font-size: 1.25rem;
   line-height: 1;
   opacity: 0;
   transition:
@@ -1078,9 +1087,31 @@ input[type="checkbox"] {
     color 180ms var(--ease);
 }
 
-.working-line:hover > .line-remove,
-.working-line:focus-within > .line-remove {
+.working-line:hover .line-actions button,
+.working-line:focus-within .line-actions button,
+.line-actions .mark-answer[aria-pressed="true"] {
   opacity: 1;
+}
+
+.mark-answer {
+  font-size: 1rem;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+.mark-answer:hover {
+  color: var(--success);
+  box-shadow: inset 0 0 0 1.5px var(--success);
+}
+
+.line-actions .mark-answer[aria-pressed="true"] {
+  background: var(--success);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.line-remove {
+  font-size: 1.25rem;
 }
 
 .line-remove:hover {
@@ -1093,33 +1124,70 @@ input[type="checkbox"] {
     display: none;
   }
 
-  .line-remove {
+  .line-actions button {
     opacity: 1;
   }
 }
 
+.working-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  border-bottom: 1px dashed var(--line-strong);
+}
+
 .add-line {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 0.4rem;
-  width: 100%;
   min-height: 2.75rem;
   padding: 0 0 0 calc(var(--margin) + 0.6rem);
   border: 0;
-  border-bottom: 1px dashed var(--line-strong);
   background: none;
   color: var(--muted);
   font-size: 0.92rem;
   text-align: left;
+  white-space: nowrap;
 }
 
 .add-line:hover:not(:disabled) {
   color: var(--brand);
 }
 
+.line-mode {
+  display: flex;
+  margin-left: auto;
+  padding: 0.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.line-mode button {
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.line-mode button:hover {
+  background: var(--surface);
+}
+
+.line-mode button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
 /* Underlined twice, as an answer is in an exercise book. */
 .answer-line {
-  margin-top: 0.6rem;
   border-bottom: 4px double var(--line-strong);
 }
 

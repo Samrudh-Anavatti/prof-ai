@@ -79,14 +79,15 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lesson workspace · 2026-10-22 · Punji
+### Lesson workspace · 2026-10-23 · Punji
 
 - **The question comes first.** On a wide screen, a lesson with a worksheet is two panes: the question and working on the left, the chat on the right, each scrolling on its own. On phones and narrow windows, the chat is a sheet that slides up from an *Ask Prof AI* button, which shows how many messages are new.
 - **Getting around:** previous and next, "Question 2" with "2 of 28", a progress strip, and a grid of every question on demand. Moving to a question scrolls back to the top.
-- **Working on ruled lines,** like an exercise book. Enter adds a line, Backspace on an empty line removes it, ↑ and ↓ move between lines, and Ctrl/⌘+Enter checks. The answer is the last line, underlined twice.
+- **Working on ruled lines,** like an exercise book, **in words or maths.** A line starts in words ("I need two numbers that add to 4 and multiply to 5"); typing maths such as `=`, `^` or `/` turns it into maths, and a space after a word goes back to words. There's a Words / Maths switch too. Enter adds a line, Backspace on an empty line removes it, ↑ and ↓ move between lines, and Ctrl/⌘+Enter checks.
 - **Support fades:** at *Step by step*, the working starts from a **first step** the tutor confirmed ("Started for you"); *Balanced* prompts "Start with what you know"; *Stretch* is a blank page.
 - **First steps on the Lessons page:** type one per question, or *Draft first steps* and check each draft. A lesson can't be saved with an unconfirmed draft, and drafts that contain the answer are dropped.
-- **One check button:** *Check my working* gives a hint while the answer line is empty; *Submit my answer* marks it once there's an answer. *I'm stuck* sends the working so far to Prof AI and opens the chat.
+- **Tick ✓ the line with your answer,** so there's nothing to retype. One check button: *Check my working* gives a hint until a line is ticked; *Submit my answer* marks the ticked line. *I'm stuck* sends the working so far to Prof AI and opens the chat.
+- **Fixed:** marking a harder answer (two roots, one impossible) no longer fails with "Prof AI is unavailable". Its reasoning was cut off by a 300-token cap, which is now 1,000.
 - **Students see Not started, Started or Done,** with no counts. **Tutors** see each submitted attempt (working, answer, verdict and time) beside the student's chat.
 - **Lessons page:** the chat list no longer squeezes lesson titles.
 

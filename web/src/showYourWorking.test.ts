@@ -59,7 +59,7 @@ describe("typed maths", () => {
 
   it("passes steps already written as LaTeX straight through", () => {
     expect(stepPreview("$\\frac{1}{2}$")).toBe("$\\frac{1}{2}$");
-    expect(filledSteps({ steps: [" x = 1 ", "", "  "], answer: "" })).toEqual(["x = 1"]);
+    expect(filledSteps({ steps: [" x = 1 ", "", "  "], answerLine: null })).toEqual(["x = 1"]);
   });
 });
 
@@ -69,7 +69,7 @@ describe("the working editor", () => {
     expect(html).toContain("Your working");
     expect(html).toContain("Start by writing down what the question gives you");
     expect(html).toContain('placeholder="What the question gives you"');
-    expect(html).toContain("Answer");
+    expect(html).toContain('aria-label="Step 1 is my answer"');
     expect(html).toContain("Check my working");
     expect(checkLabel("x = 7, y = 4")).toBe("Submit my answer");
     expect(HELP_PROMPTS).toContain("Can you explain the method?");

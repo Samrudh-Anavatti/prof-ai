@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from prof_ai.chat.checking import CHECK_OUTPUT_TOKENS
 from prof_ai.chat.service import ChatLimits
 from prof_ai.lessons.first_steps import FIRST_STEPS_OUTPUT_TOKENS
 from tests.lessons.conftest import RATIOS, LessonHarness
@@ -170,3 +171,12 @@ def test_the_student_and_their_tutor_see_each_attempt(h):
         )
     other_tutor = h.client.get(f"/api/students/alex/chats/{h.chat_id}", headers=h.as_user("punji"))
     assert other_tutor.status_code == 404
+
+
+def test_marking_and_hints_leave_room_to_reason_before_replying(h):
+    # A reasoning model spends part of the output cap thinking; at 300 tokens a reply about
+    # an impossible second root was cut off mid-JSON and the student saw an error.
+    assert h.submit().status_code == 200
+    assert h.check_working().status_code == 200
+    assert h.model.output_caps[-2:] == [CHECK_OUTPUT_TOKENS, CHECK_OUTPUT_TOKENS]
+    assert CHECK_OUTPUT_TOKENS >= 1_000
