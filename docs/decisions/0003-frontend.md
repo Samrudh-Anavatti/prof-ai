@@ -23,7 +23,7 @@ Students and tutors need a web UI: assignments, answer submission, a streaming c
 
 ## Amendment (2026-10-21): inline style attributes for MathLive
 
-Status: **accepted** (Sam, with Punji), not built yet.
+Status: **accepted** (Sam, with Punji), built 2026-10-22 ([MathLive](../features/2026-10-22-mathlive/handover.md)).
 
 **Why.** MathLive gives students Desmos-style maths input (`x^2` becomes a superscript as they type, and phones get a maths keyboard). It positions maths with inline `style=""` attributes, which `style-src 'self'` blocks, so fractions and roots render broken. Trade-offs are in the [show your working handover](../features/2026-10-22-show-your-working/handover.md).
 

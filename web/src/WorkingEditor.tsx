@@ -48,8 +48,9 @@ export function WorkingEditor({
     <div className="working-editor">
       <span className="working-label">Your working</span>
       <p className="muted working-hint">
-        One step per line. Type maths as you would on a calculator: <code>x^2</code>,{" "}
-        <code>3/4</code>, <code>sqrt(10)</code>, <code>2*3</code>.
+        One step per line, and press Enter for the next. Type <code>^</code> for a power,{" "}
+        <code>/</code> for a fraction and <code>sqrt</code> for a root. Type <code>"</code> to write
+        words.
       </p>
       <ol className="working-steps">
         {steps.map((step, index) => (
