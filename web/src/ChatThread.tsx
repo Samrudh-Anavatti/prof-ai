@@ -65,6 +65,32 @@ export function withMention(content: string): string {
   return AI_MENTION.test(content) ? content : `@AI ${content}`;
 }
 
+export type Recipient = "ai" | "tutor" | "student";
+
+export const RECIPIENT_LABELS: Record<Recipient, string> = {
+  ai: "Prof AI",
+  tutor: "My tutor",
+  student: "Student",
+};
+
+/** Who the composer can send to, the default first. One choice means no toggle. */
+export function recipients(shared: boolean, solving: boolean, viewer: Author): Recipient[] {
+  if (!shared) return ["ai"];
+  if (!solving) return ["student", "ai"];
+  return viewer === "student" ? ["ai", "tutor"] : ["ai"];
+}
+
+/** What to send so the message reaches the chosen recipient, as chat.service.asks_ai decides. */
+export function outgoing(
+  recipient: Recipient,
+  solving: boolean,
+  content: string,
+): { content: string; toTutor: boolean } {
+  if (recipient === "tutor") return { content, toTutor: true };
+  if (recipient === "ai" && !solving) return { content: withMention(content), toTutor: false };
+  return { content, toTutor: false };
+}
+
 /** Suggestions that fill a student's composer; Prof AI answers them without @AI. */
 export function starterPrompts(lesson: LessonOverview | null): string[] {
   if (!lesson) return GENERAL_STARTERS;
@@ -103,6 +129,7 @@ export function ChatThread({
   const composer = useRef<HTMLTextAreaElement>(null);
   const [pickedQuestion, setPickedQuestion] = useState<string | null>(null);
   const [showAllQuestions, setShowAllQuestions] = useState(false);
+  const [pickedRecipient, setPickedRecipient] = useState<Recipient | null>(null);
   const sending = reply !== null;
   const shared = detail?.lesson != null;
   const questions = detail?.lesson?.questions ?? [];
@@ -177,24 +204,34 @@ export function ChatThread({
     }
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    void send(draft.trim());
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      void send(draft.trim());
-    }
-  }
-
   const allMessages = detail?.messages ?? [];
   const filtering = currentQuestion !== null && !showAllQuestions;
   const messages = filtering ? messagesForQuestion(allMessages, currentQuestion) : allMessages;
   const lesson = detail?.lesson ?? null;
   const solving = shared && own;
   const starters = (own || !shared) && !hasWorksheet ? starterPrompts(lesson) : [];
+  const recipientOptions = recipients(shared, solving, viewer);
+  const recipient =
+    pickedRecipient && recipientOptions.includes(pickedRecipient)
+      ? pickedRecipient
+      : recipientOptions[0];
+
+  function sendDraft() {
+    const message = outgoing(recipient, solving || !shared, draft.trim());
+    void send(message.content, message.toTutor);
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    sendDraft();
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendDraft();
+    }
+  }
 
   async function checkAnswer(
     question: string,
@@ -286,7 +323,7 @@ export function ChatThread({
                 : solving
                   ? `This chat is about ${lesson?.title}. Ask Prof AI anything about this lesson${viewer === "student" ? ", or send a message to your tutor only" : ""}.`
                   : shared
-                    ? `This chat is about ${lesson?.title}. Write to your student here, or start with @AI to ask Prof AI.`
+                    ? `This chat is about ${lesson?.title}. Write to your student here, or switch to Prof AI below.`
                     : "What are you working on? Ask about a topic or a question you're stuck on, and we'll work through it together."}
             </p>
             {starters.length > 0 && (
@@ -355,37 +392,41 @@ export function ChatThread({
           maxLength={MAX_INPUT_CHARS}
           rows={2}
           placeholder={
-            shared && !solving
-              ? "Write a message, or start with @AI to ask Prof AI…"
-              : "Ask Prof AI…"
+            recipient === "ai"
+              ? "Ask Prof AI…"
+              : recipient === "tutor"
+                ? "Write to your tutor only…"
+                : "Write to your student (Prof AI won't reply)…"
           }
           aria-label="Message"
           disabled={!detail}
         />
         <div className="composer-actions">
-          <button type="submit" disabled={sending || !detail || !draft.trim()}>
-            {solving ? "Ask Prof AI" : "Send"}
+          {recipientOptions.length > 1 && (
+            <div className="recipient-toggle" role="radiogroup" aria-label="Send to">
+              {recipientOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={option === recipient}
+                  onClick={() => {
+                    setPickedRecipient(option);
+                    composer.current?.focus();
+                  }}
+                >
+                  {RECIPIENT_LABELS[option]}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="submit"
+            className={recipient === "ai" ? "ask-ai" : undefined}
+            disabled={sending || !detail || !draft.trim()}
+          >
+            Send
           </button>
-          {solving && viewer === "student" && (
-            <button
-              type="button"
-              className="secondary"
-              disabled={sending || !draft.trim()}
-              onClick={() => void send(draft.trim(), true)}
-            >
-              Send to tutor only
-            </button>
-          )}
-          {shared && !solving && (
-            <button
-              type="button"
-              className="ask-ai"
-              disabled={sending || !draft.trim()}
-              onClick={() => void send(withMention(draft.trim()))}
-            >
-              Ask Prof AI
-            </button>
-          )}
         </div>
       </form>
       <p className="disclaimer">
