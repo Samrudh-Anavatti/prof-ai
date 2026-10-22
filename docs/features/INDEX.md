@@ -35,5 +35,6 @@ Read this first each session. One row per feature, newest at the bottom. Agents 
 | 2026-10-21 | Lesson chat bugs: Prof AI no longer says a question is done (only *Submit my answer* does), the thread follows the current question with *Show all questions*, and a tutor trying a lesson on themselves gets the student controls without `@AI`. Fixes the three bugs Punji logged | Sam | merged | [plan](2026-10-21-lesson-chat-bugs/plan.md) · [handover](2026-10-21-lesson-chat-bugs/handover.md) |
 | — | Later: adaptive practice: an Anki-style scheduler that gives a student more or fewer questions of each type based on how confident they seem (right first time, help needed, slips), bringing weak types back over the following days (learning science L9, L10) | — | planned | — |
 | — | Later: help-seeking signals: show the tutor when a student guesses rapidly or keeps asking for answers (learning science L11); a signal, never a lock | — | planned | — |
+| 2026-10-22 | Lesson answering: a lesson you set up for yourself works from the Lessons page (working editor, *Submit my answer*), and the composer has one *Send* with a "Send to" toggle (Prof AI or tutor; student or Prof AI for tutors) | Punji | merged | [plan](2026-10-22-lesson-answering/plan.md) · [handover](2026-10-22-lesson-answering/handover.md) |
 
 Status values: `planned`, `in-progress`, `merged`, `abandoned`.

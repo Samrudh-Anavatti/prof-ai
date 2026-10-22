@@ -78,22 +78,21 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lesson chat bugs · 2026-10-21 · Sam
+### Lesson answering · 2026-10-22 · Punji
 
-Fixes for the three lesson-chat bugs Punji logged.
+- **Answering works when you open a lesson from the Lessons page.** A lesson you set up for yourself now gets the working editor, help buttons and *Submit my answer* there too, not only on the Chat page.
+- **One *Send* button with a "Send to" toggle** in place of *Send* plus *Ask Prof AI*:
+  - Students choose **Prof AI** (the default) or **My tutor**.
+  - Tutors in a student's chat choose **Student** (the default) or **Prof AI**.
 
-- **Only *Submit my answer* completes a question.** Prof AI can say a step looks right, but now tells the student to submit instead of saying the question is done and moving on.
-- **The thread follows the question you're on.** Switching questions shows that question's messages (plus general ones); *Show all questions* shows everything.
-- **Trying a lesson on yourself works like a student's view:** working editor, help buttons, *Submit my answer*, and Prof AI answers without `@AI`.
-- **Eval:** new `premature-done` case. Run `prof eval dilution --yes`; it also covers Punji's prompt changes.
-
-📄 [plan](docs/features/2026-10-21-lesson-chat-bugs/plan.md) · [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md)
+📄 [plan](docs/features/2026-10-22-lesson-answering/plan.md) · [handover](docs/features/2026-10-22-lesson-answering/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-21 | **Lesson chat bugs**: only *Submit my answer* completes a question, the thread follows the current question, trying a lesson on yourself gets the student controls | Sam | [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md) |
 | 2026-10-22 | **Show your working**: step-by-step working with a live maths preview, *Check my working so far*, four verdicts on *Submit my answer*, Prof AI works out missing answer keys for the tutor to confirm | Punji | [handover](docs/features/2026-10-22-show-your-working/handover.md) |
 | 2026-10-22 | **Describe it instead**: draft a lesson's title, topics, notes and support level from one description, with a checklist of what to cover | Punji | [handover](docs/features/2026-10-22-describe-lesson/handover.md) |
 | 2026-10-22 | **Student lesson page**: worked examples first, questions one at a time with help buttons, *Check my answer* that never gives the answer, per-question progress | Punji | [handover](docs/features/2026-10-22-student-lesson-page/handover.md) |

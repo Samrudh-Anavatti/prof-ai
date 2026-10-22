@@ -1160,6 +1160,34 @@ input[type="checkbox"] {
   background: var(--brand-strong);
 }
 
+.recipient-toggle {
+  display: flex;
+  padding: 0.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.composer .recipient-toggle button {
+  flex: 1;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.composer .recipient-toggle button:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.composer .recipient-toggle button[aria-checked="true"] {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--shadow-sm);
+}
+
 .disclaimer {
   margin-block: 0;
   text-align: center;

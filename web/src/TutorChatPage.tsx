@@ -1,9 +1,16 @@
 import { useMemo, type MouseEvent } from "react";
 
-import { getStudentChat, getStudentChatVersion, sendStudentChatMessage, type Me } from "./api";
+import {
+  checkAnswer,
+  checkWorking,
+  getStudentChat,
+  getStudentChatVersion,
+  sendStudentChatMessage,
+  type Me,
+} from "./api";
 import { ChatThread, type ChatEndpoints } from "./ChatThread";
 
-/** A tutor in one of their student's lesson chats: they can write, and ask Prof AI with @AI. */
+/** A tutor in one of their students' lesson chats, or in a lesson they set up for themselves. */
 export function TutorChatPage({
   me,
   studentId,
@@ -15,14 +22,21 @@ export function TutorChatPage({
   chatId: string;
   onBack: () => void;
 }) {
+  const own = studentId === me.id;
   const endpoints = useMemo<ChatEndpoints>(
     () => ({
       load: () => getStudentChat(studentId, chatId),
       version: () => getStudentChatVersion(studentId, chatId),
       send: (content, handlers, _toTutor, question) =>
         sendStudentChatMessage(studentId, chatId, content, handlers, {}, question),
+      ...(own && {
+        check: (question: string, working: string[], answer: string) =>
+          checkAnswer(chatId, question, working, answer),
+        checkWorking: (question: string, working: string[]) =>
+          checkWorking(chatId, question, working),
+      }),
     }),
-    [studentId, chatId],
+    [studentId, chatId, own],
   );
 
   function back(event: MouseEvent<HTMLAnchorElement>) {
@@ -36,7 +50,7 @@ export function TutorChatPage({
         <a className="back-link" href="/lessons" onClick={back}>
           <span aria-hidden="true">←</span> Back to lessons
         </a>
-        <ChatThread me={me} endpoints={endpoints} />
+        <ChatThread me={me} endpoints={endpoints} own={own} />
       </section>
     </div>
   );
