@@ -31,6 +31,12 @@ export function progressLabel(progress: QuestionProgress | undefined): string {
   return `${tries} · ${help}${unverified}`;
 }
 
+/** What a student sees of their own progress: no counts of tries or help. */
+export function studentStatus(progress: QuestionProgress | undefined): string {
+  if (!progress || progress.status === "not_started") return "Not started";
+  return progress.status === "correct" ? "Done ✓" : "Started";
+}
+
 export function doneCount(progress: QuestionProgress[]): number {
   return progress.filter((p) => p.status === "correct").length;
 }

@@ -6,6 +6,7 @@ import {
   changeStudentChatSupport,
   createStudentChat,
   deleteStudentChat,
+  draftFirstSteps,
   draftLesson,
   extractPdf,
   extractWorksheet,
@@ -142,6 +143,10 @@ export function LessonsPage({
       : (students?.find((s) => s.id === studentId)?.display_name ?? "this student");
   const missingAnswers = questions.filter((q) => q.text.trim() && !(q.answer ?? "").trim());
   const toReview = questions.filter((q) => q.answer_needs_review && (q.answer ?? "").trim());
+  const missingFirstSteps = questions.filter((q) => q.text.trim() && !(q.first_step ?? "").trim());
+  const stepsToReview = questions.filter(
+    (q) => q.first_step_needs_review && (q.first_step ?? "").trim(),
+  );
   const canSave =
     !busy &&
     chats !== null &&
@@ -149,6 +154,7 @@ export function LessonsPage({
     title.trim() !== "" &&
     !overCap &&
     toReview.length === 0 &&
+    stepsToReview.length === 0 &&
     (!hasContent || licensed);
 
   async function act(work: () => Promise<string>) {
@@ -295,6 +301,34 @@ export function LessonsPage({
         `Prof AI worked out ${solved.size} ${solved.size === 1 ? "answer" : "answers"}. ` +
         "Check each one marked below before saving." +
         (missed > 0 ? ` ${missed} still need an answer from you.` : "")
+      );
+    });
+  }
+
+  function draftSteps() {
+    void act(async () => {
+      const { first_steps } = await draftFirstSteps(
+        missingFirstSteps.map((q) => ({ number: q.number, text: q.text, answer: q.answer })),
+      );
+      const drafted = new Map(
+        first_steps.filter((s) => s.first_step).map((s) => [s.number, s.first_step]),
+      );
+      setQuestions((current) =>
+        current.map((q) => {
+          const step = drafted.get(q.number);
+          return step && !(q.first_step ?? "").trim()
+            ? { ...q, first_step: step, first_step_needs_review: true }
+            : q;
+        }),
+      );
+      const missed = missingFirstSteps.length - drafted.size;
+      return (
+        `Prof AI drafted ${drafted.size} first ${drafted.size === 1 ? "step" : "steps"}. ` +
+        "Check each one marked below before saving." +
+        (missed > 0
+          ? ` ${missed} ${missed === 1 ? "question has" : "questions have"} none: a first step ` +
+            "would give the answer away, or Prof AI wasn't sure."
+          : "")
       );
     });
   }
@@ -461,7 +495,7 @@ export function LessonsPage({
           ) : (
             <ul className="user-list">
               {chats.chats.map((chat) => (
-                <li key={chat.id} className="user-row">
+                <li key={chat.id} className="user-row lesson-row">
                   <div className="user-main">
                     <span className="user-name">{chat.title}</span>
                     {chat.topics.length > 0 && (
@@ -730,15 +764,29 @@ export function LessonsPage({
                   Extract them from a worksheet above, or add them by hand. Answers are only for
                   checking students&apos; working: students never see them.
                 </p>
-                {missingAnswers.length > 0 && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={busy}
-                    onClick={workOutAnswers}
-                  >
-                    Work out missing answers ({missingAnswers.length})
-                  </button>
+                {(missingAnswers.length > 0 || missingFirstSteps.length > 0) && (
+                  <div className="page-pick-actions">
+                    {missingAnswers.length > 0 && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={workOutAnswers}
+                      >
+                        Work out missing answers ({missingAnswers.length})
+                      </button>
+                    )}
+                    {missingFirstSteps.length > 0 && (
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={draftSteps}
+                      >
+                        Draft first steps ({missingFirstSteps.length})
+                      </button>
+                    )}
+                  </div>
                 )}
                 {questions.map((question, index) => (
                   <div key={index} className="review-item">
@@ -789,6 +837,34 @@ export function LessonsPage({
                         </button>
                       </div>
                     )}
+                    <label className="first-step-field">
+                      <span>First step (shown at Step by step)</span>
+                      <input
+                        aria-label={`Question ${index + 1} first step`}
+                        maxLength={300}
+                        placeholder="Optional: the first line of working, never the answer"
+                        value={question.first_step ?? ""}
+                        onChange={(e) =>
+                          changeQuestion(index, {
+                            first_step: e.target.value,
+                            first_step_needs_review: false,
+                          })
+                        }
+                      />
+                    </label>
+                    {question.first_step_needs_review && (
+                      <div className="answer-review">
+                        <span className="status-badge ai-answer">Drafted by Prof AI</span>
+                        <span className="muted">Check it doesn&apos;t give the answer away.</span>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => changeQuestion(index, { first_step_needs_review: false })}
+                        >
+                          Looks right
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button
@@ -826,6 +902,12 @@ export function LessonsPage({
                 <p className="lesson-hint needs-input-hint">
                   Check the {toReview.length === 1 ? "answer" : "answers"} Prof AI worked out before
                   setting up the chat.
+                </p>
+              )}
+              {stepsToReview.length > 0 && (
+                <p className="lesson-hint needs-input-hint">
+                  Check the first {stepsToReview.length === 1 ? "step" : "steps"} Prof AI drafted
+                  before setting up the chat.
                 </p>
               )}
               <button type="submit" className="primary" disabled={!canSave}>

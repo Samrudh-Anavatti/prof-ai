@@ -55,6 +55,9 @@ def validate_lesson(lesson: Lesson, licence_confirmed: bool) -> Lesson:
                     text=q.text.strip(),
                     answer=(q.answer or "").strip() or None,
                     answer_needs_review=q.answer_needs_review and bool((q.answer or "").strip()),
+                    first_step=(q.first_step or "").strip() or None,
+                    first_step_needs_review=q.first_step_needs_review
+                    and bool((q.first_step or "").strip()),
                 )
                 for q in lesson.questions
                 if q.text.strip()
@@ -75,6 +78,13 @@ def validate_lesson(lesson: Lesson, licence_confirmed: bool) -> Lesson:
     if unreviewed:
         raise InvalidLessonError(
             "Check the answers Prof AI worked out before saving: " + ", ".join(unreviewed) + "."
+        )
+    unchecked_steps = [q.number for q in lesson.questions if q.first_step_needs_review]
+    if unchecked_steps:
+        raise InvalidLessonError(
+            "Check the first steps Prof AI drafted before saving: "
+            + ", ".join(unchecked_steps)
+            + "."
         )
     if (lesson.material or lesson.worked_examples or lesson.questions) and not licence_confirmed:
         raise InvalidLessonError("Confirm you're allowed to use this material with your student.")

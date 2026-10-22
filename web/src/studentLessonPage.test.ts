@@ -28,7 +28,7 @@ function panel(lesson: LessonOverview, student: boolean): string {
       progress: [progress("A1.1", "correct", 2, 1)],
       current: "A1.2",
       onSelect: () => {},
-      onHelp: student ? () => {} : undefined,
+      onStuck: student ? () => {} : undefined,
       onCheck: student
         ? async () => ({ verdict: "correct" as const, correct: true, feedback: "", progress: [] })
         : undefined,
@@ -69,9 +69,10 @@ describe("the lesson panel", () => {
     const html = panel(lesson, true);
     expect(html).toContain('<details class="worked-examples" open="">');
     expect(html).toContain("Question A1.2");
-    expect(html).toContain("A1.1 ✓");
-    expect(html).toContain("Submit my answer");
-    expect(html).toContain("Give me a hint for the next step.");
+    expect(html).toContain("1 of 2 done");
+    expect(html).toContain('<li class="strip-correct">');
+    expect(html).toContain("Check my working");
+    expect(html).toContain("I&#x27;m stuck");
   });
 
   it("folds the worked example away for confident students", () => {
@@ -82,8 +83,9 @@ describe("the lesson panel", () => {
 
   it("shows tutors progress without help buttons or an answer box", () => {
     const html = panel(lesson, false);
-    expect(html).not.toContain("Submit my answer");
-    expect(html).not.toContain("Give me a hint");
+    expect(html).not.toContain("Your working");
+    expect(html).not.toContain("Check my working");
+    expect(html).not.toContain("I&#x27;m stuck");
     expect(html).toContain("1 of 2 done");
   });
 });

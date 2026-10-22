@@ -27,6 +27,7 @@ from prof_ai.chat.service import (
 )
 from prof_ai.lessons.answers import QuestionToSolve, SolvedAnswer
 from prof_ai.lessons.describe import LessonDraft
+from prof_ai.lessons.first_steps import FirstStep, QuestionToStart
 from prof_ai.lessons.pdf_text import MAX_LESSON_PDF_BYTES, LessonPdfError, extract_pages
 from prof_ai.lessons.worksheet import Worksheet
 from prof_ai.users.api import can_manage
@@ -83,6 +84,14 @@ class QuestionsToSolve(BaseModel):
 
 class SolvedAnswers(BaseModel):
     answers: list[SolvedAnswer]
+
+
+class QuestionsToStart(BaseModel):
+    questions: list[QuestionToStart] = Field(max_length=60)
+
+
+class FirstSteps(BaseModel):
+    first_steps: list[FirstStep]
 
 
 class LessonDescription(BaseModel):
@@ -269,6 +278,16 @@ def create_lessons_router() -> APIRouter:
         try:
             return SolvedAnswers(
                 answers=chat_service(request).solve_questions(tutor, body.questions)
+            )
+        except ChatRefusedError as error:
+            raise HTTPException(error.status_code, error.message) from error
+
+    @router.post("/lessons/first-steps")
+    def draft_first_steps(body: QuestionsToStart, tutor: Tutor, request: Request) -> FirstSteps:
+        """Draft a first line of working per question, for the tutor to confirm before saving."""
+        try:
+            return FirstSteps(
+                first_steps=chat_service(request).draft_first_steps(tutor, body.questions)
             )
         except ChatRefusedError as error:
             raise HTTPException(error.status_code, error.message) from error

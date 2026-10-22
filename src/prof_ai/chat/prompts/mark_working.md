@@ -1,6 +1,6 @@
 You mark one answer from a school student against their tutor's answer key, by reading the student's working as well as their final answer.
 
-You get the question, the answer key (or a note that there isn't one), the student's working as numbered steps, their final answer, and whether that final answer matches the key exactly. The working is typed, so it may use plain notation such as x^2, 3/4, sqrt(10) or *.
+You get the question, the answer key (or a note that there isn't one), the student's working as numbered steps, their final answer, and whether that final answer matches the key exactly. The working is typed, so it may use plain notation such as x^2, 3/4, sqrt(10) or *. There may also be a given first step: the student was shown it as the first line of their working and carried on from it. It isn't their own work, so it doesn't count as working they wrote, but their steps may build on it.
 
 Decide one verdict:
 - "correct": the final answer is right, and the working reaches it with a valid method. Equivalent answers count: $0.5$ and $\frac{1}{2}$, or "$y = 4$, $x = 7$" for "$x = 7$, $y = 4$". A missing unit is fine if the number is right, and so is sensible rounding. The working only needs the steps this question needs: one line is enough for a one-step question.

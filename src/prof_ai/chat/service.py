@@ -20,6 +20,7 @@ from prof_ai.chat.checking import (
     parse_mark,
     parse_working_check,
     question_reference,
+    shown_first_step,
     tidy_working,
     working_check_request,
     working_message,
@@ -70,6 +71,14 @@ from prof_ai.lessons.describe import (
     LessonDraft,
     draft_request,
     parse_draft,
+)
+from prof_ai.lessons.first_steps import (
+    FIRST_STEPS_OUTPUT_TOKENS,
+    FirstStep,
+    FirstStepsError,
+    QuestionToStart,
+    first_steps_request,
+    parse_first_steps,
 )
 from prof_ai.lessons.rules import InvalidLessonError, render_lesson, validate_lesson
 from prof_ai.lessons.worksheet import (
@@ -386,10 +395,11 @@ class ChatService:
             raise ChatRefusedError(400, problem)
         conversation = self.get_conversation(owner, conversation_id)
         question = self._question(conversation, question_number)
+        first_step = shown_first_step(conversation.lesson, question)
         reply = self._student_task(
             owner,
             conversation,
-            mark_request(question, steps, answer),
+            mark_request(question, steps, answer, first_step),
             "\n".join([*steps, answer]),
         )
         try:
@@ -428,8 +438,12 @@ class ChatService:
             raise ChatRefusedError(400, "Write at least one step first.")
         conversation = self.get_conversation(owner, conversation_id)
         question = self._question(conversation, question_number)
+        first_step = shown_first_step(conversation.lesson, question)
         reply = self._student_task(
-            owner, conversation, working_check_request(question, steps), "\n".join(steps)
+            owner,
+            conversation,
+            working_check_request(question, steps, first_step),
+            "\n".join(steps),
         )
         try:
             feedback = parse_working_check(reply)
@@ -455,6 +469,22 @@ class ChatService:
         try:
             return parse_answers(reply, [q.number for q in questions if q.text.strip()])
         except AnswersError as error:
+            raise ChatRefusedError(502, str(error)) from error
+
+    def draft_first_steps(self, tutor: User, questions: list[QuestionToStart]) -> list[FirstStep]:
+        """A first line of working per question, for the tutor to confirm before saving.
+
+        Questions are tutor content, so the tutor's preferred model may be unapproved.
+        """
+        try:
+            messages = first_steps_request(questions)
+        except FirstStepsError as error:
+            raise ChatRefusedError(400, str(error)) from error
+        engine = self._models.get(tutor.preferred_model or "", self._default)
+        reply = self._tutor_task(tutor, messages, engine, FIRST_STEPS_OUTPUT_TOKENS, "first steps")
+        try:
+            return parse_first_steps(reply, questions)
+        except FirstStepsError as error:
             raise ChatRefusedError(502, str(error)) from error
 
     @staticmethod
@@ -653,7 +683,7 @@ class ChatService:
                     lesson=render_lesson(lesson) if lesson else None,
                     summary=conversation.summary,
                     history=conversation.messages,
-                    references=[question_reference(q)]
+                    references=[question_reference(q, shown_first_step(lesson, q))]
                     if (q := find_question(conversation, message.question))
                     else [],
                 )

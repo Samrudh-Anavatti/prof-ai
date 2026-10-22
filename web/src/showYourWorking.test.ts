@@ -5,9 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { checkWorking, solveQuestions, type LessonOverview } from "./api";
 import { LessonPanel } from "./LessonPanel";
 import { Markdown } from "./Markdown";
-import { progressLabel } from "./progress";
+import { HELP_PROMPTS, progressLabel } from "./progress";
 import { stepPreview, typedToLatex } from "./typedMaths";
 import { filledSteps } from "./WorkingEditor";
+import { checkLabel } from "./workspace";
 
 const LESSON: LessonOverview = {
   title: "Simultaneous equations",
@@ -24,7 +25,7 @@ function panel(student: boolean, support: LessonOverview["support"] = "step_by_s
       progress: [],
       current: "A1.1",
       onSelect: () => {},
-      onHelp: student ? () => {} : undefined,
+      onStuck: student ? () => {} : undefined,
       onCheck: student
         ? async () => ({ verdict: "correct" as const, correct: true, feedback: "", progress: [] })
         : undefined,
@@ -66,15 +67,19 @@ describe("the working editor", () => {
   it("asks students for their working and final answer", () => {
     const html = panel(true);
     expect(html).toContain("Your working");
-    expect(html).toContain("Step 1: write down what the question gives you");
-    expect(html).toContain("Final answer");
-    expect(html).toContain("Check my working so far");
-    expect(html).toContain("Submit my answer");
-    expect(html).toContain("Can you explain the method?");
+    expect(html).toContain("Start by writing down what the question gives you");
+    expect(html).toContain('placeholder="What the question gives you"');
+    expect(html).toContain("Answer");
+    expect(html).toContain("Check my working");
+    expect(checkLabel("x = 7, y = 4")).toBe("Submit my answer");
+    expect(HELP_PROMPTS).toContain("Can you explain the method?");
+    expect(html).not.toContain("Can you explain the method?");
   });
 
   it("leaves the first step open for confident students", () => {
-    expect(panel(true, "stretch")).not.toContain("write down what the question gives you");
+    const html = panel(true, "stretch");
+    expect(html).not.toContain("write down what the question gives you");
+    expect(html).toContain("Set out your working however makes sense to you");
   });
 
   it("isn't shown to tutors", () => {
