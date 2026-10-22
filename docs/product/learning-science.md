@@ -31,7 +31,7 @@ Every feature plan has a **Learning check** that names the principles it applies
 | L5 Productive struggle | Base prompt: try first, hints, never final answers (eval-tested) | done |
 | L6 Self-explanation | *Stretch* level asks students to explain their reasoning | done |
 | L7 Step-based hints | Base prompt and levels: one step or hint at a time; help buttons and chat tagged to the current question; *Check my working so far* hints at the step the student is on | done |
-| L8 Manageable load | *Step by step*: one idea per message; short explanations; maths typeset rather than written as `(3x+2)/(x-1)` ([maths rendering](../features/2026-10-21-maths-rendering/plan.md)) | done |
+| L8 Manageable load | *Step by step*: one idea per message; short explanations; maths typeset rather than written as `(3x+2)/(x-1)` ([maths rendering](../features/2026-10-21-maths-rendering/plan.md)); students write working as maths too, with no calculator syntax to translate ([MathLive](../features/2026-10-22-mathlive/plan.md)) | done |
 | L9 Spaced practice | The weekly loop; later, adaptive practice that brings weak question types back over the following days (INDEX) | partly: no spaced review yet |
 | L10 Interleaving | Later: adaptive practice mixes question types (INDEX) | gap |
 | L11 Gaming the system | Attempts and help messages counted per question and shown to the tutor; a pasted answer no longer completes a question without working; flags for begging or rapid guessing are later | partly |

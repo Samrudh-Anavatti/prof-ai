@@ -61,7 +61,8 @@ def test_shell_has_strict_security_headers(built_dir):
     assert "default-src 'self'" in csp
     assert "script-src 'self'" in csp
     assert "frame-ancestors 'none'" in csp
-    assert "unsafe-inline" not in csp
+    others = [d for d in csp.split(";") if not d.strip().startswith("style-src-attr ")]
+    assert "unsafe-inline" not in ";".join(others)
     assert headers["x-content-type-options"] == "nosniff"
     assert headers["referrer-policy"] == "same-origin"
 

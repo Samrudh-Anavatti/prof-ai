@@ -78,20 +78,23 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lesson answering · 2026-10-22 · Punji
+### MathLive maths input · 2026-10-22 · Punji
 
-- **Answering works when you open a lesson from the Lessons page.** A lesson you set up for yourself now gets the working editor, help buttons and *Submit my answer* there too, not only on the Chat page.
-- **One *Send* button with a "Send to" toggle** in place of *Send* plus *Ask Prof AI*:
-  - Students choose **Prof AI** (the default) or **My tutor**.
-  - Tutors in a student's chat choose **Student** (the default) or **Prof AI**.
+- **Students write working as maths, as in Desmos.** Each step and the final answer is a MathLive maths field:
+  - `^` makes a power, `/` makes a fraction and `sqrt` makes a root.
+  - `or` and `and` stay as words, and `"` switches to text on any keyboard.
+  - Phones get a maths keyboard.
+- **What's sent:** steps arrive as `$…$` LaTeX, which the server, the chat and the tutor's view already read. Exact matching against the answer key ignores MathLive's spacing and word wrappers.
+- **Security policy:** it now allows inline style attributes (`style-src-attr 'unsafe-inline'`), and nothing else inline, as ADR 0003's amendment agreed. MathLive's fonts are self-hosted and its script only loads on lesson pages.
 
-📄 [plan](docs/features/2026-10-22-lesson-answering/plan.md) · [handover](docs/features/2026-10-22-lesson-answering/handover.md)
+📄 [plan](docs/features/2026-10-22-mathlive/plan.md) · [handover](docs/features/2026-10-22-mathlive/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-22 | **Lesson answering**: your own lesson works from the Lessons page; one *Send* with a "Send to" toggle (Prof AI or tutor) | Punji | [handover](docs/features/2026-10-22-lesson-answering/handover.md) |
 | 2026-10-21 | **Lesson chat bugs**: only *Submit my answer* completes a question, the thread follows the current question, trying a lesson on yourself gets the student controls | Sam | [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md) |
 | 2026-10-22 | **Show your working**: step-by-step working with a live maths preview, *Check my working so far*, four verdicts on *Submit my answer*, Prof AI works out missing answer keys for the tutor to confirm | Punji | [handover](docs/features/2026-10-22-show-your-working/handover.md) |
 | 2026-10-22 | **Describe it instead**: draft a lesson's title, topics, notes and support level from one description, with a checklist of what to cover | Punji | [handover](docs/features/2026-10-22-describe-lesson/handover.md) |
@@ -314,7 +317,7 @@ sequenceDiagram
 
 **Decisions for Sam**
 
-- [x] **MathLive and the security policy:** approved 2026-10-21 ([ADR 0003](docs/decisions/0003-frontend.md) amendment). The CSP change and the test update land with the MathLive feature.
+- [x] **MathLive and the security policy:** approved 2026-10-21 ([ADR 0003](docs/decisions/0003-frontend.md) amendment). Built with MathLive on 2026-10-22.
 - [x] **Punji's proposals:** ADR 0005's two amendments of 2026-10-21 and ADR 0006 (with show your working) accepted 2026-10-21.
 - [ ] **Session length**: Easy Auth's default is 8 hours. Shorter for students?
 - [ ] **Turn on Ollama Cloud** (after merging model providers): store the key in Key Vault as `ollama-api-key`, then run `bash scripts/deploy-infra.sh`. Steps in the [handover](docs/features/2026-10-21-model-providers/handover.md).

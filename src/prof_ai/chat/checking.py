@@ -24,7 +24,9 @@ FEEDBACK: dict[Verdict, str] = {
 KEEP_GOING = "Have another look at your last step, or ask Prof AI for a hint."
 UNREADABLE = "Couldn't check that. Try again in a moment."
 # Formatting that doesn't change an answer's meaning.
-NOISE = re.compile(r"[\s$]|\\[,;!]|\\left|\\right|\.$")
+NOISE = re.compile(r"[\s$]|\\[,;:!]|\\left|\\right|\.$")
+# Words in maths, as a maths field writes them: \text{ or }, \mathrm{or}.
+WORDS = re.compile(r"\\(?:text|mathrm)\{([^{}]*)\}")
 MATHS_SPACING = re.compile(r"\s*([=,:;()+\-−×÷/<>])\s*")
 
 
@@ -43,7 +45,7 @@ class QuestionProgress(BaseModel):
 
 
 def normalise_answer(text: str) -> str:
-    return NOISE.sub("", text.strip().lower())
+    return NOISE.sub("", WORDS.sub(r"\1", text.strip().lower()))
 
 
 def matches_key(answer: str, key: str) -> bool:
