@@ -71,7 +71,7 @@ describe("the lesson panel", () => {
     expect(html).toContain("Question A1.2");
     expect(html).toContain("1 of 2 done");
     expect(html).toContain('<li class="strip-correct">');
-    expect(html).toContain("Check my working");
+    expect(html).toContain("Submit my answer");
     expect(html).toContain("I&#x27;m stuck");
   });
 
@@ -84,7 +84,7 @@ describe("the lesson panel", () => {
   it("shows tutors progress without help buttons or an answer box", () => {
     const html = panel(lesson, false);
     expect(html).not.toContain("Your working");
-    expect(html).not.toContain("Check my working");
+    expect(html).not.toContain("Submit my answer");
     expect(html).not.toContain("I&#x27;m stuck");
     expect(html).toContain("1 of 2 done");
   });

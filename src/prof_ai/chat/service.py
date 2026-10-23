@@ -451,7 +451,7 @@ class ChatService:
             raise ChatRefusedError(502, str(error)) from error
         if question.answer and leaks_key(feedback, question.answer):
             feedback = KEEP_GOING
-        content = f"Can you check my working so far?\n\n{working_message(steps)}"
+        content = f"I'm stuck. Here's my working so far:\n\n{working_message(steps)}"
         saved = self._record_exchange(owner, conversation_id, question, content, feedback)
         return WorkingFeedback(feedback, saved)
 

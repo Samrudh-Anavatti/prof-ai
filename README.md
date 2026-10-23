@@ -79,25 +79,20 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Lesson workspace · 2026-10-23 · Punji
+### Simpler answering · 2026-10-23 · Punji
 
-- **The question comes first.** On a wide screen, a lesson with a worksheet is two panes: the question and working on the left, the chat on the right, each scrolling on its own. On phones and narrow windows, the chat is a sheet that slides up from an *Ask Prof AI* button, which shows how many messages are new.
-- **Getting around:** previous and next, "Question 2" with "2 of 28", a progress strip, and a grid of every question on demand. Moving to a question scrolls back to the top.
-- **Working on ruled lines,** like an exercise book, **in words or maths.** A line starts in words ("I need two numbers that add to 4 and multiply to 5"); typing maths such as `=`, `^` or `/` turns it into maths, and a space after a word goes back to words. There's a Words / Maths switch too. Enter adds a line, Backspace on an empty line removes it, ↑ and ↓ move between lines, and Ctrl/⌘+Enter checks.
-- **Support fades:** at *Step by step*, the working starts from a **first step** the tutor confirmed ("Started for you"); *Balanced* prompts "Start with what you know"; *Stretch* is a blank page.
-- **First steps on the Lessons page:** type one per question, or *Draft first steps* and check each draft. A lesson can't be saved with an unconfirmed draft, and drafts that contain the answer are dropped.
-- **Tick ✓ the line with your answer,** so there's nothing to retype. One check button: *Check my working* gives a hint until a line is ticked; *Submit my answer* marks the ticked line. *I'm stuck* sends the working so far to Prof AI and opens the chat.
-- **Fixed:** marking a harder answer (two roots, one impossible) no longer fails with "Prof AI is unavailable". Its reasoning was cut off by a 300-token cap, which is now 1,000.
-- **Students see Not started, Started or Done,** with no counts. **Tutors** see each submitted attempt (working, answer, verdict and time) beside the student's chat.
-- **Lessons page:** the chat list no longer squeezes lesson titles.
+- **Two buttons under the working.** *Submit my answer* marks it, and **your last line is your answer**: nothing to tick or retype. *I'm stuck* checks your working so far and gives a hint on the step you're at; with nothing written yet, it asks Prof AI how to start.
+- *Check my working* and the ✓ on each line are gone.
+- This builds on the lesson workspace: the question and working beside the chat, words or maths on each line, and a tutor-confirmed first step at *Step by step* ([handover](docs/features/2026-10-22-lesson-workspace/handover.md)).
 
-📄 [plan](docs/features/2026-10-22-lesson-workspace/plan.md) · [handover](docs/features/2026-10-22-lesson-workspace/handover.md)
+📄 [plan](docs/features/2026-10-23-simpler-answering/plan.md) · [handover](docs/features/2026-10-23-simpler-answering/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-23 | **Lesson workspace**: question and working beside the chat (a sheet on phones), question navigation, ruled lines in words or maths, a tutor-confirmed first step at *Step by step*, students' attempts for tutors; marking no longer cut off on harder answers | Punji | [handover](docs/features/2026-10-22-lesson-workspace/handover.md) |
 | 2026-10-22 | **MathLive maths input**: working and answers typed as maths, as in Desmos, with a maths keyboard on phones; the CSP allows inline style attributes only | Punji | [handover](docs/features/2026-10-22-mathlive/handover.md) |
 | 2026-10-22 | **Lesson answering**: your own lesson works from the Lessons page; one *Send* with a "Send to" toggle (Prof AI or tutor) | Punji | [handover](docs/features/2026-10-22-lesson-answering/handover.md) |
 | 2026-10-21 | **Lesson chat bugs**: only *Submit my answer* completes a question, the thread follows the current question, trying a lesson on yourself gets the student controls | Sam | [handover](docs/features/2026-10-21-lesson-chat-bugs/handover.md) |

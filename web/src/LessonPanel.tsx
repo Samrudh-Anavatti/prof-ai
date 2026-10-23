@@ -13,8 +13,8 @@ import {
 import { Markdown } from "./Markdown";
 import { nextQuestion, progressLabel, progressOf, studentStatus } from "./progress";
 import { QuestionNav } from "./QuestionNav";
-import { answerOf, EMPTY_DRAFT, filledSteps, WorkingEditor, type Draft } from "./WorkingEditor";
-import { attemptMarkdown, checkLabel, checkPlan, stuckMessage, workingPrompt } from "./workspace";
+import { EMPTY_DRAFT, filledSteps, WorkingEditor, type Draft } from "./WorkingEditor";
+import { attemptMarkdown, stuckMessage, submission, workingPrompt } from "./workspace";
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
   correct: "Correct ✓",
@@ -76,22 +76,21 @@ export function LessonPanel({
   onStuck?: (text: string) => void;
   /** Students only: marks their working and answer to the current question. */
   onCheck?: (number: string, working: string[], answer: string) => Promise<CheckOutcome>;
-  /** Students only: a hint on unfinished working. */
+  /** Students only: a hint on the working so far, when they're stuck. */
   onCheckWorking?: (number: string, working: string[]) => Promise<WorkingOutcome>;
   busy: boolean;
 }) {
   // Working is kept per question while the student moves between them.
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [result, setResult] = useState<Result | null>(null);
-  const [checking, setChecking] = useState(false);
+  const [checking, setChecking] = useState<"submit" | "stuck" | null>(null);
   const workspace = useRef<HTMLElement>(null);
   const examples = lesson.worked_examples ?? [];
   const questions = lesson.questions ?? [];
   const question = questions.find((q) => q.number === current);
   const questionProgress = question ? progressOf(progress, question.number) : undefined;
   const draft = (current && drafts[current]) || EMPTY_DRAFT;
-  const steps = filledSteps(draft);
-  const answer = answerOf(draft);
+  const lines = filledSteps(draft);
   const solving = onCheck !== undefined;
   const givenStep = question ? lesson.first_steps?.[question.number] : undefined;
   const prompt = workingPrompt(lesson.support, Boolean(givenStep));
@@ -107,25 +106,27 @@ export function LessonPanel({
     setDrafts((all) => ({ ...all, [number]: next }));
   }
 
-  function check() {
+  function run(kind: "submit" | "stuck", number: string, work: () => Promise<Result>) {
+    setChecking(kind);
+    setResult(null);
+    work()
+      .then(setResult)
+      .catch((error: unknown) => problem(number, messageOf(error)))
+      .finally(() => setChecking(null));
+  }
+
+  function problem(number: string, feedback: string) {
+    setResult({ number, verdict: null, feedback, next: null, problem: true });
+  }
+
+  function submitAnswer() {
     if (!question || !onCheck || checking) return;
     const number = question.number;
-    const say = (feedback: string) =>
-      setResult({ number, verdict: null, feedback, next: null, problem: true });
-    if (busy) return say("Prof AI is still replying. Try again in a moment.");
-    const plan = checkPlan(steps, answer);
-    if (plan.kind === "problem") return say(plan.message);
-    if (plan.kind === "check_working" && !onCheckWorking) {
-      return say("Tick ✓ the line with your answer, then submit it.");
-    }
-    setChecking(true);
-    setResult(null);
-    const work = async (): Promise<Result> => {
-      if (plan.kind === "check_working" && onCheckWorking) {
-        const outcome = await onCheckWorking(number, steps);
-        return { number, verdict: null, feedback: outcome.feedback, next: null };
-      }
-      const outcome = await onCheck(number, steps, answer);
+    if (busy) return problem(number, "Prof AI is still replying. Try again in a moment.");
+    const sent = submission(lines);
+    if (!sent) return problem(number, "Write your working, with your answer on the last line.");
+    run("submit", number, async () => {
+      const outcome = await onCheck(number, sent.working, sent.answer);
       if (outcome.correct) setDraft(number, EMPTY_DRAFT);
       const next = outcome.correct ? nextQuestion(questions, outcome.progress) : null;
       return {
@@ -134,16 +135,27 @@ export function LessonPanel({
         feedback: outcome.feedback,
         next: next === number ? null : next,
       };
-    };
-    work()
-      .then(setResult)
-      .catch((error: unknown) => say(messageOf(error)))
-      .finally(() => setChecking(false));
+    });
+  }
+
+  /** A hint on the working so far, or, with nothing written yet, Prof AI's help to start. */
+  function stuck() {
+    if (!question || checking) return;
+    const number = question.number;
+    if (lines.length === 0 || !onCheckWorking) {
+      onStuck?.(stuckMessage(lines, givenStep));
+      return;
+    }
+    if (busy) return problem(number, "Prof AI is still replying. Try again in a moment.");
+    run("stuck", number, async () => {
+      const outcome = await onCheckWorking(number, lines);
+      return { number, verdict: null, feedback: outcome.feedback, next: null };
+    });
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    check();
+    submitAnswer();
   }
 
   return (
@@ -189,10 +201,10 @@ export function LessonPanel({
           <form className="answer-form" onSubmit={submit}>
             <div className="working-head">
               <span className="working-label">Your working</span>
-              <span className="keyboard-hint">Enter: new line · {SUBMIT_KEY}+Enter: check</span>
+              <span className="keyboard-hint">Enter: new line · {SUBMIT_KEY}+Enter: submit</span>
             </div>
             <p className="working-hint">
-              {prompt.hint} Write in words or maths, and tick ✓ the line with your answer.
+              {prompt.hint} Write in words or maths. Your last line is your answer.
             </p>
             <WorkingEditor
               key={question.number}
@@ -200,7 +212,7 @@ export function LessonPanel({
               onChange={(next) => setDraft(question.number, next)}
               givenStep={givenStep}
               firstPlaceholder={prompt.firstPlaceholder}
-              onSubmit={check}
+              onSubmit={submitAnswer}
             />
             {shownResult && (
               <div
@@ -222,19 +234,11 @@ export function LessonPanel({
             )}
             <div className="answer-actions">
               <button type="submit" className="primary">
-                {checking ? "Checking…" : checkLabel(answer)}
+                {checking === "submit" ? "Checking…" : "Submit my answer"}
               </button>
-              {onStuck && (
-                <button
-                  type="button"
-                  className="stuck-button"
-                  onClick={() =>
-                    onStuck(
-                      stuckMessage(draft.steps.map((s) => s.trim()).filter(Boolean), givenStep),
-                    )
-                  }
-                >
-                  I&apos;m stuck
+              {(onStuck || onCheckWorking) && (
+                <button type="button" className="stuck-button" onClick={stuck}>
+                  {checking === "stuck" ? "Looking at your working…" : "I'm stuck"}
                 </button>
               )}
             </div>
