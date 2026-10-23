@@ -7,8 +7,8 @@ import { LessonPanel } from "./LessonPanel";
 import { isWord, MATHS_KEYS, mathsTail } from "./lineModes";
 import { studentStatus } from "./progress";
 import { lineKey } from "./StepInput";
-import { answerOf, filledSteps, WorkingEditor, type Draft } from "./WorkingEditor";
-import { attemptMarkdown, checkLabel, checkPlan, stuckMessage, workingPrompt } from "./workspace";
+import { filledSteps, WorkingEditor, type Draft } from "./WorkingEditor";
+import { attemptMarkdown, stuckMessage, submission, workingPrompt } from "./workspace";
 
 const LESSON: LessonOverview = {
   title: "Quadratics",
@@ -65,20 +65,15 @@ function panel(
   );
 }
 
-describe("the check button", () => {
-  it("hints while the answer line is empty and marks once it isn't", () => {
-    expect(checkPlan(["x = 1"], "")).toEqual({ kind: "check_working" });
-    expect(checkPlan(["x = 1"], "x = 1")).toEqual({ kind: "submit" });
-    expect(checkPlan([], "x = 1")).toEqual({ kind: "submit" });
-    expect(checkPlan([], "  ")).toEqual({
-      kind: "problem",
-      message: "Write a line of working first.",
-    });
+describe("Submit my answer", () => {
+  it("sends the last line as the answer and the lines before it as working", () => {
+    expect(submission(["x^2 = 9", "x = 3"])).toEqual({ working: ["x^2 = 9"], answer: "x = 3" });
+    expect(submission(["x = 3"])).toEqual({ working: [], answer: "x = 3" });
+    expect(submission([])).toBeNull();
   });
 
-  it("keeps the Submit my answer label that Prof AI's prompt names", () => {
-    expect(checkLabel("")).toBe("Check my working");
-    expect(checkLabel(" x = 1 ")).toBe("Submit my answer");
+  it("counts only lines with something on them", () => {
+    expect(filledSteps({ steps: ["x^2 = 9", " ", "x = 3", ""] })).toEqual(["x^2 = 9", "x = 3"]);
   });
 });
 
@@ -226,34 +221,18 @@ describe("words and maths on a line", () => {
   });
 });
 
-describe("marking a line as the answer", () => {
-  const draft: Draft = { steps: ["x^2 = 9", " ", "x = 3"], answerLine: 2 };
-
-  it("sends the marked line as the answer and the other lines as working", () => {
-    expect(answerOf(draft)).toBe("x = 3");
-    expect(filledSteps(draft)).toEqual(["x^2 = 9"]);
-    expect(answerOf({ ...draft, answerLine: null })).toBe("");
-    expect(filledSteps({ ...draft, answerLine: null })).toEqual(["x^2 = 9", "x = 3"]);
+describe("the answer buttons", () => {
+  it("gives students Submit my answer and I'm stuck, and says the last line is the answer", () => {
+    const html = panel(LESSON);
+    expect(html).toContain("Submit my answer");
+    expect(html).toContain("I&#x27;m stuck");
+    expect(html).toContain("Write in words or maths. Your last line is your answer.");
+    expect(html).not.toContain("Check my working");
   });
 
-  it("labels the marked line Answer, and every line can be marked", () => {
-    const html = editor(draft);
-    expect(html).toContain('class="working-line answer-line"');
-    expect(html).toContain(">Answer</span>");
-    expect(html).toContain('aria-label="Step 3, your answer"');
-    expect(html.match(/class="mark-answer"/g)).toHaveLength(3);
-    expect(html).toContain('aria-pressed="true" aria-label="Step 3 is my answer"');
-  });
-
-  it("never offers the given first step as the answer", () => {
-    const html = editor({ steps: [""], answerLine: null }, "$x^2 = 9$");
-    expect(html.match(/class="mark-answer"/g)).toHaveLength(1);
-    expect(html).toContain('aria-label="Step 2 is my answer"');
-  });
-
-  it("tells students they can write words and mark their answer", () => {
-    expect(panel(LESSON)).toContain(
-      "Write in words or maths, and tick ✓ the line with your answer.",
-    );
+  it("has no answer line to fill in or tick: the lines are all working", () => {
+    const html = editor({ steps: ["x^2 = 9", "x = 3"] });
+    expect(html.match(/class="working-line"/g)).toHaveLength(2);
+    expect(html).not.toContain("answer");
   });
 });

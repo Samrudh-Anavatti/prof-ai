@@ -924,7 +924,7 @@ input[type="checkbox"] {
 
 .working-line {
   display: grid;
-  grid-template-columns: var(--margin) minmax(0, 1fr) 4.4rem;
+  grid-template-columns: var(--margin) minmax(0, 1fr) 2.5rem;
   align-items: center;
   min-height: 3.1rem;
   border-bottom: 1px solid var(--line-strong);
@@ -935,8 +935,7 @@ input[type="checkbox"] {
   box-shadow: inset 0 -1px 0 var(--brand);
 }
 
-.line-number,
-.answer-label {
+.line-number {
   padding-right: 0.75rem;
   color: var(--muted);
   font-size: 0.88rem;
@@ -1062,16 +1061,8 @@ input[type="checkbox"] {
   margin: 0;
 }
 
-.line-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.2rem;
-  padding-right: 0.15rem;
-}
-
-.line-actions button {
-  display: grid;
-  place-items: center;
+.line-remove {
+  justify-self: center;
   width: 2rem;
   height: 2rem;
   padding: 0;
@@ -1079,6 +1070,7 @@ input[type="checkbox"] {
   border-radius: var(--r-sm);
   background: none;
   color: var(--muted);
+  font-size: 1.25rem;
   line-height: 1;
   opacity: 0;
   transition:
@@ -1087,31 +1079,9 @@ input[type="checkbox"] {
     color 180ms var(--ease);
 }
 
-.working-line:hover .line-actions button,
-.working-line:focus-within .line-actions button,
-.line-actions .mark-answer[aria-pressed="true"] {
+.working-line:hover > .line-remove,
+.working-line:focus-within > .line-remove {
   opacity: 1;
-}
-
-.mark-answer {
-  font-size: 1rem;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1.5px var(--line-strong);
-}
-
-.mark-answer:hover {
-  color: var(--success);
-  box-shadow: inset 0 0 0 1.5px var(--success);
-}
-
-.line-actions .mark-answer[aria-pressed="true"] {
-  background: var(--success);
-  color: var(--surface);
-  box-shadow: none;
-}
-
-.line-remove {
-  font-size: 1.25rem;
 }
 
 .line-remove:hover {
@@ -1124,7 +1094,7 @@ input[type="checkbox"] {
     display: none;
   }
 
-  .line-actions button {
+  .line-remove {
     opacity: 1;
   }
 }
@@ -1184,21 +1154,6 @@ input[type="checkbox"] {
   background: var(--surface);
   color: var(--brand);
   box-shadow: var(--shadow-sm);
-}
-
-/* Underlined twice, as an answer is in an exercise book. */
-.answer-line {
-  border-bottom: 4px double var(--line-strong);
-}
-
-.answer-line:focus-within {
-  box-shadow: none;
-}
-
-.answer-label {
-  color: var(--brand);
-  font-size: 0.8rem;
-  font-weight: 700;
 }
 
 .check-result {

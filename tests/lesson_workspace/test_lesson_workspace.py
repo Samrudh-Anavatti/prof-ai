@@ -180,3 +180,11 @@ def test_marking_and_hints_leave_room_to_reason_before_replying(h):
     assert h.check_working().status_code == 200
     assert h.model.output_caps[-2:] == [CHECK_OUTPUT_TOKENS, CHECK_OUTPUT_TOKENS]
     assert CHECK_OUTPUT_TOKENS >= 1_000
+
+
+def test_a_hint_on_the_working_shows_in_the_chat_as_im_stuck(h):
+    assert h.check_working().status_code == 200
+    asked, hint = h.detail()["messages"][-2:]
+    assert asked["content"].startswith("I'm stuck. Here's my working so far:")
+    assert asked["question"] == "1"
+    assert hint["content"] == "Good start."

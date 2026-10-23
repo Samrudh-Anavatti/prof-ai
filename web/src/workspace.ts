@@ -1,18 +1,10 @@
 import type { Attempt, SupportLevel } from "./api";
 
-export type CheckPlan =
-  { kind: "check_working" } | { kind: "submit" } | { kind: "problem"; message: string };
-
-/** What the one check button does: a hint while the answer line is empty, marking once it isn't.
- * An answer with no working goes to the server, which asks for the steps without a model call. */
-export function checkPlan(steps: string[], answer: string): CheckPlan {
-  if (answer.trim()) return { kind: "submit" };
-  if (steps.length === 0) return { kind: "problem", message: "Write a line of working first." };
-  return { kind: "check_working" };
-}
-
-export function checkLabel(answer: string): string {
-  return answer.trim() ? "Submit my answer" : "Check my working";
+/** What Submit my answer sends: the last line is the answer, and the lines before it the
+ * working. null when nothing is written. */
+export function submission(lines: string[]): { working: string[]; answer: string } | null {
+  if (lines.length === 0) return null;
+  return { working: lines.slice(0, -1), answer: lines[lines.length - 1] };
 }
 
 /** The message I'm stuck sends, with the working so far so Prof AI hints at the right step.

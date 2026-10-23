@@ -7,22 +7,13 @@ export const MAX_STEPS = 30;
 
 export interface Draft {
   steps: string[];
-  /** The line the student marked as their final answer. */
-  answerLine: number | null;
 }
 
-export const EMPTY_DRAFT: Draft = { steps: [""], answerLine: null };
+export const EMPTY_DRAFT: Draft = { steps: [""] };
 
-/** The working that counts: non-empty lines other than the answer, as the server tidies them. */
+/** The lines that count: non-empty ones, as the server tidies them. */
 export function filledSteps(draft: Draft): string[] {
-  return draft.steps
-    .filter((_, index) => index !== draft.answerLine)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-export function answerOf(draft: Draft): string {
-  return draft.answerLine === null ? "" : (draft.steps[draft.answerLine] ?? "").trim();
+  return draft.steps.map((s) => s.trim()).filter(Boolean);
 }
 
 const MODE_LABELS: Record<LineMode, string> = { text: "Words", math: "Maths" };
@@ -32,9 +23,9 @@ function keepFocus(event: MouseEvent) {
   event.preventDefault();
 }
 
-/** A student's working on ruled lines: the line they were given, if any, then their own. They
- * mark the line with their final answer. Enter adds a line, Backspace on an empty one removes
- * it, and the arrow keys move between lines. */
+/** A student's working on ruled lines: the line they were given, if any, then their own, the
+ * last of which is their answer. Enter adds a line, Backspace on an empty one removes it, and the
+ * arrow keys move between lines. */
 export function WorkingEditor({
   draft,
   onChange,
@@ -58,7 +49,7 @@ export function WorkingEditor({
     mode: LineMode;
     token: number;
   } | null>(null);
-  const { steps, answerLine } = draft;
+  const { steps } = draft;
   const offset = givenStep ? 1 : 0;
 
   function focusLine(line: number) {
@@ -71,28 +62,13 @@ export function WorkingEditor({
 
   function addStep(after: number) {
     if (steps.length >= MAX_STEPS) return;
-    onChange({
-      steps: [...steps.slice(0, after + 1), "", ...steps.slice(after + 1)],
-      answerLine: answerLine !== null && answerLine > after ? answerLine + 1 : answerLine,
-    });
+    onChange({ steps: [...steps.slice(0, after + 1), "", ...steps.slice(after + 1)] });
     focusLine(after + 1);
   }
 
   function removeStep(index: number) {
-    onChange({
-      steps: steps.filter((_, i) => i !== index),
-      answerLine:
-        answerLine === index
-          ? null
-          : answerLine !== null && answerLine > index
-            ? answerLine - 1
-            : answerLine,
-    });
+    onChange({ steps: steps.filter((_, i) => i !== index) });
     focusLine(Math.max(0, index - 1));
-  }
-
-  function markAnswer(index: number) {
-    onChange({ ...draft, answerLine: answerLine === index ? null : index });
   }
 
   function switchMode(mode: LineMode) {
@@ -116,15 +92,14 @@ export function WorkingEditor({
         )}
         {steps.map((step, index) => {
           const number = index + offset + 1;
-          const isAnswer = index === answerLine;
           return (
-            <li key={index} className={isAnswer ? "working-line answer-line" : "working-line"}>
-              <span className={isAnswer ? "answer-label" : "line-number"} aria-hidden="true">
-                {isAnswer ? "Answer" : number}
+            <li key={index} className="working-line">
+              <span className="line-number" aria-hidden="true">
+                {number}
               </span>
               <StepInput
                 value={step}
-                label={isAnswer ? `Step ${number}, your answer` : `Step ${number}`}
+                label={`Step ${number}`}
                 placeholder={index === 0 ? firstPlaceholder : undefined}
                 focusToken={focus?.line === index ? focus.token : undefined}
                 onChange={(value) => setStep(index, value)}
@@ -137,28 +112,16 @@ export function WorkingEditor({
                 onModeChange={(mode) => setActive({ line: index, mode })}
                 modeRequest={modeRequest?.line === index ? modeRequest : undefined}
               />
-              <div className="line-actions">
+              {steps.length > 1 && (
                 <button
                   type="button"
-                  className="mark-answer"
-                  aria-pressed={isAnswer}
-                  aria-label={`Step ${number} is my answer`}
-                  title={isAnswer ? "This is your answer" : "Mark as your answer"}
-                  onClick={() => markAnswer(index)}
+                  className="line-remove"
+                  aria-label={`Remove step ${number}`}
+                  onClick={() => removeStep(index)}
                 >
-                  ✓
+                  ×
                 </button>
-                {steps.length > 1 && (
-                  <button
-                    type="button"
-                    className="line-remove"
-                    aria-label={`Remove step ${number}`}
-                    onClick={() => removeStep(index)}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
+              )}
             </li>
           );
         })}

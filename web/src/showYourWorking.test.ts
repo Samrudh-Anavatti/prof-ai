@@ -8,7 +8,6 @@ import { Markdown } from "./Markdown";
 import { HELP_PROMPTS, progressLabel } from "./progress";
 import { stepPreview, typedToLatex } from "./typedMaths";
 import { filledSteps } from "./WorkingEditor";
-import { checkLabel } from "./workspace";
 
 const LESSON: LessonOverview = {
   title: "Simultaneous equations",
@@ -59,7 +58,7 @@ describe("typed maths", () => {
 
   it("passes steps already written as LaTeX straight through", () => {
     expect(stepPreview("$\\frac{1}{2}$")).toBe("$\\frac{1}{2}$");
-    expect(filledSteps({ steps: [" x = 1 ", "", "  "], answerLine: null })).toEqual(["x = 1"]);
+    expect(filledSteps({ steps: [" x = 1 ", "", "  "] })).toEqual(["x = 1"]);
   });
 });
 
@@ -69,9 +68,9 @@ describe("the working editor", () => {
     expect(html).toContain("Your working");
     expect(html).toContain("Start by writing down what the question gives you");
     expect(html).toContain('placeholder="What the question gives you"');
-    expect(html).toContain('aria-label="Step 1 is my answer"');
-    expect(html).toContain("Check my working");
-    expect(checkLabel("x = 7, y = 4")).toBe("Submit my answer");
+    expect(html).toContain("Your last line is your answer.");
+    expect(html).toContain("I&#x27;m stuck");
+    expect(html).toContain("Submit my answer");
     expect(HELP_PROMPTS).toContain("Can you explain the method?");
     expect(html).not.toContain("Can you explain the method?");
   });
