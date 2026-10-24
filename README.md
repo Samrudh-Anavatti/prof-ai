@@ -69,6 +69,7 @@ The student's assistant **coaches rather than hands over answers**, stays **grou
 | ✅ | **Describe it instead**: draft a lesson's fields from a description, with a checklist of what to cover | Live after merge |
 | ✅ | **Show your working**: step-by-step working with a live maths preview, hints as you go, four-way marking, missing answers worked out for the tutor to confirm | Live after merge |
 | ✅ | **Lesson workspace**: question and working beside the chat (a sheet on phones), ruled working lines, a tutor-confirmed first step at *Step by step*, *I'm stuck*, and students' attempts for tutors | Live after merge |
+| 🔜 | **Punji's next**, in order: Prof AI speaks, a personal intro to each question, app-wide uplift, skill tags, adaptive practice | Planned |
 | 🔜 | **Knowledge graph**: chapter extraction and curricula, filling the reference layer (4k for now) | Planned |
 | 🔜 | **Guard pipeline**: Prompt Shields, topic checks, safeguarding flags, auto-lock | Required before real students |
 | ⬜ | Formal marking and a tutor dashboard across students | Phase 1, later |
@@ -79,19 +80,20 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 
 > Whoever merges a feature updates this section (rule in [CLAUDE.md](CLAUDE.md)), so the other person can see what changed at a glance.
 
-### Simpler answering · 2026-10-23 · Punji
+### Nice-to-have list and what's next · 2026-10-23 · Punji
 
-- **Two buttons under the working.** *Submit my answer* marks it, and **your last line is your answer**: nothing to tick or retype. *I'm stuck* checks your working so far and gives a hint on the step you're at; with nothing written yet, it asks Prof AI how to start.
-- *Check my working* and the ✓ on each line are gone.
-- This builds on the lesson workspace: the question and working beside the chat, words or maths on each line, and a tutor-confirmed first step at *Step by step* ([handover](docs/features/2026-10-22-lesson-workspace/handover.md)).
+- **[`docs/product/nice-to-have.md`](docs/product/nice-to-have.md)** holds good ideas that wait on money rather than work, such as a paid service or bigger hosting. The first is voice input: students talk to Prof AI instead of typing.
+- **A new CLAUDE.md rule:** when someone suggests a good idea that isn't core now, the agent offers to record it. It becomes a `planned` "Later:" row in the INDEX if it only needs building, or a `nice-to-have.md` entry if it waits on money.
+- **Punji's next features, in order** (INDEX rows): Prof AI speaks, a personal intro to each question, app-wide uplift, skill tags, adaptive practice.
 
-📄 [plan](docs/features/2026-10-23-simpler-answering/plan.md) · [handover](docs/features/2026-10-23-simpler-answering/handover.md)
+📄 [plan](docs/features/2026-10-23-nice-to-have/plan.md) · [handover](docs/features/2026-10-23-nice-to-have/handover.md)
 
 <details>
 <summary><b>Earlier features</b></summary>
 
 | Date | Feature | Owner | Docs |
 |------|---------|-------|------|
+| 2026-10-23 | **Simpler answering**: two buttons, *Submit my answer* (your last line is your answer) and *I'm stuck* (a hint on your working, or help to start) | Punji | [handover](docs/features/2026-10-23-simpler-answering/handover.md) |
 | 2026-10-23 | **Lesson workspace**: question and working beside the chat (a sheet on phones), question navigation, ruled lines in words or maths, a tutor-confirmed first step at *Step by step*, students' attempts for tutors; marking no longer cut off on harder answers | Punji | [handover](docs/features/2026-10-22-lesson-workspace/handover.md) |
 | 2026-10-22 | **MathLive maths input**: working and answers typed as maths, as in Desmos, with a maths keyboard on phones; the CSP allows inline style attributes only | Punji | [handover](docs/features/2026-10-22-mathlive/handover.md) |
 | 2026-10-22 | **Lesson answering**: your own lesson works from the Lessons page; one *Send* with a "Send to" toggle (Prof AI or tutor) | Punji | [handover](docs/features/2026-10-22-lesson-answering/handover.md) |
@@ -152,7 +154,7 @@ The live list is [docs/features/INDEX.md](docs/features/INDEX.md).
 | What | Link |
 |------|------|
 | Feature index (read first) | [docs/features/INDEX.md](docs/features/INDEX.md) |
-| Vision, architecture, risk register | [vision](docs/product/vision.md) · [architecture](docs/product/architecture.md) · [risks](docs/product/risks.md) · [learning science](docs/product/learning-science.md) |
+| Vision, architecture, risk register, ideas | [vision](docs/product/vision.md) · [architecture](docs/product/architecture.md) · [risks](docs/product/risks.md) · [learning science](docs/product/learning-science.md) · [nice to have](docs/product/nice-to-have.md) |
 | Decisions (ADRs) | [0001 stack](docs/decisions/0001-stack.md) · [0002 auth](docs/decisions/0002-auth-and-users.md) · [0003 frontend](docs/decisions/0003-frontend.md) · [0004 invites](docs/decisions/0004-invites-and-sign-up.md) |
 | Agent and contributor rules | [CLAUDE.md](CLAUDE.md) |
 

@@ -10,6 +10,7 @@ The product is an early vision. `docs/product/` (vision, architecture, risks) is
 
 - **Risk-first.** Every feature plan covers abuse, cost, data, correctness and child-safety risks before any code (see `docs/product/risks.md`).
 - **Learning-science check.** Every feature plan also says which research-backed learning principles it applies or works against (see `docs/product/learning-science.md`), and updates that file's table when it lands.
+- **Ideas for later.** When someone suggests an idea that sounds good but isn't core now, offer to record it, and add it once they agree: a `planned` "Later:" row in `docs/features/INDEX.md` if it only needs building, or an entry in `docs/product/nice-to-have.md` if it waits on money (a paid service, bigger hosting).
 - Stack ([ADR 0001](docs/decisions/0001-stack.md), [ADR 0002](docs/decisions/0002-auth-and-users.md), [ADR 0003](docs/decisions/0003-frontend.md), [ADR 0004](docs/decisions/0004-invites-and-sign-up.md), [ADR 0005](docs/decisions/0005-models-and-context-budget.md), [ADR 0006](docs/decisions/0006-worksheet-first-lessons.md)): Python 3.11 + FastAPI on App Service Linux B1 (`https://prof-ai.azurewebsites.net`), Microsoft Foundry (`gpt-5.6-luna`), Blob storage, Cosmos DB serverless, Entra External ID sign-in (`profai.onmicrosoft.com`) via App Service Authentication, with open email-code sign-up gated by tutor invites in the app's `users` container. Bicep for infrastructure, GitHub Actions for CI/CD. Frontend: React + TypeScript (Vite) in `web/`, built into `src/prof_ai/static/` and served by FastAPI from the same origin. Direction for the rest is in `docs/product/architecture.md`; record new choices as ADRs and summarise them here.
 - No keys in code or config: services use managed identity, deploys use GitHub OIDC, and local dev uses your `az login` identity. The unavoidable secrets live in Key Vault and reach the app as Key Vault references: App Service Authentication's client secret (rotate it with `scripts/rotate_auth_secret.py`) and the Ollama Cloud API key (`ollama-api-key`).
 - **Every endpoint except `/healthz` and the static frontend shell must depend on `prof_ai.auth.CurrentUser` (or `require_role`).** That's where the invite check and account locks are enforced. All JSON endpoints live under `/api/`; a regression test fails if one doesn't require sign-in. The shell carries no data.
@@ -125,7 +126,7 @@ This repo is **public**. Never commit real student data (names, chats, submissio
 
 ```
 docs/
-  product/            Vision, architecture and risk register (living drafts)
+  product/            Vision, architecture, risks, learning science, nice-to-haves (living drafts)
   features/           One folder per feature: plan.md + handover.md
     INDEX.md          Status table of all features (read first)
     _template/        Copy this for new features
